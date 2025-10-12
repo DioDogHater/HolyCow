@@ -25,51 +25,94 @@ This the end goal of how my language will look like.
    are also possible */
 
 /* Variable types:
-- void (only for pointers and functions)
-- u8 or char, i8
-- u16, i16
-- u32, i32
-- u64, i64
-- f64 (floating point number)
-- bit or flag (a bit / flag is a boolean that occupies a single bit, only efficient if you need 4 or more of them, they have names though)
-- bool (same as u8, but with extra features)
-- string (same as char*), but cleaner and more features
+- void (only for typeless pointers and functions)
+- uint8 or char, int8
+- uint16, int16
+- uint32, int32 or int
+- uint64, int64
+- float (64 bit floating point number)
+- flag (a flag is a boolean that occupies a single bit, only efficient if you need 4 or more of them, they have names though)
+- bool (same as uint8, but (bool)54 == (bool)100)
+- string (same as char*), but with more features
 - pointer (type*), same as C syntax
 */
 
 string x = "Hello world!\n";
 i16 my_variable = 0;
 
-// Macros
-#define twenty_five = "twenty_five"
+// Preprocessor directives
+#include "header_file.h"
+#define twenty_five "twenty_five"
+#macro test(x, y) (x * y)
 
 // Constant expression
-#const f32 five_over_2 = 5 / 2;
+constexpr float five_over_2 = 5 / 2;
 
-// Functions can have default values
-void hello_world(string msg = x){
-    // Displays a string on screen
-    printf(x);
+// Functions can have default values, as long as they're constant
+void hello_world(string msg = "Default\n"){
+    // Displays a string on screen (can have formats)
+    print(msg);
     
     // Gets a value from stdin (input)
-    i64 value;
-    if(!getf("%d",&value))
+    // try ... except ... is a way to handle exceptions
+    int64 value;
+    try
+        input("%l",&value))
+    except
         fail("Invalid integer value.");
+    
+    // If statements
+    if(value > 100){
+        if(value < 150)
+            @next;              // Goes to the next condition
+        print(msg + "Huh?\n");
+    }else if(value == 0){
+        print("Null.\n");
+    }else{
+        print("Bro...\n");
+    }
     
     // Switch statements
     switch(value){
     case 0 .. 5:
         printf("Between 0 and 5\n");
     case 6 || 7:
-        printf("6... 7?")
+        printf("6 ... 7?");
+        @next;              // Goes to next case
     default:
-        printf("Value: %d\n",value);
+        printf("Value: %l\n",value);
     }
     
     // While loop
-    while(true){
-        
+    flag condition = true;
+    flag other_flag = false;
+    while(condition){
+        if(!other_flag){
+            other_flag = true;
+            continue;
+        }
+        break;
     }
+    
+    // For loop
+    for(int i = 0; i < 50; i += 2){
+        print("i = %d\n", i);
+    }
+    
+    // For ... in ... loop
+    for(char c in msg){
+        print("%c", c);
+    }
+    
+    // Print a new line
+    printnl();
+    
+    // Repeat loop
+    repeat(25){
+        print(".");
+    }
+    
+    println();
 }
 
 ```

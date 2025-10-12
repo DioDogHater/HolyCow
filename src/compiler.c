@@ -119,6 +119,7 @@ int main(int argc, char* argv[]){
     // Parse compiler args
     parse_compiler_args(argc, argv);
 
+    // Create an arena allocator with 16 KB
     arena_t arena = NEW_ARENA();
     if(!arena_init(&arena, 16 * KB))
         return EXIT_FAILURE;

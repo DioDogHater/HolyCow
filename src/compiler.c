@@ -1,4 +1,7 @@
 #include "dev/libs.h"
+#include "dev/types.h"
+#include "lexer/lexer.h"
+#include <stdlib.h>
 
 // Debug (comment out before running)
 #define COMPILER_DEBUG
@@ -115,6 +118,14 @@ static void parse_compiler_args(int argc, char* argv[]){
 int main(int argc, char* argv[]){
     // Parse compiler args
     parse_compiler_args(argc, argv);
+
+    arena_t arena = NEW_ARENA();
+    if(!arena_init(&arena, 16 * KB))
+        return EXIT_FAILURE;
+
+    tokenize(NULL, &arena);
+
+    arena_destroy(&arena);
 
     return 0;
 }

@@ -1,6 +1,15 @@
 #ifndef HCC_LIBS_H
 #define HCC_LIBS_H
 
+#define MIN(x, y) ((x) < (y) ? (x) : (y))
+#define MIN3(x,y,z) (MIN(MIN(x,y),z))
+#define MAX(x, y) ((x) > (y) ? (x) : (y))
+#define MAX3(x,y,z) (MAX(MAX(x,y),z))
+#define CLAMP(x,a,b) (MIN(MAX(x,a),b))
+
+#define KB 1024
+#define MB 1048576
+
 // Disable standard libraries
 #ifndef NO_STDLIBS
 
@@ -9,8 +18,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
+#include <ctype.h>
 
 #define HC_PRINT(fmt, ...) printf(fmt,##__VA_ARGS__)
+#define HC_ERR(fmt, ...) printf(fmt,##__VA_ARGS__)
 #define HC_DEBUG_PRINT(v,fmt) printf(#v " = " fmt "\n", v)
 #define HC_MALLOC(sz) malloc((sz))
 #define HC_REALLOC(ptr, sz) realloc((ptr),(sz))

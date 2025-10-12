@@ -27,7 +27,7 @@ void* arena_alloc(arena_t* arena, size_t size){
             if(!arena->next){
                 HC_PRINT("ARENA : Failed to allocate %lu bytes\n", sizeof(arena_t));
                 return NULL;
-            }if(!arena_init(arena->next, arena->size))
+            }if(!arena_init(arena->next, (size > arena->size) ? (size + arena->size) : (arena->size)))
                 return NULL;
         }
         return arena_alloc(arena->next, size);

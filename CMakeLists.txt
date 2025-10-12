@@ -9,8 +9,15 @@ project(HolyCowCompiler)
 
 # Create the static library of the language
 add_library(HolyCow STATIC
+# dev (Dev tools / library)
 src/dev/arena.c
 src/dev/file.c
+src/dev/vector.c
+src/dev/hashtable.c
+
+# lexer (Lexical analyser)
+src/lexer/keywords.c
+src/lexer/lexer.c
 )
 
 # Create the executable

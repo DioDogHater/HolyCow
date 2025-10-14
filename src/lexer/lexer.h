@@ -3,6 +3,8 @@
 
 #include "../dev/libs.h"
 #include "../dev/types.h"
+#include "../dev/utils.h"
+#include "../dev/style.h"
 
 typedef enum{
     tk_identifier,
@@ -16,6 +18,7 @@ typedef enum{
     tk_uint32,
     tk_int64,
     tk_uint64,
+    tk_float,
     tk_string,
     tk_bool,
     tk_flag,
@@ -24,24 +27,26 @@ typedef enum{
 
     // Values
     tk_int_lit,     // Integer literal
+    tk_char_lit,    // Character literal
+    tk_float_lit,   // Floating point literal
     tk_str_lit,     // String literal
     tk_bool_lit,    // Boolean literal
 
     // Arithmetic operations
-    // Used in parsing
-    tk_unary_op,    // Unary operation
-    tk_binary_op,   // Binary operation
     tk_neg,         // Negation (-)
 //  tk_open_parent  // Parentheses ( )
     tk_add,         // Addition
     tk_add_assign,  // Addition assignment (+=)
+    tk_inc,         // Increment (++)
     tk_sub,         // Subtraction
     tk_sub_assign,  // Subtraction assignment (-=)
+    tk_dec,         // Decrement (--)
     tk_mult,        // Multiplication
     tk_mult_assign, // Multplication assignment (*=)
     tk_div,         // Division
     tk_div_assign,  // Division assignment (/=)
     tk_mod,         // Modulo
+    tk_mod_assign,  // Modulo assignment (%=)
     tk_bin_and,     // AND (&)
     tk_bin_or,      // OR (|)
     tk_bin_xor,     // XOR (^)
@@ -49,18 +54,17 @@ typedef enum{
     tk_shl,         // Shift left
     tk_shr,         // Shift right
 
-    // Boolean operations
+    // Boolean operations / comparisons
     tk_cmp_eq,      // ==
     tk_cmp_neq,     // !=
     tk_cmp_l,       // <
     tk_cmp_g,       // >
     tk_cmp_le,      // <=
     tk_cmp_ge,      // >=
-    tk_cmp_approx,  // ~=, or ~n= where n is the accepted range
+    tk_cmp_approx,  // ~=
     tk_and,         // && or "and"
     tk_or,          // || or "or"
     tk_not,         // ! or "not"
-    tk_xor,         // ^^ or "xor"
 
     // Keywords
     tk_if,
@@ -74,10 +78,17 @@ typedef enum{
     tk_break,
     tk_continue,
     tk_last_val,       // @last
+    tk_sizeof,         // sizeof()
+
+    // Preprocessor directives
+    tk_include,        // #include
+    tk_define,         // #define
+    tk_macro,          // #macro
+    tk_ifdef,          // #ifdef
+    tk_ifndef,         // #ifndef
+    tk_endif,          // #endif
 
     // Symbols
-    tk_forward_slash,  // '\'
-    tk_exponent,       // ^
     tk_assign,         // =
     tk_exclam,         // !
     tk_open_parent,    // (
@@ -88,7 +99,17 @@ typedef enum{
     tk_close_braces,   // }
     tk_semicolon,      // ;
     tk_colon,          // :
-    tk_dot             // .
+    tk_dot,            // .
+    tk_comma,          // ,
+
+    // Parser values
+    tk_unary_op,    // Unary operation
+    tk_binary_op,   // Binary operation
+    tk_var_decl,    // Variable declaration
+    tk_var_assign,  // Variable assignment
+
+    // Invalid
+    tk_invalid
 } tk_type;
 
 typedef struct token_t {
@@ -98,6 +119,7 @@ typedef struct token_t {
     struct token_t* next;
 } token_t;
 
+// Keywords
 struct keyword_pair {
     const char* str;
     size_t strlen;
@@ -105,13 +127,14 @@ struct keyword_pair {
 };
 extern hashtable_t keyword_table;
 bool keyword_table_setup();
+void keyword_table_destroy();
 
-token_t* append_token(token_t*, token_t);
-void free_tokens(token_t*);
-
+// Utilities for parsing and generation
+void print_context(const char*,token_t*);
 void peek_token(token_t*);
 void consume_token(token_t*);
 
-token_t* tokenize(const char*,arena_t*);
+// Tokenize a file's contents
+token_t* tokenize(file_t*,arena_t*,token_t*);
 
 #endif

@@ -3,14 +3,14 @@
 
 bool vector_alloc(vector_t* vector, size_t size){
     if(!vector){
-        HC_ERR("VECTOR : Invalid vector\n");
+        HC_ERR("VECTOR : Invalid vector");
         return false;
     }
     if(vector->memsize - vector->size < size){
         if(vector->memsize){
             vector->next = HC_MALLOC(sizeof(vector_t));
             if(!vector->next){
-                HC_ERR("VECTOR : Failed to allocate %lu bytes\n",sizeof(vector_t));
+                HC_ERR("VECTOR : Failed to allocate %lu bytes",sizeof(vector_t));
                 return false;
             }
             *vector->next = (vector_t) _NEW_VECTOR(vector->_data_size);
@@ -20,7 +20,7 @@ bool vector_alloc(vector_t* vector, size_t size){
             vector->memsize = (VECTOR_INIT_SIZE > size) ? (VECTOR_INIT_SIZE) : (size + VECTOR_INIT_SIZE);
             vector->data = HC_MALLOC(vector->_data_size * vector->memsize);
             if(!vector->data){
-                HC_ERR("VECTOR : Failed to allocate %lu bytes\n",vector->_data_size * size);
+                HC_ERR("VECTOR : Failed to allocate %lu bytes",vector->_data_size * size);
                 return false;
             }
             vector->size = size;
@@ -33,14 +33,14 @@ bool vector_alloc(vector_t* vector, size_t size){
 
 static void* vector_traverse(vector_t* vector, size_t count){
     if(!vector){
-        HC_ERR("VECTOR : Index out of range\n");
+        HC_ERR("VECTOR : Index out of range");
         return NULL;
     }
     if(count < vector->size)
         return (void*) &vector->data[vector->_data_size * count];
     if(vector->size == vector->memsize && vector->next)
         return vector_traverse(vector->next, count - vector->size);
-    HC_ERR("VECTOR : Index out of range\n");
+    HC_ERR("VECTOR : Index out of range");
     return NULL;
 }
 
@@ -77,7 +77,7 @@ bool vector_append(vector_t* vector, const void* elem){
 
 bool vector_popback(vector_t* vector){
     if(!vector){
-        HC_ERR("VECTOR : Invalid vector\n");
+        HC_ERR("VECTOR : Invalid vector");
         return false;
     }
     if(vector->next && vector->next->size)
@@ -85,7 +85,7 @@ bool vector_popback(vector_t* vector){
     else if(vector->size)
         vector->size--;
     else{
-        HC_ERR("VECTOR : Tried popping null vector\n");
+        HC_ERR("VECTOR : Tried popping null vector");
         return false;
     }
     return true;

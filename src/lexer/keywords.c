@@ -30,7 +30,9 @@ static struct keyword_pair keywords[] = {
     KEYWORD(and),
     KEYWORD(or),
     KEYWORD(not),
-    KEYWORD(xor)
+    ALIAS_KW(@next,next),
+    ALIAS_KW(@last,last_val),
+    KEYWORD(sizeof)
 };
 
 // http://www.cse.yorku.ca/~oz/hash.html
@@ -54,10 +56,14 @@ static bool keyword_cmp_function(const void* a, const void* b){
 hashtable_t keyword_table = NEW_HASHTABLE(sizeof(struct keyword_pair), keyword_hashing_function, keyword_cmp_function);
 
 bool keyword_table_setup(){
-    if(!hashtable_init(&keyword_table, 32))
+    if(!hashtable_init(&keyword_table, 16))
         return false;
     for(size_t i = 0; i < KEYWORD_COUNT; i++)
         if(!hashtable_set(&keyword_table, &keywords[i]))
             return false;
     return true;
+}
+
+void keyword_table_destroy(){
+    hashtable_destroy(&keyword_table);
 }

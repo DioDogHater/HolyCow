@@ -9,7 +9,7 @@ bool arena_init(arena_t* arena, size_t size){
     // Add enough space to create new arena for backup
     arena->data = HC_MALLOC(size);
     if(!arena->data){
-        HC_PRINT("ARENA : Failed to allocate %lu bytes\n", size);
+        HC_ERR("ARENA : Failed to allocate %lu bytes", size);
         return false;
     }
     return true;
@@ -18,17 +18,18 @@ bool arena_init(arena_t* arena, size_t size){
 // Allocate memory in arena
 void* arena_alloc(arena_t* arena, size_t size){
     if(!arena || !arena->size || !arena->data){
-        HC_PRINT("ARENA : Invalid arena\n");
+        HC_ERR("ARENA : Invalid arena");
         return NULL;
     }
     if(arena->ptr + size >= arena->size){
         if(!arena->next){
-            arena->next = HC_MALLOC(sizeof(arena_t));
+            arena->next = (arena_t*) HC_MALLOC(sizeof(arena_t));
             if(!arena->next){
-                HC_PRINT("ARENA : Failed to allocate %lu bytes\n", sizeof(arena_t));
+                HC_ERR("ARENA : Failed to allocate %lu bytes", sizeof(arena_t));
                 return NULL;
             }if(!arena_init(arena->next, (size > arena->size) ? (size + arena->size) : (arena->size)))
                 return NULL;
+            //HC_WARN("Allocating a new arena...");
         }
         return arena_alloc(arena->next, size);
     }
@@ -40,7 +41,7 @@ void* arena_alloc(arena_t* arena, size_t size){
 // Deallocate memory linearly from arena
 bool arena_dealloc(arena_t* arena, size_t size){
     if(!arena || !arena->size)
-        HC_PRINT("ARENA : Invalid arena\n");
+        HC_ERR("ARENA : Invalid arena");
     else if(arena->next && arena_dealloc(arena->next, size) && arena->ptr >= size){
         arena->ptr -= size;
         return true;

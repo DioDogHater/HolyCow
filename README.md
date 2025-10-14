@@ -31,9 +31,9 @@ This the end goal of how my language will look like.
 - uint32, int32 or int
 - uint64, int64
 - float (64 bit floating point number)
-- flag (a flag is a boolean that occupies a single bit, only efficient if you need 4 or more of them, they have names though)
-- bool (same as uint8, but (bool)54 == (bool)100)
-- string (same as char*), but with more features
+- flag (a flag is a boolean that occupies a single bit)
+- bool (boolean as a single byte, but (bool)54 == (bool)100)
+- string, built-in string type with extra features.
 - pointer (type*), same as C syntax
 */
 
@@ -56,10 +56,11 @@ void hello_world(string msg = "Default\n"){
     // Gets a value from stdin (input)
     // try ... except ... is a way to handle exceptions
     int64 value;
-    try
+    try{
         input("%l",&value))
-    except
+    }except{
         fail("Invalid integer value.");
+    }
     
     // If statements
     if(value > 100){
@@ -113,6 +114,45 @@ void hello_world(string msg = "Default\n"){
     }
     
     println();
+}
+
+// Classes ressemble C++ classes
+// No polymorphism, inheritance possible
+// Function overloading works
+// No security (public, private)
+// Operator overloading
+class Animal{
+    string name;
+    int age;
+    
+    Animal(string name, int age){
+        this.name = name;
+        this.age = age;
+    }
+    string to_string(){
+        return format("%s : %d yo", this.name, this.age);
+    }
+}
+
+// Child class
+class Pet from Animal{
+    int owner_count;
+    string* owners;
+    
+    // Variable arguments
+    // Allocate on the stack if possible (otherwise error will appear)
+    // Stack allocation is possible for max 256 bytes
+    // (only in a scope with compile time constants)
+    // vargs.size is a compile time constant in this case
+    Pet(string name, int age, ...vargs) : @stack(sizeof(string) * vargs.size) {
+        super(name, age);
+        owners = @stack;
+        for(int i = 0; i < vargs.size; i++)
+            owners[i] = vargs.get(i, const char*);
+    }
+    string to_string(){
+        return super() + format(", %d owners", this.name, this.age);
+    }
 }
 
 ```

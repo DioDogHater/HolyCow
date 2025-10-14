@@ -18,6 +18,9 @@ src/dev/hashtable.c
 # lexer (Lexical analyser)
 src/lexer/keywords.c
 src/lexer/lexer.c
+
+# parser (Node Statement Tree (NST) generator)
+src/parser/parser.c
 )
 
 # Create the executable

@@ -3,21 +3,21 @@
 #include "lexer/lexer.h"
 #include <stdlib.h>
 
-// Debug (comment out before running)
-#define COMPILER_DEBUG
+//#define COMPILER_DEBUG
 
-static const char* input_file = NULL;
+static file_t input_files = NEW_FILE(NULL);
 static const char* output_file = NULL;
 
-static void show_usage(const char* msg){
+static void show_usage(const char* msg, arena_t* arena){
     if(msg)
-        HC_PRINT("%s\n",msg);
+        HC_ERR("%s",msg);
     HC_PRINT(
         "Usage: hcc [options] <input file> [-o <output file>]\n"
         "Options:\n"
         "   -h, --help : Show this menu\n"
         "   -o, --output : Set the output file path\n"
     );
+    arena_destroy(arena);
     exit((msg) ? EXIT_FAILURE : EXIT_SUCCESS);
 }
 
@@ -46,7 +46,7 @@ static bool match_arg(const char** arg, const char* value){
     return true;
 }
 
-static void parse_compiler_args(int argc, char* argv[]){
+static void parse_compiler_args(int argc, char* argv[], arena_t* arena){
     enum{
         C_ARG_NONE = 0,
         C_ARG_OUTPUT = 1,
@@ -74,58 +74,94 @@ static void parse_compiler_args(int argc, char* argv[]){
 
                 // Help menu
                 if(match_arg(&arg, "-h") || match_arg(&arg, "--help"))
-                    show_usage(NULL);
+                    show_usage(NULL, arena);
 
                 // Output file argument
                 else if(match_arg(&arg, "-o") || match_arg(&arg, "--output")){
                     if(output_file)
-                        show_usage("Output file given two times!");
+                        show_usage("Output file given two times!", arena);
                     last_arg = C_ARG_OUTPUT;
                 }
 
                 // Invalid option
                 else
-                    show_usage("Invalid option!");
+                    show_usage("Invalid option!", arena);
 
-            // We assume it's the input file
-            }else if(last_arg == C_ARG_NONE && !input_file){
-                input_file = arg;
+            // We assume it's a input file
+            }else if(last_arg == C_ARG_NONE){
+                file_t* last_input = &input_files;
+                while(last_input->next) last_input = last_input->next;
+                last_input->next = (file_t*) arena_alloc(arena, sizeof(file_t));
+                *last_input->next = (file_t) NEW_FILE((uint8_t*)arg);
+                if(!file_read(last_input->next)){
+                    arena_destroy(arena);
+                    exit(EXIT_FAILURE);
+                }
                 for(; *arg; arg++);
 
             // In case of an invalid arg
             }else
-                show_usage("Invalid argument!");
+                show_usage("Invalid argument!", arena);
         }
     }
 
     // Check if any arg didn't get its value
     if(last_arg != C_ARG_NONE)
-        show_usage("Missing option value!");
+        show_usage("Missing option value!", arena);
 
-    if(!input_file)
-        show_usage("Missing input file!");
+    if(!input_files.next)
+        show_usage("Missing input file!", arena);
 
-    if(!output_file)
+    if(!output_file){
+        HC_WARN("Output file will be \"a.out\" by default.");
         output_file = "a.out";
-
-    // DEBUG
-#ifdef COMPILER_DEBUG
-    HC_DEBUG_PRINT(input_file,"%s");
-    HC_DEBUG_PRINT(output_file,"%s");
-#endif
+    }
 }
 
 int main(int argc, char* argv[]){
-    // Parse compiler args
-    parse_compiler_args(argc, argv);
-
     // Create an arena allocator with 16 KB
     arena_t arena = NEW_ARENA();
     if(!arena_init(&arena, 16 * KB))
         return EXIT_FAILURE;
 
-    tokenize(NULL, &arena);
+    // Parse compiler args
+    parse_compiler_args(argc, argv, &arena);
 
+    keyword_table_setup();
+    token_t* all_tokens = NULL;
+    token_t* last_token = NULL;
+    file_t* input_file = input_files.next;
+    while(input_file){
+        token_t* tokens = tokenize(input_file, &arena, last_token);
+        if(!tokens){
+            HC_ERR("\nTOKENIZATION FAILED!");
+            file_destroy(&input_files);
+            arena_destroy(&arena);
+            return EXIT_FAILURE;
+        }
+        if(!all_tokens)
+            all_tokens = tokens;
+        last_token = tokens;
+        input_file = input_file->next;
+    }
+    keyword_table_destroy();
+
+#ifdef COMPILER_DEBUG
+{
+    int i = 0;
+    token_t* tk = all_tokens;
+    while(tk){
+        HC_PRINT("tk[%d] = (\"%.*s\", %d)\n", i, (int) tk->strlen, tk->str, tk->type);
+        tk = tk->next;
+        i++;
+    }
+}
+#endif
+
+    HC_CONFIRM("Output file %s was generated.", output_file);
+    HC_CONFIRM("COMPILATION SUCCESSFUL!");
+
+    file_destroy(&input_files);
     arena_destroy(&arena);
 
     return 0;

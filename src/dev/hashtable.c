@@ -3,13 +3,13 @@
 
 bool hashtable_init(hashtable_t* table, size_t size){
     if(!table){
-        HC_ERR("HASHTABLE : Invalid table\n");
+        HC_ERR("HASHTABLE : Invalid table");
         return false;
     }
     table->size = size;
     table->sets = (hashset_t*) HC_REALLOC(table->sets, sizeof(hashset_t) * table->size);
     if(!table->sets){
-        HC_ERR("HASHTABLE : Failed to allocate %lu bytes\n", sizeof(hashset_t) * table->size);
+        HC_ERR("HASHTABLE : Failed to allocate %lu bytes", sizeof(hashset_t) * table->size);
         return false;
     }
     for(size_t i = 0; i < size; i++)
@@ -19,10 +19,10 @@ bool hashtable_init(hashtable_t* table, size_t size){
 
 bool hashtable_grow(hashtable_t* table, size_t size){
     if(!table || table->size >= size){
-        HC_ERR("HASHTABLE : Invalid table\n");
+        HC_ERR("HASHTABLE : Invalid table");
         return false;
     }
-    HC_PRINT("HASHTABLE : Growing hashtable...\n");
+    HC_PRINT("HASHTABLE : Growing hashtable...");
     hashtable_t new_table = NEW_HASHTABLE(table->pair_size, table->hashing_func, table->cmp_func);
     if(!hashtable_init(&new_table, size))
         return false;
@@ -40,7 +40,7 @@ bool hashtable_grow(hashtable_t* table, size_t size){
 
 bool hashtable_set(hashtable_t* table, const void* pair){
     if(!table || !table->size || !table->sets || !table->hashing_func){
-        HC_ERR("HASHTABLE : Invalid table\n");
+        HC_ERR("HASHTABLE : Invalid table");
         return false;
     }
     size_t hash = table->hashing_func(pair) % table->size;
@@ -48,7 +48,7 @@ bool hashtable_set(hashtable_t* table, const void* pair){
     if(set->size == 0){
         set->pairs = (uint8_t*) HC_MALLOC(table->pair_size * HASHTABLE_MAX_SET_SIZE);
         if(!set->pairs){
-            HC_ERR("HASHTABLE : Failed to allocate %lu bytes\n", table->pair_size * HASHTABLE_MAX_SET_SIZE);
+            HC_ERR("HASHTABLE : Failed to allocate %lu bytes", table->pair_size * HASHTABLE_MAX_SET_SIZE);
             return false;
         }
     }
@@ -65,7 +65,7 @@ bool hashtable_set(hashtable_t* table, const void* pair){
 
 void* hashtable_get(hashtable_t* table, const void* key){
     if(!table || !table->size || !table->sets || !table->hashing_func){
-        HC_ERR("HASHTABLE : Invalid table\n");
+        HC_ERR("HASHTABLE : Invalid table");
         return NULL;
     }
     size_t hash = table->hashing_func(key) % table->size;

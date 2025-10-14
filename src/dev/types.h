@@ -19,8 +19,9 @@ void arena_destroy(arena_t*);
 // File structure
 #define HCC_FILE_NAME_LEN 256
 #define NEW_FILE(name) (file_t){(name),0,NULL,NULL}
+#define GET_FILENAME(_file_start) (*(const uint8_t**)((_file_start) - sizeof(const uint8_t*)))
 typedef struct file_t {
-    uint8_t file_name[HCC_FILE_NAME_LEN];
+    uint8_t* file_name;
     size_t size;
     uint8_t* data;
     struct file_t* next;
@@ -56,7 +57,7 @@ typedef struct {
 
 // Hashtable
 #define HASHTABLE_GROW(n) ((n) * 2)
-#define HASHTABLE_MAX_SET_SIZE 32
+#define HASHTABLE_MAX_SET_SIZE 8
 #define NEW_HASHTABLE(pair_size,hash_func,cmp_func) {0, NULL, (pair_size), (hash_func), (cmp_func)}
 typedef struct {
     size_t size;

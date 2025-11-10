@@ -168,16 +168,14 @@ node_stmt* parse_stmt(token_t** tokens, arena_t* arena){
             print_context("Expected semicolon", identifier);
             return NULL;
         }
-        if(peek_token(tokens)->type == tk_assign)
+        node_expr* expr = NULL;
+        if(peek_token(tokens)->type == tk_assign){
             (void) consume_token(tokens);
-        else if(consume_token(tokens)->type != tk_semicolon){
-            print_context("Expected semicolon", identifier);
-            return NULL;
-        }
-        node_expr* expr = parse_expr(tokens, 1, arena);
-        if(!expr){
-            print_context("Missing expression", identifier->next);
-            return NULL;
+            expr = parse_expr(tokens, 1, arena);
+            if(!expr){
+                print_context("Missing expression", identifier->next);
+                return NULL;
+            }
         }
         stmt = (node_stmt*) ARENA_ALLOC(arena, node_var_decl);
         stmt->var_decl = (node_var_decl) {tk_var_decl, NULL, token, identifier, expr};

@@ -19,7 +19,7 @@ src/dev/hashtable.c
 src/lexer/keywords.c
 src/lexer/lexer.c
 
-# parser (Node Statement Tree (NST) generator)
+# parser (Abstract Syntax Tree (AST) generator)
 src/parser/parser.c
 )
 

@@ -13,6 +13,7 @@ typedef struct arena_t {
 } arena_t;
 bool arena_init(arena_t*,size_t);
 void* arena_alloc(arena_t*,size_t);
+#define ARENA_ALLOC(_a, _type) (_type*)arena_alloc((_a), sizeof(_type))
 bool arena_dealloc(arena_t*,size_t);
 void arena_destroy(arena_t*);
 

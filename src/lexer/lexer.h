@@ -6,7 +6,7 @@
 #include "../dev/utils.h"
 #include "../dev/style.h"
 
-typedef enum{
+enum{
     tk_identifier,
 
     // Types
@@ -107,10 +107,14 @@ typedef enum{
     tk_binary_op,   // Binary operation
     tk_var_decl,    // Variable declaration
     tk_var_assign,  // Variable assignment
+    tk_deref,       // Dereferencing (*)
+    tk_getaddr,     // Get address (&)
+    tk_type_cast,   // Type cast e.g. (type)
 
     // Invalid
     tk_invalid
-} tk_type;
+};
+typedef size_t tk_type;
 
 typedef struct token_t {
     tk_type type;
@@ -131,8 +135,9 @@ void keyword_table_destroy();
 
 // Utilities for parsing and generation
 void print_context(const char*,token_t*);
-void peek_token(token_t*);
-void consume_token(token_t*);
+void print_token(token_t*);
+token_t* peek_token(token_t**);
+token_t* consume_token(token_t**);
 
 // Tokenize a file's contents
 token_t* tokenize(file_t*,arena_t*,token_t*);

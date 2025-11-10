@@ -1,9 +1,10 @@
 #include "dev/libs.h"
 #include "dev/types.h"
 #include "lexer/lexer.h"
+#include "parser/parser.h"
 #include <stdlib.h>
 
-//#define COMPILER_DEBUG
+#define COMPILER_DEBUG
 
 static file_t input_files = NEW_FILE(NULL);
 static const char* output_file = NULL;
@@ -91,7 +92,7 @@ static void parse_compiler_args(int argc, char* argv[], arena_t* arena){
             }else if(last_arg == C_ARG_NONE){
                 file_t* last_input = &input_files;
                 while(last_input->next) last_input = last_input->next;
-                last_input->next = (file_t*) arena_alloc(arena, sizeof(file_t));
+                last_input->next = ARENA_ALLOC(arena, file_t);
                 *last_input->next = (file_t) NEW_FILE((uint8_t*)arg);
                 if(!file_read(last_input->next)){
                     arena_destroy(arena);
@@ -142,6 +143,8 @@ int main(int argc, char* argv[]){
         if(!all_tokens)
             all_tokens = tokens;
         last_token = tokens;
+        while(last_token->next != NULL)
+            last_token = last_token->next;
         input_file = input_file->next;
     }
     keyword_table_destroy();
@@ -151,14 +154,24 @@ int main(int argc, char* argv[]){
     int i = 0;
     token_t* tk = all_tokens;
     while(tk){
-        HC_PRINT("tk[%d] = (\"%.*s\", %d)\n", i, (int) tk->strlen, tk->str, tk->type);
+        HC_PRINT("tk[%d] = ", i);
+        print_token(tk);
         tk = tk->next;
         i++;
     }
+    putchar('\n');
 }
 #endif
 
-    HC_CONFIRM("Output file %s was generated.", output_file);
+    node_stmt* AST = parse(all_tokens, &arena);
+    if(!AST){
+        HC_ERR("\nPARSING FAILED!");
+        file_destroy(&input_files);
+        arena_destroy(&arena);
+        return EXIT_FAILURE;
+    }
+
+    //HC_CONFIRM("Output file %s was generated.", output_file);
     HC_CONFIRM("COMPILATION SUCCESSFUL!");
 
     file_destroy(&input_files);

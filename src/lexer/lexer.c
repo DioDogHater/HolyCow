@@ -1,5 +1,6 @@
 #include "lexer.h"
 
+// STATIC FUNCTIONS
 static size_t count_lines(const char** str){
     size_t count = 1;
     while(**str){
@@ -9,6 +10,15 @@ static size_t count_lines(const char** str){
     return count;
 }
 
+static token_t* append_token(token_t* target, token_t tk, arena_t* arena){
+    if(tk.type == tk_invalid)
+        return target;
+    target->next = ARENA_ALLOC(arena, token_t);
+    *target->next = tk;
+    return target->next;
+}
+
+// PUBLIC FUNCTIONS
 void print_context(const char* msg, token_t* token){
     const char* start = token->str - 1;
     while(*start && *start != '\n') start--;
@@ -20,20 +30,29 @@ void print_context(const char* msg, token_t* token){
     const uint8_t* file_name = GET_FILENAME(file_start);
     HC_PRINT(BOLD BLUE_FG "%s:%lu:%lu:" RESET_ATTR " %s" RESET_ATTR "\n", file_name, lines, token->str - start + 1, msg);
     HC_PRINT("%*lu | %.*s" BOLD WHITE_FG "%.*s" RESET_ATTR "%.*s\n     | %*s" BOLD GREEN_FG "^%.*s" RESET_ATTR "\n",
-           4, lines,
-           (int)(token->str - start),start,
-           (int)token->strlen,token->str,
-           (int)(end - (token->str + token->strlen)),token->str+token->strlen,
-           (int)(token->str - start), "",
-           (int)token->strlen - 1,"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...");
+             4, lines,
+             (int)(token->str - start),start,
+             (int)token->strlen,token->str,
+             (int)(end - (token->str + token->strlen)),token->str+token->strlen,
+             (int)(token->str - start), "",
+             (int)token->strlen - 1,"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...");
 }
 
-static token_t* append_token(token_t* target, token_t tk, arena_t* arena){
-    if(tk.type == tk_invalid)
-        return target;
-    target->next = (token_t*) arena_alloc(arena, sizeof(token_t));
-    *target->next = tk;
-    return target->next;
+void print_token(token_t* token){
+    HC_PRINT("(%.*s, %lu)\n",(int)token->strlen,token->str,token->type);
+}
+
+token_t* peek_token(token_t** token){
+    if(!(*token) || !(*token)->next)
+        return NULL;
+    return (*token)->next;
+}
+
+token_t* consume_token(token_t** token){
+    if(!(*token) || !(*token)->next)
+        return NULL;
+    *token = (*token)->next;
+    return *token;
 }
 
 token_t* tokenize(file_t* src, arena_t* arena, token_t* token_start){
@@ -43,11 +62,16 @@ token_t* tokenize(file_t* src, arena_t* arena, token_t* token_start){
     const char* str = (const char*) src->data;
 
     token_t tokens = (token_t){tk_invalid, NULL, 0, token_start};
-    token_t* end_token = &tokens;
+    token_t* end_token = (token_start) ? token_start : &tokens;
     while(*str){
+        // New token
         token_t tk = (token_t){tk_invalid, str, 1, NULL};
+
+        // Skip whitespace
         if(isspace(*str))
             str++;
+
+        // Identifiers / keywords
         else if(isalpha(*str) || *str == '@' || *str == '_'){
             const char* start = str++;
             while(*str && (isalnum(*str) || *str == '_')) str++;
@@ -55,6 +79,8 @@ token_t* tokenize(file_t* src, arena_t* arena, token_t* token_start){
             struct keyword_pair* kw = hashtable_get(&keyword_table, &tk.str);
             if(kw)
                 tk.type = kw->value;
+
+        // Numerical constants
         }else if(isdigit(*str)){
             const char* start = str++;
             tk.type = tk_int_lit;
@@ -64,6 +90,8 @@ token_t* tokenize(file_t* src, arena_t* arena, token_t* token_start){
                 while(*str && isdigit(*str)) str++;
             }
             tk = (token_t){tk_identifier, start, str - start, NULL};
+
+        // Symbols / other constants
         }else{
             switch(*str){
             case '=':
@@ -189,7 +217,7 @@ token_t* tokenize(file_t* src, arena_t* arena, token_t* token_start){
                         print_context("Expected valid path at include",&tk);
                         return NULL;
                     }
-                    src->next = (file_t*) arena_alloc(arena, sizeof(file_t));
+                    src->next = ARENA_ALLOC(arena, file_t);
                     src->next->file_name = (uint8_t*) arena_alloc(arena, str - path_start + 1);
                     memcpy(src->next->file_name, path_start, str - path_start);
                     src->next->file_name[str - path_start] = '\0';

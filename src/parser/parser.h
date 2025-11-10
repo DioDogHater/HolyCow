@@ -12,6 +12,15 @@
 #define NODE_EXPR_BASE struct{ tk_type type; union node_expr* next; }
 union node_expr;
 
+// A built-in type such as
+// int8, int16, int32, int64
+// uint8, uint16, uint32, uint64
+// bool, flag, string
+//! const and constexpr will get ignored !
+typedef struct{
+    NODE_EXPR_BASE;
+} node_builtin_type;
+
 // A single expression term
 // Either:
 // tk_char_lit,
@@ -30,13 +39,14 @@ typedef struct{
 // (Unary expression)
 // tk_neg
 // tk_open_parent
+// tk_type_cast
 // tk_inc
 // tk_dec
 // tk_bin_flip
 typedef struct{
     NODE_EXPR_BASE;
     union node_expr* lhs;
-} node_unary_expr;
+} node_unary_op;
 
 // Binary operation expression
 // (Binary expression)
@@ -55,14 +65,15 @@ typedef struct{
     NODE_EXPR_BASE;
     union node_expr* lhs;
     union node_expr* rhs;
-} node_bin_expr;
+} node_bin_op;
 
 // Expression node
 typedef union node_expr{
     NODE_EXPR_BASE;
+    node_builtin_type builtin_type;
     node_term term;
-    node_unary_expr unary_op;
-    node_bin_expr bin_op;
+    node_unary_op unary_op;
+    node_bin_op bin_op;
 } node_expr;
 
 // ===== Statements =====
@@ -91,10 +102,13 @@ typedef union node_stmt{
     node_var_assign var_assign;
 } node_stmt;
 
-node_expr* parse_term(token_t*);
-node_expr* parse_expr(token_t*);
+// Returns the precedence value of an operator
+int get_operator_precedence(tk_type);
 
-node_stmt* parse_stmt(token_t*);
-node_stmt* parse(token_t*);
+node_expr* parse_term(token_t**, arena_t*);
+node_expr* parse_expr(token_t**, int, arena_t*);
+
+node_stmt* parse_stmt(token_t**, arena_t*);
+node_stmt* parse(token_t*, arena_t*);
 
 #endif

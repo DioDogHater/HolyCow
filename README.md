@@ -28,8 +28,8 @@ This the end goal of how my language will look like.
 - void (only for typeless pointers and functions)
 - uint8 or char, int8
 - uint16, int16
-- uint32, int32 or int
-- uint64, int64
+- uint32, int32
+- uint64, int64 or int
 - float (64 bit floating point number)
 - flag (a flag is a boolean that occupies a single bit)
 - bool (boolean as a single byte, but (bool)54 == (bool)100)
@@ -37,21 +37,28 @@ This the end goal of how my language will look like.
 - pointer (type*), same as C syntax
 */
 
-string x = "Hello world!\n";
-i16 my_variable = 0;
+string x = "Hello world!";
+int16 my_variable = 0;
 
 // Preprocessor directives
 #include "header_file.h"
 #define twenty_five "twenty_five"
 #macro test(x, y) (x * y)
 
+// It is possible to create modules (namespaces)
+module test{
+    void greet(){
+        println("Hello!");
+    }
+}
+
 // Constant expression
 constexpr float five_over_2 = 5 / 2;
 
 // Functions can have default values, as long as they're constant
-void hello_world(string msg = "Default\n"){
+void hello_world(string msg = "Default"){
     // Displays a string on screen (can have formats)
-    print(msg);
+    println(msg);
     
     // Gets a value from stdin (input)
     // try ... except ... is a way to handle exceptions
@@ -76,12 +83,12 @@ void hello_world(string msg = "Default\n"){
     // Switch statements
     switch(value){
     case 0 .. 5:
-        printf("Between 0 and 5\n");
+        print("Between 0 and 5\n");
     case 6 || 7:
-        printf("6 ... 7?");
+        print("6 ... 7?");
         @next;              // Goes to next case
     default:
-        printf("Value: %l\n",value);
+        print("Value: %l\n",value);
     }
     
     // While loop
@@ -106,7 +113,7 @@ void hello_world(string msg = "Default\n"){
     }
     
     // Print a new line
-    printnl();
+    println();
     
     // Repeat loop
     repeat(25){
@@ -116,11 +123,13 @@ void hello_world(string msg = "Default\n"){
     println();
 }
 
-// Classes ressemble C++ classes
-// No polymorphism, inheritance possible
-// Function overloading works
-// No security (public, private)
-// Operator overloading
+/*
+* Classes ressemble C++ classes
+* No polymorphism, inheritance possible
+* Function overloading works
+* No security (public, private)
+* Operator overloading
+*/
 class Animal{
     string name;
     int age;
@@ -139,11 +148,13 @@ class Pet from Animal{
     int owner_count;
     string* owners;
     
-    // Variable arguments
-    // Allocate on the stack if possible (otherwise error will appear)
-    // Stack allocation is possible for max 256 bytes
-    // (only in a scope with compile time constants)
-    // vargs.size is a compile time constant in this case
+    /*
+    * Variable arguments
+    * Allocate on the stack if possible (otherwise error will appear)
+    * Stack allocation is possible for max 256 bytes
+    * (only in a scope with compile time constants)
+    * vargs.size is a compile time constant in this case
+    */
     Pet(string name, int age, ...vargs) : @stack(sizeof(string) * vargs.size) {
         super(name, age);
         owners = @stack;

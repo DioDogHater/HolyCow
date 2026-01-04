@@ -4,14 +4,14 @@
 #define ALIAS_KW(a,b) {#a, sizeof(#a)-1, tk_##b}
 #define KEYWORD_COUNT (sizeof(keywords)/sizeof(struct keyword_pair))
 static struct keyword_pair keywords[] = {
+    KEYWORD(void),
     ALIAS_KW(char,uint8),
-    ALIAS_KW(int,int32),
+    ALIAS_KW(int,int64),
     KEYWORD(int8),
     KEYWORD(uint8),
     KEYWORD(int16),
     KEYWORD(uint16),
     KEYWORD(int32),
-    ALIAS_KW(int, int32),
     KEYWORD(uint32),
     KEYWORD(int64),
     KEYWORD(uint64),
@@ -19,6 +19,7 @@ static struct keyword_pair keywords[] = {
     KEYWORD(flag),
     KEYWORD(const),
     KEYWORD(constexpr),
+    KEYWORD(nothing),
     KEYWORD(if),
     KEYWORD(else),
     KEYWORD(while),
@@ -26,13 +27,18 @@ static struct keyword_pair keywords[] = {
     KEYWORD(switch),
     KEYWORD(break),
     KEYWORD(continue),
+    KEYWORD(return),
     KEYWORD(repeat),
+    ALIAS_KW(true, bool_lit),
+    ALIAS_KW(false, bool_lit),
     KEYWORD(and),
     KEYWORD(or),
     KEYWORD(not),
     ALIAS_KW(@next,next),
     ALIAS_KW(@last,last_val),
-    KEYWORD(sizeof)
+    ALIAS_KW(@asm,asm),
+    KEYWORD(sizeof),
+    KEYWORD(typeof)
 };
 
 // http://www.cse.yorku.ca/~oz/hash.html

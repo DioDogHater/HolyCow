@@ -21,6 +21,9 @@ src/lexer/lexer.c
 
 # parser (Abstract Syntax Tree (AST) generator)
 src/parser/parser.c
+
+# generator (Assembly Generator)
+src/generator/generator.c
 )
 
 # Create the executable

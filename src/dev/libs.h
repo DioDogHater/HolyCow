@@ -21,7 +21,7 @@
 #define HC_MALLOC(sz) malloc((sz))
 #define HC_REALLOC(ptr, sz) realloc((ptr),(sz))
 #define HC_FREE(ptr) free(ptr)
-
+#define HC_FAIL() exit(1)
 
 // FILE SYSTEM
 typedef FILE* HC_FILE;
@@ -38,6 +38,7 @@ static size_t HC_file_sz(HC_FILE file){
 }
 #define HC_FREAD(fptr, buff, sz) fread((buff), 1, (sz), (fptr))
 #define HC_GOOD_FREAD(fptr, buff, sz) (sz == HC_FREAD((fptr),(buff),(sz)))
+#define HC_FPRINTF(fptr, fmt, ...) fprintf((fptr), (fmt),##__VA_ARGS__)
 #define HC_FCLOSE(fptr) fclose((fptr))
 
 #endif

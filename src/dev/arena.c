@@ -29,7 +29,8 @@ void* arena_alloc(arena_t* arena, size_t size){
                 return NULL;
             }if(!arena_init(arena->next, (size > arena->size) ? (size + arena->size) : (arena->size)))
                 return NULL;
-            //HC_WARN("Allocating a new arena...");
+            // TODO Remove this line
+            HC_WARN("Allocating a new arena...");
         }
         return arena_alloc(arena->next, size);
     }

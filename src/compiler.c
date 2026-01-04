@@ -1,5 +1,6 @@
 #include "dev/libs.h"
 #include "dev/types.h"
+#include "generator/generator.h"
 #include "lexer/lexer.h"
 #include "parser/parser.h"
 #include <stdlib.h>
@@ -8,12 +9,16 @@
 
 static file_t input_files = NEW_FILE(NULL);
 static const char* output_file = NULL;
+static struct{
+    bool debug;
+} options = {.debug = false};
 
+// Show the usage
 static void show_usage(const char* msg, arena_t* arena){
     if(msg)
         HC_ERR("%s",msg);
     HC_PRINT(
-        "Usage: hcc [options] <input file> [-o <output file>]\n"
+        "Usage: hcc <input file(s)> [options]\n"
         "Options:\n"
         "   -h, --help : Show this menu\n"
         "   -o, --output : Set the output file path\n"
@@ -47,6 +52,7 @@ static bool match_arg(const char** arg, const char* value){
     return true;
 }
 
+// Parse the arguments given to the compiler
 static void parse_compiler_args(int argc, char* argv[], arena_t* arena){
     enum{
         C_ARG_NONE = 0,
@@ -56,7 +62,7 @@ static void parse_compiler_args(int argc, char* argv[], arena_t* arena){
     for(int i = 1; i < argc; i++){
         const char* arg = argv[i];
         while(*arg){
-            // Whitespace
+            // Whitespace (shouldn't be there but better safe than sorry)
             if(*arg == ' ' || *arg == '\t' || *arg == '\n')
                 arg++;  // Skip it
 
@@ -83,6 +89,9 @@ static void parse_compiler_args(int argc, char* argv[], arena_t* arena){
                         show_usage("Output file given two times!", arena);
                     last_arg = C_ARG_OUTPUT;
                 }
+
+                else if(match_arg(&arg, "-d") || match_arg(&arg, "--debug"))
+                    options.debug = true;
 
                 // Invalid option
                 else
@@ -120,18 +129,21 @@ static void parse_compiler_args(int argc, char* argv[], arena_t* arena){
 }
 
 int main(int argc, char* argv[]){
-    // Create an arena allocator with 16 KB
+    // Create an arena allocator with 64 KB of memory
     arena_t arena = NEW_ARENA();
-    if(!arena_init(&arena, 16 * KB))
+    if(!arena_init(&arena, 64 * KB))
         return EXIT_FAILURE;
 
     // Parse compiler args
     parse_compiler_args(argc, argv, &arena);
 
+    // Setup the keyword table setup
     keyword_table_setup();
     token_t* all_tokens = NULL;
     token_t* last_token = NULL;
     file_t* input_file = input_files.next;
+
+    // Tokenize the input files one by one
     while(input_file){
         token_t* tokens = tokenize(input_file, &arena, last_token);
         if(!tokens){
@@ -147,6 +159,8 @@ int main(int argc, char* argv[]){
             last_token = last_token->next;
         input_file = input_file->next;
     }
+
+    // Destroy the keyword table
     keyword_table_destroy();
 
 #ifdef COMPILER_DEBUG
@@ -163,6 +177,7 @@ int main(int argc, char* argv[]){
 }
 #endif
 
+    // Parse the tokens and turn them into an AST
     node_stmt* AST = parse(all_tokens, &arena);
     if(!AST){
         HC_ERR("\nPARSING FAILED!");
@@ -171,7 +186,42 @@ int main(int argc, char* argv[]){
         return EXIT_FAILURE;
     }
 
-    //HC_CONFIRM("Output file %s was generated.", output_file);
+    HC_CONFIRM("Parsed successfully!");
+
+    // Generate the assembly
+    {
+        char buffer[512];
+        sprintf(buffer, "%.*s.nasm", 511 - 5, output_file);
+        if(!generate(buffer, AST)){
+            HC_ERR("\nGENERATION FAILED!");
+            file_destroy(&input_files);
+            arena_destroy(&arena);
+            return EXIT_FAILURE;
+        }
+    }
+
+    HC_CONFIRM("Output file %s.nasm was generated.", output_file);
+
+    int sts = assemble(output_file, options.debug);
+
+    if(sts){
+        HC_ERR("\nASSEMBLY FAILED! Error code: %d", sts);
+        file_destroy(&input_files);
+        arena_destroy(&arena);
+        return EXIT_FAILURE;
+    }else
+        HC_CONFIRM("Assembled successfully, %s.o generated.", output_file);
+
+    sts = link(output_file);
+
+    if(sts){
+        HC_ERR("\nLINKING FAILED! Error code: %d", sts);
+        file_destroy(&input_files);
+        arena_destroy(&arena);
+        return EXIT_FAILURE;
+    }else
+        HC_CONFIRM("Linked successfully, %s generated.", output_file);
+
     HC_CONFIRM("COMPILATION SUCCESSFUL!");
 
     file_destroy(&input_files);

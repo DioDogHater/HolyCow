@@ -16,10 +16,11 @@ union node_expr;
 // int8, int16, int32, int64
 // uint8, uint16, uint32, uint64
 // bool, flag, string
-//! const and constexpr will get ignored !
+// tk_int8 is its type
 typedef struct{
     NODE_EXPR_BASE;
-} node_builtin_type;
+    token_t* start;
+} node_type;
 
 // A single expression term
 // Either:
@@ -39,7 +40,6 @@ typedef struct{
 // (Unary expression)
 // tk_neg
 // tk_open_parent
-// tk_type_cast
 // tk_inc
 // tk_dec
 // tk_bin_flip
@@ -47,6 +47,13 @@ typedef struct{
     NODE_EXPR_BASE;
     union node_expr* lhs;
 } node_unary_op;
+
+// tk_type_cast
+typedef struct{
+    NODE_EXPR_BASE;
+    node_type* lhs;
+    union node_expr* rhs;
+} node_type_cast;
 
 // Binary operation expression
 // (Binary expression)
@@ -67,13 +74,28 @@ typedef struct{
     union node_expr* rhs;
 } node_bin_op;
 
+// Nothing (used for default args)
+typedef struct{
+    NODE_EXPR_BASE;
+} node_nothing_expr;
+
+// Function call
+typedef struct{
+    NODE_EXPR_BASE;
+    token_t* identifier;
+    union node_expr* args;
+} node_func_expr;
+
 // Expression node
 typedef union node_expr{
     NODE_EXPR_BASE;
-    node_builtin_type builtin_type;
+    node_type type_expr;
     node_term term;
     node_unary_op unary_op;
+    node_type_cast type_cast;
     node_bin_op bin_op;
+    node_nothing_expr none;
+    node_func_expr func;
 } node_expr;
 
 // ===== Statements =====
@@ -85,30 +107,91 @@ typedef struct{
     NODE_STMT_BASE;
     token_t* var_type;
     token_t* identifier;
-    union node_expr* expr;
+    node_expr* expr;
 } node_var_decl;
 
 // tk_var_assign
 typedef struct{
     NODE_STMT_BASE;
-    token_t* identifier;
-    union node_expr* expr;
+    node_expr* var;
+    node_expr* expr;
 } node_var_assign;
+
+// tk_if
+typedef struct{
+    NODE_STMT_BASE;
+    node_expr* cond;
+    union node_stmt* stmts;
+} node_if;
+
+// tk_else_if
+typedef struct{
+    NODE_STMT_BASE;
+    node_expr* cond;
+    union node_stmt* stmts;
+} node_else_if;
+
+// tk_else
+typedef struct{
+    NODE_STMT_BASE;
+    union node_stmt* stmts;
+} node_else;
+
+// tk_expr_stmt
+typedef struct{
+    NODE_STMT_BASE;
+    node_expr* expr;
+} node_expr_stmt;
+
+// tk_return
+typedef struct{
+    NODE_STMT_BASE;
+    node_expr* expr;
+} node_return;
+
+// tk_asm
+typedef struct{
+    NODE_STMT_BASE;
+    node_term* used_regs;
+    node_term* code;
+    node_expr* args;
+} node_asm;
 
 // Statement node
 typedef union node_stmt{
     NODE_STMT_BASE;
     node_var_decl var_decl;
     node_var_assign var_assign;
+    node_if if_stmt;
+    node_else_if else_if;
+    node_else else_stmt;
+    node_expr_stmt expr;
+    node_return ret;
+    node_asm asm_stmt;
 } node_stmt;
+
+// Prints the context of an expression (same as print_context but with node_expr's)
+bool print_context_expr(const char*, node_expr*);
+
+// Prints the context of a statement
+//bool print_context_stmt(const char*, node_stmt*);
 
 // Returns the precedence value of an operator
 int get_operator_precedence(tk_type);
 
+// Parse a term of an expression
 node_expr* parse_term(token_t**, arena_t*);
+
+// Parse an entire expression
 node_expr* parse_expr(token_t**, int, arena_t*);
 
-node_stmt* parse_stmt(token_t**, arena_t*);
+// Parse a statement
+node_stmt* parse_stmt(token_t**, arena_t*, bool);
+
+// Parse a scope
+node_stmt* parse_scope(token_t**, arena_t*);
+
+// Parse the entire program
 node_stmt* parse(token_t*, arena_t*);
 
 #endif

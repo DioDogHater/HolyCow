@@ -29,7 +29,7 @@ void print_context_ex(const char* msg, const char* str, size_t strlen){
     size_t lines = count_lines(&file_start);
     const uint8_t* file_name = GET_FILENAME(file_start);
     HC_PRINT(BOLD BLUE_FG "%s:%lu:%lu:" RESET_ATTR " %s" RESET_ATTR "\n", file_name, lines, str - start + 1, msg);
-    if(end > str + strlen)
+    if(end >= str + strlen)
     HC_PRINT("%*lu | %.*s" BOLD WHITE_FG "%.*s" RESET_ATTR "%.*s\n     | %*s" BOLD GREEN_FG "^%.*s" RESET_ATTR "\n",
             4, lines,
             (int)(str - start), start,
@@ -82,13 +82,13 @@ bool consume_tk_type(token_t** tokens, tk_type type){
     return false;
 }
 
+static file_t included_files = NEW_FILE(NULL);
 token_t* tokenize(file_t* src, arena_t* arena, token_t* token_start){
     if(!src || !src->data || !arena)
         return false;
 
     // Macros
-    // A fair limit of 256 macros for a single program
-    static token_t macros[256];
+    static token_t macros[MAX_MACROS];
     static size_t macro_count = 0;
     bool recording_macro = false;
 
@@ -112,6 +112,8 @@ token_t* tokenize(file_t* src, arena_t* arena, token_t* token_start){
             const char* start = str++;
             while(*str && (isalnum(*str) || *str == '_')) str++;
             tk = (token_t){tk_identifier, start, str - start, NULL};
+
+            // Check if it's a macro
             bool is_macro = false;
             for(size_t i = 0; i < macro_count; i++){
                 if(tk.strlen == macros[i].strlen && strncmp(tk.str, macros[i].str, tk.strlen) == 0){
@@ -126,6 +128,8 @@ token_t* tokenize(file_t* src, arena_t* arena, token_t* token_start){
             }
             if(is_macro)
                 continue;
+
+            // Check if it's a keyword
             struct keyword_pair* kw = hashtable_get(&keyword_table, &tk.str);
             if(kw)
                 tk.type = kw->value;
@@ -133,13 +137,19 @@ token_t* tokenize(file_t* src, arena_t* arena, token_t* token_start){
         // Numerical constants
         }else if(isdigit(*str)){
             const char* start = str++;
-            if(*str == 'x' || *str == 'b')
-                str++;
             tk.type = tk_int_lit;
-            while(*str && isdigit(*str)) str++;
-            if(*str == '.'){
-                tk.type = tk_float_lit;
+            if(*start == '0' && *str == 'x'){
+                str++;
+                while(*str && ((*str >= '0' && *str <= '9') || (*str >= 'A' && *str <= 'F'))) str++;
+            }else if(*start == '0' && *str == 'b'){
+                str++;
+                while(*str && (*str == '0' || *str == '1')) str++;
+            }else{
                 while(*str && isdigit(*str)) str++;
+                if(*str == '.'){
+                    tk.type = tk_float_lit;
+                    while(*str && isdigit(*str)) str++;
+                }
             }
             tk = (token_t){tk.type, start, str - start, NULL};
 
@@ -216,7 +226,7 @@ token_t* tokenize(file_t* src, arena_t* arena, token_t* token_start){
                     tk.type = tk_cmp_neq;
                     tk.strlen = 2;
                 }else
-                    tk.type = tk_exclam;
+                    tk.type = tk_not;
                 break;
             case '~':
                 if(*(str+1) == '='){
@@ -282,16 +292,40 @@ token_t* tokenize(file_t* src, arena_t* arena, token_t* token_start){
                         print_context("Expected valid path at include",&tk);
                         return NULL;
                     }
+
+                    // First we check if the file is already included
+                    // (to avoid duplicates)
+                    file_t* last_file = &included_files;
+                    bool already_included = false;
+                    for(; last_file->next && !already_included; last_file = last_file->next)
+                        if(strncmp(path_start, (const char*)last_file->next->file_name, str - path_start) == 0)
+                            already_included = true;
+
+                    if(already_included){
+                        HC_PRINT("Already included!\n");
+                        str++;
+                        continue;
+                    }
+
                     // Allocate the file and read it
-                    src->next = ARENA_ALLOC(arena, file_t);
-                    src->next->file_name = (uint8_t*) arena_alloc(arena, str - path_start + 1);
-                    memcpy(src->next->file_name, path_start, str - path_start);
-                    src->next->file_name[str - path_start] = '\0';
-                    if(!file_read(src->next)){
+                    last_file->next = ARENA_ALLOC(arena, file_t);
+                    *last_file->next = NEW_FILE((uint8_t*) arena_alloc(arena, str - path_start + 1));
+                    memcpy(last_file->next->file_name, path_start, str - path_start);
+                    last_file->next->file_name[str - path_start] = '\0';
+
+                    if(!file_read(last_file->next)){
                         tk.strlen = str - start + 1;
                         print_context("Failed to include here",&tk);
                         return NULL;
                     }
+
+                    // Tokenize included file
+                    token_t* included_tokens = tokenize(last_file->next, arena, end_token);
+                    if(!included_tokens)
+                        return NULL;
+                    for(;included_tokens->next; included_tokens = included_tokens->next);
+                    end_token = included_tokens;
+
                     // Skip the last double quote
                     str++;
                     continue;
@@ -305,6 +339,11 @@ token_t* tokenize(file_t* src, arena_t* arena, token_t* token_start){
                     str++;
                     while(*str && (isalnum(*str) || *str == '_')) str++;
                     tk = (token_t){tk_identifier, start, str - start, NULL};
+                    if(macro_count == MAX_MACROS){
+                        HC_WARN("Current max number of macros is %d", MAX_MACROS);
+                        print_context("Reached maximum number of macros", &tk);
+                        return NULL;
+                    }
                     macros[macro_count++] = tk;
                     recording_macro = true;
                     continue;
@@ -331,4 +370,9 @@ token_t* tokenize(file_t* src, arena_t* arena, token_t* token_start){
     if(!tokens.next)
         HC_WARN("First input file is empty! This compiler does not like when the first input file is empty :(");
     return tokens.next;
+}
+
+void free_included_files(){
+    if(included_files.next)
+        file_destroy(included_files.next);
 }

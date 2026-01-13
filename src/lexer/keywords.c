@@ -7,6 +7,7 @@ static struct keyword_pair keywords[] = {
     KEYWORD(void),
     ALIAS_KW(char,uint8),
     ALIAS_KW(int,int64),
+    ALIAS_KW(uint,uint64),
     KEYWORD(int8),
     KEYWORD(uint8),
     KEYWORD(int16),
@@ -21,6 +22,7 @@ static struct keyword_pair keywords[] = {
     KEYWORD(constexpr),
     KEYWORD(nothing),
     KEYWORD(if),
+    ALIAS_KW(elif, else_if),
     KEYWORD(else),
     KEYWORD(while),
     KEYWORD(for),
@@ -35,10 +37,10 @@ static struct keyword_pair keywords[] = {
     KEYWORD(or),
     KEYWORD(not),
     ALIAS_KW(@next,next),
-    ALIAS_KW(@last,last_val),
     ALIAS_KW(@asm,asm),
     KEYWORD(sizeof),
-    KEYWORD(typeof)
+    KEYWORD(typeof),
+    ALIAS_KW(@stack_alloc,stack_alloc)
 };
 
 // http://www.cse.yorku.ca/~oz/hash.html

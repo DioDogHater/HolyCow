@@ -37,36 +37,32 @@ enum{
     // Arithmetic operations
     tk_neg,         // Negation (-)
 //  tk_open_parent  // Parentheses ( )
-    tk_add,         // Addition
-    tk_add_assign,  // Addition assignment (+=)
     tk_inc,         // Increment (++)
-    tk_sub,         // Subtraction
-    tk_sub_assign,  // Subtraction assignment (-=)
     tk_dec,         // Decrement (--)
+    tk_add,         // Addition
+    tk_sub,         // Subtraction
     tk_mult,        // Multiplication
-    tk_mult_assign, // Multplication assignment (*=)
     tk_div,         // Division
-    tk_div_assign,  // Division assignment (/=)
     tk_mod,         // Modulo
+    tk_add_assign,  // Addition assignment (+=)
+    tk_sub_assign,  // Subtraction assignment (-=)
+    tk_mult_assign, // Multplication assignment (*=)
+    tk_div_assign,  // Division assignment (/=)
     tk_mod_assign,  // Modulo assignment (%=)
     tk_bin_and,     // AND (&)
     tk_bin_or,      // OR (|)
     tk_bin_xor,     // XOR (^)
     tk_bin_flip,    // Flip integer bits (~)
-    tk_shl,         // Shift left
-    tk_shr,         // Shift right
+    tk_shl,         // Shift left  (<<)
+    tk_shr,         // Shift right (>>)
 
     // Boolean operations / comparisons
     tk_cmp_eq,      // ==
     tk_cmp_neq,     // !=
     tk_cmp_l,       // <
-    tk_cmp_b,       // < (unsigned)
     tk_cmp_g,       // >
-    tk_cmp_a,       // > (unsigned)
     tk_cmp_le,      // <=
-    tk_cmp_be,      // <= (unsigned)
     tk_cmp_ge,      // >=
-    tk_cmp_ae,      // >= (unsigned)
     tk_cmp_approx,  // ~=
     tk_and,         // && or "and"
     tk_or,          // || or "or"
@@ -77,17 +73,17 @@ enum{
     tk_else_if,
     tk_else,
     tk_while,
-    tk_for,
-    tk_repeat,
+    tk_for,            // for(init; cond; step){ ... }
+    tk_repeat,         // repeat(n){ ... } -> repeats n times
     tk_switch,
     tk_next,           // @next
     tk_return,
     tk_break,
     tk_continue,
     tk_asm,            // @asm("...")
-    tk_last_val,       // @last
     tk_sizeof,         // sizeof(...)
     tk_typeof,         // typeof(...)
+    tk_stack_alloc,    // @stack_alloc(type, n)
 
     // Preprocessor directives
     //tk_include,        // #include
@@ -99,7 +95,6 @@ enum{
 
     // Symbols
     tk_assign,         // =
-    tk_exclam,         // !
     tk_open_parent,    // (
     tk_close_parent,   // )
     tk_open_bracket,   // [
@@ -112,7 +107,9 @@ enum{
     tk_comma,          // ,
 
     // Parser values
+    tk_func_decl,   // Function declaration
     tk_var_decl,    // Variable declaration
+    tk_arr_decl,    // Array declaration
     tk_deref,       // Dereferencing (*)
     tk_getaddr,     // Get address (&)
     tk_type_cast,   // Type cast e.g. (type)
@@ -165,6 +162,10 @@ token_t* consume_token(token_t**);
 bool consume_tk_type(token_t**, tk_type);
 
 // Tokenize a file's contents
+#define MAX_MACROS 256
 token_t* tokenize(file_t*, arena_t*, token_t*);
+
+// Free included files
+void free_included_files(void);
 
 #endif

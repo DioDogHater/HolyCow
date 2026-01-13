@@ -9,6 +9,8 @@
 #include "../parser/parser.h"
 
 #include "target_requirements.h"
+#include "regs.h"
+#include "hc_types.h"
 
 // Stack size and pointer
 extern size_t stack_ptr;
@@ -21,29 +23,16 @@ extern size_t label_count;
 extern node_term* str_literals;
 extern size_t str_literal_count;
 
-enum data_types{
-    DATA_INT,       // Integers OR pointers (they're still ints under the hood)
-    DATA_FLOAT,     // Floats are handled differently
-    DATA_STRUCT,    // Structs are trickier to handle
-    DATA_CLASS      // Classes are way trickier to handle
-};
-
-typedef struct{
-    size_t size;        // Size in bytes of a value of said type
-    token_t* repr;      // Representation (tokens used to represent the type) (optional)
-    short sign;         // Sign of type (difference between int64 and uint64)
-    short data;         // Type of data
-    int ptr_depth;      // 0 = direct value, 1 = pointer to value, 2 = pointer to pointer to value, etc.
-} type_t;
-#define INVALID_TYPE (type_t){0, NULL, false, DATA_INT, 0}
-
 // A structure to represent a variable
 enum var_locations {
     VAR_STACK,
+    VAR_ARRAY,
     VAR_GLOBAL,
+    VAR_GLOBAL_ARR,
     VAR_ARG,
     VAR_MEMBER
 };
+
 typedef struct{
     const char* str;
     size_t strlen;
@@ -51,12 +40,44 @@ typedef struct{
     int location;
     type_t type;
 } var_t;
-
-// The vector that holds all variables in the current scope
 extern vector_t vars[1];
 
 // Find a variable
 var_t* get_var(const char*, size_t);
+
+
+// Functions
+typedef struct{
+    const char* str;
+    size_t strlen;
+    node_stmt* args;
+    node_stmt* stmts;
+    type_t type;
+} func_t;
+extern vector_t funcs[1];
+
+// Find a function
+func_t* get_func(const char*, size_t);
+
+
+// Scopes
+// A snapshot of the moment before the scope starts
+typedef struct{
+    size_t stack_sz, stack_ptr;
+    size_t var_sz, size;
+} scope_t;
+
+// Get the size of a scope (the size of all variables inside)
+size_t get_scope_size(node_stmt* scope);
+
+// Initialise the scope and save the state before it starts
+scope_t gen_init_scope(HC_FILE, node_stmt*);
+
+// Quit the scope and return to the state before it started
+void gen_quit_scope(HC_FILE, scope_t);
+
+
+// GENERATION
 
 // Generate an expression.
 // Returns the register where the value is stored.
@@ -68,6 +89,6 @@ bool generate_stmt(HC_FILE, node_stmt*, type_t);
 
 // Generates the assembly for the program
 // For now, there is no optimisation step
-bool generate(const char*, node_stmt*);
+bool generate(const char*, node_stmt*, bool);
 
 #endif

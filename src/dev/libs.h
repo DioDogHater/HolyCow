@@ -40,6 +40,7 @@ static size_t HC_file_sz(HC_FILE file){
 #define HC_GOOD_FREAD(fptr, buff, sz) (sz == HC_FREAD((fptr),(buff),(sz)))
 #define HC_FPRINTF(fptr, fmt, ...) fprintf((fptr), (fmt),##__VA_ARGS__)
 #define HC_FCLOSE(fptr) fclose((fptr))
+#define HC_DELETE_FILE(path) remove((path))
 
 #endif
 

@@ -23,11 +23,23 @@ src/lexer/lexer.c
 src/parser/parser.c
 
 # generator (Assembly Generator)
+src/generator/regs.c
+src/generator/hc_types.c
 src/generator/generator.c
 )
+
+# Currently available target
+# - TARGET_x64_Linux -> x64 Linux
+
+# Change the target here
+target_compile_definitions(HolyCow PRIVATE TARGET_x64_Linux)
 
 # Create the executable
 add_executable(hcc src/compiler.c)
 
 # Link library
 target_link_libraries(hcc PRIVATE HolyCow)
+
+# Add compiler debug info
+# NOTE Kinda annoying, so remove if not needed
+# target_compile_definitions(hcc PRIVATE COMPILER_DEBUG)

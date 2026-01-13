@@ -16,13 +16,13 @@ extern const char* target_data_section;
 extern const char* target_rodata_section;
 
 // Setup the entry point and other stuff
-extern void gen_setup(HC_FILE fptr);
+extern void gen_setup(HC_FILE fptr, bool library);
 
 // Assemble and link via external assembler and linker
 extern int assemble(const char* output_file, bool debug);
-extern int link(const char* output_file);
+extern int link(const char* output_file, char* link_files);
 
-typedef enum { OCCUP_NONE = 0, OCCUP_UNSIGNED, OCCUP_SIGNED, OCCUP_UNKNOWN } reg_occup_t;
+typedef enum { OCCUP_NONE = 0, OCCUP_UNSIGNED, OCCUP_SIGNED, OCCUP_IGNORE } reg_occup_t;
 
 typedef struct reg_t{
     const char* name;
@@ -55,7 +55,7 @@ extern reg_t registers[];
 // Setup
 extern void gen_alloc_stack(HC_FILE, size_t);
 extern void gen_dealloc_stack(HC_FILE, size_t);
-extern void gen_start_func(HC_FILE, const char*, size_t);
+extern void gen_start_func(HC_FILE, const char*, size_t, bool);
 extern void gen_return_func(HC_FILE);
 extern void gen_push_stack(HC_FILE, reg_t*);
 extern void gen_pop_stack(HC_FILE, reg_t*);
@@ -89,10 +89,16 @@ extern void gen_loadx_arg(HC_FILE, reg_t*, size_t, size_t, bool);   // Extended 
 extern void gen_load_arg_ptr(HC_FILE, reg_t*, size_t);
 extern void gen_save_arg(HC_FILE, reg_t*, size_t);
 
-// Pointer
+// Pointer IO
 extern void gen_load_ptr(HC_FILE, reg_t*, reg_t*);
 extern void gen_loadx_ptr(HC_FILE, reg_t*, reg_t*, size_t, bool);   // Extended (small -> big)
 extern void gen_save_ptr(HC_FILE, reg_t*, reg_t*);
+
+// Indexing IO
+extern void gen_load_idx(HC_FILE, reg_t*, reg_t*, reg_t*, size_t);
+extern void gen_loadx_idx(HC_FILE, reg_t*, reg_t*, reg_t*, size_t, bool); // Extended (small -> big)
+extern void gen_load_idx_ptr(HC_FILE, reg_t*, reg_t*, reg_t*, size_t);
+extern void gen_save_idx(HC_FILE, reg_t*, reg_t*, reg_t*, size_t);
 
 // Return value
 extern void gen_save_return(HC_FILE, reg_t*);
@@ -110,6 +116,9 @@ REQ_OPERATION(sub);
 REQ_OPERATION(and);
 REQ_OPERATION(or);
 REQ_OPERATION(xor);
+REQ_OPERATION(shl);
+REQ_OPERATION(shr);
+REQ_OPERATION(sar); // Shift right, signed
 REQ_AFFECTED_REGS(smul);
 REQ_OPERATION(smul);
 REQ_AFFECTED_REGS(mul);
@@ -126,12 +135,16 @@ REQ_OPERATION(mod);
 // Labels, jumps and conditional jumps / sets
 extern void gen_label(HC_FILE, size_t);
 extern void gen_jump(HC_FILE, size_t);
+extern void gen_call_func(HC_FILE, const char*, size_t);
 extern void gen_cmpz_reg(HC_FILE, reg_t*);
-extern void gen_compare(HC_FILE, reg_t*, const char*, size_t);
-extern void gen_cond_jump(HC_FILE, tk_type, size_t);
-extern void gen_cond_set(HC_FILE, tk_type, reg_t*);
+extern void gen_compare(HC_FILE, reg_t*, reg_t*);
+extern void gen_cond_jump(HC_FILE, tk_type, size_t, bool);
+extern void gen_cond_set(HC_FILE, tk_type, reg_t*, bool);
 
 // Declaration tools
+extern void gen_declare_extern(HC_FILE, const char*, size_t);
+extern void gen_declare_global(HC_FILE, const char*, size_t, size_t, const char*, size_t);
+extern void gen_declare_global_arr(HC_FILE, const char*, size_t, size_t);
 extern void gen_declare_str(HC_FILE, size_t, const char*, size_t);
 
 #endif

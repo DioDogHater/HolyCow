@@ -1,0 +1,20 @@
+#define NULL (void*) 0
+int main(uint argc, char** argv);
+
+// String operations
+void memset(uint8* mem, uint8 data, uint mem_size);
+void memcpy(uint8* dest, uint8* src, uint mem_size);
+uint strlen(char* str);
+
+// Terminal IO
+void print_str(char* str, uint len=-1);
+void print_decimal(int x);
+void print_hex(uint x);
+uint input(char* buff, uint len);
+
+// Int <-> string conversion
+char* int_to_string(int x, char* str, uint len);
+int string_to_int(char* str, uint len=-1);
+
+// OS interaction
+void exit(int code);

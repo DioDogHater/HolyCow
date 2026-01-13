@@ -86,6 +86,13 @@ typedef struct{
     union node_expr* args;
 } node_func_expr;
 
+// Stack alloc
+typedef struct{
+    NODE_EXPR_BASE;
+    token_t* elem_type;
+    node_term* elem_count;
+} node_stack_alloc;
+
 // Expression node
 typedef union node_expr{
     NODE_EXPR_BASE;
@@ -96,11 +103,21 @@ typedef union node_expr{
     node_bin_op bin_op;
     node_nothing_expr none;
     node_func_expr func;
+    node_stack_alloc salloc;
 } node_expr;
 
 // ===== Statements =====
 #define NODE_STMT_BASE struct{ tk_type type; union node_stmt* next; }
 union node_stmt;
+
+// tk_func_decl
+typedef struct{
+    NODE_STMT_BASE;
+    token_t* func_type;
+    token_t* identifier;
+    union node_stmt* args;
+    union node_stmt* stmts;
+} node_func_decl;
 
 // tk_var_decl
 typedef struct{
@@ -110,6 +127,14 @@ typedef struct{
     node_expr* expr;
 } node_var_decl;
 
+// tk_arr_decl
+typedef struct{
+    NODE_STMT_BASE;
+    token_t* elem_type;
+    token_t* identifier;
+    node_term* elem_count;
+} node_arr_decl;
+
 // tk_var_assign
 typedef struct{
     NODE_STMT_BASE;
@@ -118,24 +143,32 @@ typedef struct{
 } node_var_assign;
 
 // tk_if
+// tk_else_if
+// tk_while
+// tk_repeat (is similar in structure)
 typedef struct{
     NODE_STMT_BASE;
     node_expr* cond;
     union node_stmt* stmts;
 } node_if;
 
-// tk_else_if
-typedef struct{
-    NODE_STMT_BASE;
-    node_expr* cond;
-    union node_stmt* stmts;
-} node_else_if;
-
 // tk_else
+// tk_scope
+// tk_open_braces
 typedef struct{
     NODE_STMT_BASE;
     union node_stmt* stmts;
-} node_else;
+} node_scope;
+
+// tk_for
+// for(init; cond; step){ ... }
+typedef struct{
+    NODE_STMT_BASE;
+    node_var_decl* init;
+    node_expr* cond;
+    union node_stmt* step;
+    union node_stmt* stmts;
+} node_for;
 
 // tk_expr_stmt
 typedef struct{
@@ -160,11 +193,15 @@ typedef struct{
 // Statement node
 typedef union node_stmt{
     NODE_STMT_BASE;
+    node_func_decl func_decl;
     node_var_decl var_decl;
+    node_arr_decl arr_decl;
     node_var_assign var_assign;
     node_if if_stmt;
-    node_else_if else_if;
-    node_else else_stmt;
+    node_if while_stmt;
+    node_if repeat_stmt;
+    node_scope scope;
+    node_for for_stmt;
     node_expr_stmt expr;
     node_return ret;
     node_asm asm_stmt;

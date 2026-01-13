@@ -1,10 +1,6 @@
-int a = 0;
-int b = 1;
+#include "std/stdlib.hhc"
 
-for(int i = 0; i < 5; i++){
-    int c = a + b;
-    a = b;
-    b = c;
+int main(uint argc, char** argv){
+    print_decimal(50);
+    return string_to_int("10");
 }
-
-print("Result = %d\n", b);

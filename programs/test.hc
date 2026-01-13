@@ -1,5 +1,9 @@
-@asm(0,"mov rax, %0", (uint64)5);
+#include "std/stdlib.hhc"
 
-// int main(int argc, char* argv){
-    @return = 5;
-// }
+int main(uint argc, char** argv){
+    int x = 5;
+    repeat(x){
+        print_str("Hello world!\n");
+    }
+    return 0;
+}

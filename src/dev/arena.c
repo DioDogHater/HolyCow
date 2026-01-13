@@ -21,9 +21,11 @@ void* arena_alloc(arena_t* arena, size_t size){
         HC_ERR("ARENA : Invalid arena");
         return NULL;
     }
-    if(arena->ptr + size >= arena->size){
+    if(arena->ptr + size > arena->size){
+        HC_WARN("Couldn't allocate %lu bytes with %lu/%lu bytes of free space in arena", size, arena->size - arena->ptr, arena->size);
         if(!arena->next){
             arena->next = (arena_t*) HC_MALLOC(sizeof(arena_t));
+            *arena->next = NEW_ARENA();
             if(!arena->next){
                 HC_ERR("ARENA : Failed to allocate %lu bytes", sizeof(arena_t));
                 return NULL;

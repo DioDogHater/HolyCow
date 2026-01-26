@@ -23,6 +23,7 @@ void print_type(const char* before, type_t type, const char* after){
         HC_PRINT(BOLD "%.*s", (int)type.repr->strlen, type.repr->str);
         if(type.repr->type == tk_const)
             HC_PRINT(" %.*s", (int)type.repr->next->strlen, type.repr->next->str);
+        if(type.ptr_depth < 0) type.ptr_depth = 0;
         for(size_t i = 0; i < type.ptr_depth; i++)
             HC_PRINT("*");
     }else{
@@ -101,7 +102,10 @@ type_t type_from_tk(token_t* tk){
     int ptr_depth = 0;
     for(token_t* ptr = (tk->type == tk_const) ? tk->next->next : tk->next; ptr && ptr->type == tk_mult; ptr = ptr->next)
         ptr_depth++;
-    return (type_t){sz, tk, sign, DATA_INT, ptr_depth};
+    type_t t = (type_t){sz, tk, sign, DATA_INT, ptr_depth};
+    if(tk->type == tk_float)
+        t.data = DATA_FLOAT;
+    return t;
 }
 
 type_t typeof_expr(node_expr* expr){
@@ -141,6 +145,9 @@ type_t typeof_expr(node_expr* expr){
             else
                 max = (type_t){8,GET_DUMMY_TYPE(int64),true,DATA_INT,0};
             break;
+        }case tk_float_lit:{
+            max = (type_t){8,GET_DUMMY_TYPE(float),true,DATA_FLOAT,0};
+            break;
         }case tk_identifier:{
             var_t* var = get_var(expr->term.str, expr->term.strlen);
             if(!var){
@@ -162,7 +169,7 @@ type_t typeof_expr(node_expr* expr){
             max.ptr_depth--;
             if(max.ptr_depth < 0){
                 print_context_expr("Trying to dereference a direct value", expr);
-                return max;
+                return INVALID_TYPE;
             }
             break;
         case tk_deref:
@@ -170,7 +177,7 @@ type_t typeof_expr(node_expr* expr){
             max.ptr_depth--;
             if(max.ptr_depth < 0){
                 print_context_expr("Trying to dereference a direct value", expr);
-                return max;
+                return INVALID_TYPE;
             }
             break;
         case tk_getaddr:
@@ -179,6 +186,10 @@ type_t typeof_expr(node_expr* expr){
             break;
         case tk_type_cast:
             max = type_from_tk(expr->type_cast.lhs->start);
+            break;
+        case tk_shl:
+        case tk_shr:
+            max = typeof_expr(expr->bin_op.lhs);
             break;
         case tk_add:
         case tk_sub:
@@ -189,13 +200,19 @@ type_t typeof_expr(node_expr* expr){
         case tk_bin_or:
         case tk_bin_xor:{
             type_t t1 = typeof_expr(expr->bin_op.lhs), t2 = typeof_expr(expr->bin_op.rhs);
-            if(t1.data && t2.data && t1.data == t2.data){
+            short dt1 = (t1.ptr_depth) ? DATA_INT : DATA_FLOAT, dt2 = (t2.ptr_depth) ? DATA_INT : DATA_FLOAT;
+            if(t1.data && t2.data && t1.data == DATA_INT && t2.data == DATA_INT){
                 size_t sz1 = (t1.ptr_depth) ? target_address_size : t1.size, sz2 = (t2.ptr_depth) ? target_address_size : t2.size;
-                if(sz1 > sz2 || (sz1 == sz2 && t1.sign > t2.sign))
+                if(sz1 > sz2 || t1.ptr_depth > t2.ptr_depth || (sz1 == sz2 && t1.sign > t2.sign))
                     max = t1;
                 else
                     max = t2;
-            }
+            }else if(t1.data == DATA_FLOAT && t2.data == DATA_INT)
+                max = t1;
+            else if(t2.data == DATA_FLOAT && t1.data == DATA_INT)
+                max = t2;
+            else if(t1.data == DATA_FLOAT && t2.data == DATA_FLOAT)
+                max = t1;
             break;
         }case tk_func_call:{
             func_t* func = get_func(expr->func.identifier->str, expr->func.identifier->strlen);

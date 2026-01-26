@@ -113,9 +113,30 @@ reg_t* transfer_reg(HC_FILE fptr, reg_t* a, reg_t* b){
     bool sign = a->occupied == OCCUP_SIGNED;
     if(a->size < b->size)
         gen_movex_reg(fptr, b, a, sign);
-    else
+    else if(a->size > b->size){
+        a = get_lower_nbytes(fptr, a, b->size);
+        return transfer_reg(fptr, a, b);
+    }else
         gen_move_reg(fptr, b, a);
     free_reg(a);
     alloc_reg(b, sign);
     return b;
+}
+
+// Get lower n bytes of a value
+// EX: Get the 2 lower bytes of an 8 byte value
+reg_t* get_lower_nbytes(HC_FILE fptr, reg_t* op, size_t n){
+    reg_t* child = op->children;
+    for(; child && child->size != n; child = child->children);
+    bool sign = op->occupied == OCCUP_SIGNED;
+    if(child){
+        (void) free_reg(op);
+        return alloc_reg(child, sign);
+    }
+    gen_push_stack(fptr, op);
+    (void) free_reg(op);
+    reg_t* tmp = alloc_reg(GET_FREE_REG(n), sign);
+    gen_load_stack(fptr, tmp, 0);
+    gen_dealloc_stack(fptr, op->size);
+    return tmp;
 }

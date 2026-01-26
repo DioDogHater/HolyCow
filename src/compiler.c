@@ -198,8 +198,8 @@ void compiler_quit(){
 }
 
 int main(int argc, char* argv[]){
-    // Create an arena allocator with 64 KB of memory
-    if(!arena_init(arena, 64 * KB))
+    // Create an arena allocator with 2 MB of memory
+    if(!arena_init(arena, 2 * MB))
         return EXIT_FAILURE;
 
     // Parse compiler args
@@ -295,6 +295,10 @@ int main(int argc, char* argv[]){
         HC_DELETE_FILE(buffer);
 
     HC_CONFIRM("COMPILATION SUCCESSFUL!");
+
+#ifdef COMPILER_DEBUG
+    HC_CONFIRM("Used %.2f%% of arena memory", (float)arena->ptr / (float)arena->size * 100.f);
+#endif
 
     compiler_quit();
     return 0;

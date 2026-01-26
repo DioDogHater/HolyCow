@@ -93,6 +93,12 @@ typedef struct{
     node_term* elem_count;
 } node_stack_alloc;
 
+// tk_reg_expr
+typedef struct{
+    NODE_EXPR_BASE;
+    void* reg;
+} node_reg_expr;
+
 // Expression node
 typedef union node_expr{
     NODE_EXPR_BASE;
@@ -104,6 +110,7 @@ typedef union node_expr{
     node_nothing_expr none;
     node_func_expr func;
     node_stack_alloc salloc;
+    node_reg_expr reg;
 } node_expr;
 
 // ===== Statements =====
@@ -182,6 +189,15 @@ typedef struct{
     node_expr* expr;
 } node_return;
 
+// tk_continue
+// tk_break
+// tk_next
+// tk_end
+typedef struct{
+    NODE_STMT_BASE;
+    token_t* token;
+} node_control;
+
 // tk_asm
 typedef struct{
     NODE_STMT_BASE;
@@ -205,6 +221,7 @@ typedef union node_stmt{
     node_expr_stmt expr;
     node_return ret;
     node_asm asm_stmt;
+    node_control control;
 } node_stmt;
 
 // Prints the context of an expression (same as print_context but with node_expr's)

@@ -38,5 +38,6 @@ reg_t* alloc_reg(reg_t* reg, bool sign);
 reg_t* free_reg(reg_t* reg);
 
 reg_t* transfer_reg(HC_FILE fptr, reg_t* a, reg_t* b);
+reg_t* get_lower_nbytes(HC_FILE fptr, reg_t* op, size_t n);
 
 #endif

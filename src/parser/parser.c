@@ -12,6 +12,8 @@ bool print_context_expr(const char* msg, node_expr* expr){
     case tk_bin_and:
     case tk_bin_or:
     case tk_bin_xor:
+    case tk_shl:
+    case tk_shr:
     case tk_cmp_eq:
     case tk_cmp_neq:
     case tk_cmp_g:
@@ -51,6 +53,7 @@ bool print_context_expr(const char* msg, node_expr* expr){
     case tk_bool_lit:
     case tk_char_lit:
     case tk_int_lit:
+    case tk_float_lit:
     case tk_identifier:
         // Term expression
         print_context_ex(msg, expr->term.str, expr->term.strlen);
@@ -77,6 +80,7 @@ int get_operator_precedence(tk_type type){
         return 5;
     case tk_cmp_eq:
     case tk_cmp_neq:
+    case tk_cmp_approx:
         return 6;
     case tk_cmp_ge:
     case tk_cmp_g:
@@ -137,6 +141,7 @@ node_expr* parse_term(token_t** tokens, arena_t* arena){
     case tk_bool_lit:
     case tk_char_lit:
     case tk_int_lit:
+    case tk_float_lit:
         expr = (node_expr*) ARENA_ALLOC(arena, node_term);
         expr->term = (node_term) {token->type, NULL, token->str, token->strlen};
         break;
@@ -147,17 +152,20 @@ node_expr* parse_term(token_t** tokens, arena_t* arena){
             node_expr *args = NULL, *head = NULL;
 
             if(!peek_tk_type(tokens, tk_close_parent)){
-                args = head = parse_expr(tokens, 1, arena);
-                if(!args){
-                    print_context("Expected expression", *tokens);
-                    return NULL;
+                if(peek_tk_type(tokens, tk_comma)){
+                    args = head = (node_expr*) ARENA_ALLOC(arena, node_nothing_expr);
+                    args->none = (node_nothing_expr){tk_nothing, NULL};
+                }else{
+                    args = head = parse_expr(tokens, 1, arena);
+                    if(!args){
+                        print_context("Expected expression", *tokens);
+                        return NULL;
+                    }
                 }
             }
 
             // Parse arguments
-            if(args) while(!peek_tk_type(tokens, tk_close_parent)){
-                if(!consume_tk_type(tokens, tk_comma))
-                    break;
+            if(args) while(consume_tk_type(tokens, tk_comma)){
                 node_expr* new_head = NULL;
                 if(peek_tk_type(tokens, tk_comma)){
                     new_head = (node_expr*) ARENA_ALLOC(arena, node_nothing_expr);
@@ -328,8 +336,8 @@ node_stmt* parse_stmt(token_t** tokens, arena_t* arena, bool sc_necessary){
     if(!token)
         return NULL;
 
-    // Variable / array declaration
-    // Starts with a type and an identifier should be after
+    // Variable / array / function declaration
+    // Starts with a type and an identifier must follow
     if((token->type >= tk_int8 && token->type <= tk_constexpr) || (token->type == tk_identifier && peek_tk_type(&token, tk_identifier))){
         (void) consume_token(tokens); // Consume the first token
         // If it's a composed type, we need to consume the type after
@@ -355,17 +363,26 @@ node_stmt* parse_stmt(token_t** tokens, arena_t* arena, bool sc_necessary){
         if(consume_tk_type(tokens, tk_open_parent)){
             node_stmt *args_root = NULL, *head = NULL;
             while(!peek_tk_type(tokens, tk_close_parent)){
-                node_stmt* new_head = parse_stmt(tokens, arena, false);
-                if(!new_head || new_head->type != tk_var_decl){
-                    print_context("Expected valid argument", *tokens);
-                    return NULL;
+                node_stmt* new_head = NULL;
+                if(consume_tk_type(tokens, tk_var_args)){
+                    new_head = (node_stmt*) ARENA_ALLOC(arena, node_expr_stmt);
+                    new_head->expr = (node_expr_stmt){tk_var_args, NULL, NULL};
+                }else{
+                    new_head = parse_stmt(tokens, arena, false);
+                    if(!new_head || new_head->type != tk_var_decl){
+                        print_context("Expected valid argument", *tokens);
+                        return NULL;
+                    }
                 }
                 if(!args_root) args_root = new_head;
                 else head->next = new_head;
                 head = new_head;
-                if(!consume_tk_type(tokens, tk_comma)) break;
+                if(new_head->type == tk_var_args || !consume_tk_type(tokens, tk_comma)) break;
             }
-            (void) consume_tk_type(tokens, tk_close_parent);
+            if(!consume_tk_type(tokens, tk_close_parent)){
+                print_context("Expected ')'", *tokens);
+                return NULL;
+            }
             node_stmt* stmts = NULL;
             if(consume_tk_type(tokens, tk_semicolon));
             else{
@@ -378,6 +395,7 @@ node_stmt* parse_stmt(token_t** tokens, arena_t* arena, bool sc_necessary){
             return stmt;
         }
 
+        // Array declaration
         if(consume_tk_type(tokens, tk_open_bracket)){
             node_expr* elem_count = parse_expr(tokens, 0, arena);
             if(!elem_count || elem_count->type != tk_int_lit){
@@ -393,7 +411,7 @@ node_stmt* parse_stmt(token_t** tokens, arena_t* arena, bool sc_necessary){
             stmt = (node_stmt*) ARENA_ALLOC(arena, node_arr_decl);
             stmt->arr_decl = (node_arr_decl){tk_arr_decl, NULL, token, identifier, &elem_count->term};
         }else{
-            // If there is an initialisation value
+            // Variable declaration
             node_expr* expr = NULL;
             if(consume_tk_type(tokens, tk_assign)){
                 expr = parse_expr(tokens, 1, arena);
@@ -423,7 +441,7 @@ node_stmt* parse_stmt(token_t** tokens, arena_t* arena, bool sc_necessary){
             return NULL;
         }
         if(!consume_tk_type(tokens, tk_close_parent)){
-            print_context("Expected '('", *tokens);
+            print_context("Expected closing ')'", *tokens);
             return NULL;
         }
         if(consume_tk_type(tokens, tk_semicolon));
@@ -436,8 +454,9 @@ node_stmt* parse_stmt(token_t** tokens, arena_t* arena, bool sc_necessary){
         }
         return stmt;
     }// else / scope statements
-    else if(token->type == tk_else || token->type == tk_open_braces){
-        (void) consume_tk_type(tokens, tk_else);
+    else if(token->type == tk_else || token->type == tk_loop || token->type == tk_open_braces){
+        if(token->type == tk_else || token->type == tk_loop)
+            (void) consume_token(tokens);
         stmt = (node_stmt*) ARENA_ALLOC(arena, node_scope);
         stmt->scope = (node_scope){token->type, NULL, parse_scope(tokens, arena)};
         if(!stmt->scope.stmts || stmt->scope.stmts == (node_stmt*)(~0)){
@@ -594,6 +613,10 @@ node_stmt* parse_stmt(token_t** tokens, arena_t* arena, bool sc_necessary){
 
         stmt = (node_stmt*) ARENA_ALLOC(arena, node_asm);
         stmt->asm_stmt = (node_asm){tk_asm, NULL, &mask_root->term, &code->term, vargs_root};
+    }else if(token->type == tk_continue || token->type == tk_break || token->type == tk_next || token->type == tk_end){
+        (void) consume_token(tokens);
+        stmt = (node_stmt*) ARENA_ALLOC(arena, node_control);
+        stmt->control = (node_control){token->type, NULL, token};
     }// expression / var assign statement
     else{
         // Try to get the expression

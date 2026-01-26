@@ -147,6 +147,7 @@ token_t* tokenize(file_t* src, arena_t* arena, token_t* token_start){
             }else{
                 while(*str && isdigit(*str)) str++;
                 if(*str == '.'){
+                    str++;
                     tk.type = tk_float_lit;
                     while(*str && isdigit(*str)) str++;
                 }
@@ -181,7 +182,7 @@ token_t* tokenize(file_t* src, arena_t* arena, token_t* token_start){
                     continue;
                 }else if(*(str+1) == '*'){
                     str += 2;
-                    while(*str && *str != '*' && *(str+1) != '/') str++;
+                    while(*str && (*str != '*' || *(str+1) != '/')) str++;
                     str += 2;
                     continue;
                 }
@@ -251,7 +252,11 @@ token_t* tokenize(file_t* src, arena_t* arena, token_t* token_start){
                 tk.type = tk_comma;
                 break;
             case '.':
-                tk.type = tk_dot;
+                if(*(str+1) == '.' && *(str+2) == '.'){
+                    tk.strlen = 3;
+                    tk.type = tk_var_args;
+                }else
+                    tk.type = tk_dot;
                 break;
             case ':':
                 tk.type = tk_colon;
@@ -263,7 +268,10 @@ token_t* tokenize(file_t* src, arena_t* arena, token_t* token_start){
             case '\'':{
                 tk.type = (*str == '\'') ? tk_char_lit : tk_str_lit;
                 const char* start = str++;
-                while(*str && *str != *start) str++;
+                while(*str && *str != *start){
+                    if(*str == '\\') str += 2;
+                    else str++;
+                }
                 tk.strlen = str - start + 1;
                 if(!*str){
                     tk.strlen--;
@@ -352,6 +360,9 @@ token_t* tokenize(file_t* src, arena_t* arena, token_t* token_start){
                     return NULL;
                 }
                 break;
+            }case '\\':{
+                str += 2;
+                continue;
             }default:
                 print_context("Unexpected character",&tk);
                 return NULL;

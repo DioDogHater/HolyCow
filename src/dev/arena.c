@@ -22,7 +22,6 @@ void* arena_alloc(arena_t* arena, size_t size){
         return NULL;
     }
     if(arena->ptr + size > arena->size){
-        HC_WARN("Couldn't allocate %lu bytes with %lu/%lu bytes of free space in arena", size, arena->size - arena->ptr, arena->size);
         if(!arena->next){
             arena->next = (arena_t*) HC_MALLOC(sizeof(arena_t));
             *arena->next = NEW_ARENA();
@@ -31,8 +30,6 @@ void* arena_alloc(arena_t* arena, size_t size){
                 return NULL;
             }if(!arena_init(arena->next, (size > arena->size) ? (size + arena->size) : (arena->size)))
                 return NULL;
-            // TODO Remove this line
-            HC_WARN("Allocating a new arena...");
         }
         return arena_alloc(arena->next, size);
     }

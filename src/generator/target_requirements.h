@@ -118,7 +118,7 @@ REQ_OPERATION(or);
 REQ_OPERATION(xor);
 REQ_OPERATION(shl);
 REQ_OPERATION(shr);
-REQ_OPERATION(sar); // Shift right, signed
+REQ_OPERATION(sshr); // Shift right, signed
 REQ_AFFECTED_REGS(smul);
 REQ_OPERATION(smul);
 REQ_AFFECTED_REGS(mul);
@@ -146,5 +146,31 @@ extern void gen_declare_extern(HC_FILE, const char*, size_t);
 extern void gen_declare_global(HC_FILE, const char*, size_t, size_t, const char*, size_t);
 extern void gen_declare_global_arr(HC_FILE, const char*, size_t, size_t);
 extern void gen_declare_str(HC_FILE, size_t, const char*, size_t);
+extern void gen_declare_float(HC_FILE, size_t, const char*, size_t);
+
+// Floating point operations
+extern void gen_pop_float(HC_FILE);
+extern void gen_load_float(HC_FILE, size_t);
+extern void gen_load_stack_float(HC_FILE, size_t);
+extern void gen_load_arg_float(HC_FILE, size_t);
+extern void gen_load_ptr_float(HC_FILE, reg_t*);
+extern void gen_load_idx_float(HC_FILE, reg_t*, reg_t*, size_t);
+extern void gen_load_global_float(HC_FILE, const char*, size_t);
+extern void gen_save_stack_float(HC_FILE, size_t);
+extern void gen_save_arg_float(HC_FILE, size_t);
+extern void gen_save_ptr_float(HC_FILE, reg_t*);
+extern void gen_save_idx_float(HC_FILE, reg_t*, reg_t*, size_t);
+extern void gen_save_global_float(HC_FILE, const char*, size_t);
+extern void gen_load_float_reg(HC_FILE, reg_t*);
+extern void gen_int_to_float(HC_FILE, reg_t*);
+extern void gen_float_to_int(HC_FILE, reg_t*);
+extern void gen_neg_float(HC_FILE);
+extern void gen_add_floats(HC_FILE);
+extern void gen_sub_floats(HC_FILE);
+extern void gen_mul_floats(HC_FILE);
+extern void gen_div_floats(HC_FILE);
+extern void gen_cmpz_float(HC_FILE);
+extern void gen_cmp_floats(HC_FILE);
+extern void gen_cmp_approx_floats(HC_FILE);
 
 #endif

@@ -1,8 +1,8 @@
 #include "generator.h"
+#include "hc_types.h"
 #include "regs.h"
 #include "target_requirements.h"
 #include "target_x64_Linux.h"
-#include <stdalign.h>
 
 // Global variables
 size_t stack_ptr = 0;
@@ -11,9 +11,13 @@ size_t label_count = 1;
 
 vector_t vars[1] = { NEW_VECTOR(var_t) };
 vector_t funcs[1] = { NEW_VECTOR(func_t) };
+vector_t structs[1] = { NEW_VECTOR(struct_t) };
 
 node_term* str_literals = NULL;
 size_t str_literal_count = 0;
+
+node_term* float_literals = NULL;
+size_t float_literal_count = 0;
 
 static node_term* global_var_values = NULL;
 
@@ -88,20 +92,33 @@ void gen_quit_scope(HC_FILE fptr, scope_t snapshot){
 // Returns the id (index) of the string
 size_t append_string_literal(node_term* str_lit){
     node_term* ptr = str_literals;
+    str_lit->next = NULL;
     if(str_literal_count == 0){
-        str_lit->next = NULL;
         str_literals = str_lit;
     }else{
-        str_lit->next = NULL;
-        node_term* ptr = str_literals;
         for(; ptr->next; ptr = &ptr->next->term);
         ptr->next = (node_expr*) str_lit;
     }
     return str_literal_count++;
 }
 
+
+// Append a float literal to the linked list of float literals
+// Returns the id (index) of the float
+size_t append_float_literal(node_term* float_lit){
+    node_term* ptr = float_literals;
+    float_lit->next = NULL;
+    if(float_literal_count == 0){
+        float_literals = float_lit;
+    }else{
+        for(; ptr->next; ptr = &ptr->next->term);
+        ptr->next = (node_expr*) float_lit;
+    }
+    return float_literal_count++;
+}
+
 // Save a value in an expression
-static bool save_expr(HC_FILE fptr, node_expr* expr, reg_t* data){
+static bool save_expr(HC_FILE fptr, node_expr* expr, node_expr* value){
     if(expr->type == tk_identifier){
         var_t* var = get_var(expr->term.str, expr->term.strlen);
         if(!var){
@@ -109,15 +126,31 @@ static bool save_expr(HC_FILE fptr, node_expr* expr, reg_t* data){
             return false;
         }
 
-        if(var->location == VAR_STACK)
-            gen_save_stack(fptr, data, stack_sz - var->stack_ptr);
-        else if(var->location == VAR_GLOBAL)
-            gen_save_global(fptr, data, var->str, var->strlen);
-        else if(var->location == VAR_ARG)
-            gen_save_arg(fptr, data, var->stack_ptr);
-        else{
-            print_context_expr("Not implemented yet", expr);
-            return false;
+        if(var->type.ptr_depth || var->type.data == DATA_INT){
+            reg_t* data = EXPR_ONCE(value, var->type, NULL);
+            if(var->location == VAR_STACK)
+                gen_save_stack(fptr, data, stack_sz - var->stack_ptr);
+            else if(var->location == VAR_GLOBAL)
+                gen_save_global(fptr, data, var->str, var->strlen);
+            else if(var->location == VAR_ARG)
+                gen_save_arg(fptr, data, var->stack_ptr);
+            else{
+                print_context_expr("Not implemented yet", expr);
+                return false;
+            }
+        }else if(var->type.data == DATA_FLOAT){
+            if(!generate_float_expr(fptr, value))
+                return false;
+            if(var->location == VAR_STACK)
+                gen_save_stack_float(fptr, stack_sz - var->stack_ptr);
+            else if(var->location == VAR_GLOBAL)
+                gen_save_global_float(fptr, var->str, var->strlen);
+            else if(var->location == VAR_ARG)
+                gen_save_arg_float(fptr, var->stack_ptr);
+            else{
+                print_context_expr("Not implemented yet", expr);
+                return false;
+            }
         }
         return true;
     }else if(expr->type == tk_deref){
@@ -127,9 +160,16 @@ static bool save_expr(HC_FILE fptr, node_expr* expr, reg_t* data){
             print_type("Type ", ptr_type, " is not a pointer.");
             return false;
         }
-        reg_t* tmp = generate_expr(fptr, expr->unary_op.lhs, ptr_type, NULL);
-        gen_save_ptr(fptr, data, tmp);
-        (void) free_reg(tmp);
+        reg_t* ptr = generate_expr(fptr, expr->unary_op.lhs, ptr_type, NULL);
+        if(--ptr_type.ptr_depth || ptr_type.data == DATA_INT){
+            reg_t* data = EXPR_ONCE(value, ptr_type, NULL);
+            gen_save_ptr(fptr, data, ptr);
+        }else if(ptr_type.data == DATA_FLOAT){
+            if(!generate_float_expr(fptr, value))
+                return false;
+            gen_save_ptr_float(fptr, ptr);
+        }
+        (void) free_reg(ptr);
         return true;
     }else if(expr->type == tk_open_bracket){
         type_t ptr_type = typeof_expr(expr->bin_op.lhs);
@@ -140,7 +180,15 @@ static bool save_expr(HC_FILE fptr, node_expr* expr, reg_t* data){
         }
         reg_t* ptr = generate_expr(fptr, expr->bin_op.lhs, ptr_type, NULL);
         reg_t* idx = generate_expr(fptr, expr->bin_op.rhs, (type_t){8, GET_DUMMY_TYPE(uint64), false, DATA_INT, 0}, NULL);
-        gen_save_idx(fptr, data, ptr, idx, ptr_type.size);
+        if(--ptr_type.ptr_depth) ptr_type.size = target_address_size;
+        if(ptr_type.ptr_depth || ptr_type.data == DATA_INT){
+            reg_t* data = EXPR_ONCE(value, ptr_type, NULL);
+            gen_save_idx(fptr, data, ptr, idx, ptr_type.size);
+        }else if(ptr_type.data == DATA_FLOAT){
+            if(!generate_float_expr(fptr, value))
+                return false;
+            gen_save_idx_float(fptr, ptr, idx, ptr_type.size);
+        }
         (void) free_reg(ptr);
         (void) free_reg(idx);
         return true;
@@ -159,7 +207,151 @@ static void fail_gen_expr(HC_FILE fptr){
     HC_FAIL();
 }
 
-#define EXPR_ONCE(expr, type, reg) free_reg(generate_expr(fptr, (expr), (type), (reg)))
+size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func){
+    reg_t* masked_regs[MAX_REGS];
+
+    // Get the function
+    func_t* func = get_func(expr->func.identifier->str, expr->func.identifier->strlen);
+    if(!func){
+        print_context_expr("Unknown function", expr);
+        fail_gen_expr(fptr);
+    }
+
+    // The amount of bytes allocated on the stack
+    size_t func_call_sz = (func->type.ptr_depth) ? target_address_size : func->type.size;
+
+    // Get the occupied registers to save on the stack
+    // (because a function can affect registers)
+    int n = get_mask_occup_regs(ALL_REGS, true, registers, masked_regs);
+    for(int i = 0; i < n; i++){
+        func_call_sz = (func_call_sz + masked_regs[i]->size - 1) / masked_regs[i]->size * masked_regs[i]->size;
+        func_call_sz += masked_regs[i]->size;
+    }
+
+    // Get the size of all arguments + return value
+    node_expr* arg_expr = expr->func.args;
+    for(node_var_decl* arg = &func->args->var_decl; arg; arg = &arg->next->var_decl){
+        if(arg->type == tk_var_args){
+            func_call_sz = (func_call_sz + 7) / 8 * 8;
+            for(; arg_expr; arg_expr = arg_expr->next)
+                func_call_sz += 8;
+            break;
+        }
+        type_t arg_type = type_from_tk(arg->var_type);
+        size_t arg_size = (arg_type.ptr_depth) ? target_address_size : arg_type.size;
+        func_call_sz = (func_call_sz + arg_size - 1) / arg_size * arg_size;
+        func_call_sz += arg_size;
+        if(arg_expr) arg_expr = arg_expr->next;
+    }
+
+    // Allocate the stack space for everything
+    func_call_sz = (func_call_sz + 15) / 16 * 16;
+    if(func_call_sz)
+        gen_alloc_stack(fptr, func_call_sz);
+    stack_sz += func_call_sz;
+
+    // Save each occupied register on the stack
+    size_t arg_ptr = 0;
+    for(int i = 0; i < n; i++){
+        arg_ptr = (arg_ptr + masked_regs[i]->size - 1) / masked_regs[i]->size * masked_regs[i]->size;
+        arg_ptr += masked_regs[i]->size;
+        gen_save_stack(fptr, masked_regs[i], func_call_sz - arg_ptr);
+    }
+
+    // Generate each argument
+    arg_ptr = (func->type.ptr_depth) ? target_address_size : func->type.size;
+    arg_expr = expr->func.args;
+    for(node_var_decl* arg = &func->args->var_decl; arg; arg = &arg->next->var_decl){
+        node_expr* next_arg = NULL;
+
+        // Variable arguments
+        if(arg->type == tk_var_args){
+            arg_ptr = (arg_ptr + 7) / 8 * 8;
+
+            // Go through each additional argument
+            for(; arg_expr; arg_expr = next_arg){
+                next_arg = arg_expr->next;
+                type_t expr_type = typeof_expr(arg_expr);
+
+                // Int value
+                if(expr_type.ptr_depth || expr_type.data == DATA_INT){
+                    reg_t* tmp = EXPR_ONCE(arg_expr, ((type_t){8, GET_DUMMY_TYPE(int64), true, DATA_INT, 0}), NULL);
+                    gen_save_stack(fptr, tmp, arg_ptr);
+                }
+                // Float value
+                else if(expr_type.data == DATA_FLOAT){
+                    if(!generate_float_expr(fptr, arg_expr))
+                        fail_gen_expr(fptr);
+                    gen_save_stack_float(fptr, arg_ptr);
+                }// Other data types
+                else{
+                    print_context_expr("Variable argument data type not implemented", arg_expr);
+                    fail_gen_expr(fptr);
+                }
+                arg_ptr += 8;
+            }
+            break;
+        }else if(!arg_expr || arg_expr->type == tk_nothing){
+            if(arg_expr)
+                next_arg = arg_expr->next;
+            if(!arg->expr){
+                print_context("In function call here", expr->func.identifier);
+                print_context("Missing argument and no default value", arg->identifier);
+                fail_gen_expr(fptr);
+            }
+            arg_expr = arg->expr;
+        }else if(arg_expr)
+            next_arg = arg_expr->next;
+
+        type_t expr_type = typeof_expr(arg_expr), arg_type = type_from_tk(arg->var_type);
+        size_t arg_size = (arg_type.ptr_depth) ? target_address_size : arg_type.size;
+
+        // If the argument isn't compatible
+        if(((expr_type.ptr_depth) ? DATA_INT : expr_type.data) != ((arg_type.ptr_depth) ? DATA_INT : arg_type.data) ||
+            expr_type.ptr_depth != arg_type.ptr_depth){
+            print_context_expr("Incompatible argument type", arg_expr);
+            print_context("Expected argument type", arg->var_type);
+            print_type("Type ", expr_type, " is not compatible!");
+            fail_gen_expr(fptr);
+        }
+
+        arg_ptr = (arg_ptr + arg_size - 1) / arg_size * arg_size;
+        if(expr_type.ptr_depth || expr_type.data == DATA_INT){
+            reg_t* tmp = EXPR_ONCE(arg_expr, arg_type, NULL);
+            gen_save_stack(fptr, tmp, arg_ptr);
+        }else if(expr_type.data == DATA_FLOAT){
+            if(!generate_float_expr(fptr, arg_expr))
+                fail_gen_expr(fptr);
+            gen_save_stack_float(fptr, arg_ptr);
+        }else{
+            print_context_expr("Argument data type not implemented", arg_expr);
+            fail_gen_expr(fptr);
+        }
+        arg_ptr += arg_size;
+
+        arg_expr = next_arg;
+    }
+
+    if(arg_expr){
+        print_context_expr("Too many arguments provided", arg_expr);
+        fail_gen_expr(fptr);
+    }
+
+    // Call the function
+    gen_call_func(fptr, func->str, func->strlen);
+
+    // Retrieve every register off the stack
+    arg_ptr = 0;
+    n = get_mask_occup_regs(ALL_REGS, true, registers, masked_regs);
+    for(int i = 0; i < n; i++){
+        arg_ptr = (arg_ptr + masked_regs[i]->size - 1) / masked_regs[i]->size * masked_regs[i]->size;
+        arg_ptr += masked_regs[i]->size;
+        gen_load_stack(fptr, masked_regs[i], func_call_sz - arg_ptr);
+    }
+
+    *ret_func = func;
+    return func_call_sz;
+}
 
 #define SIGNED_OP1(sign, n) ((sign) ? GET_ALLOWED_REGS1(s##n) : GET_ALLOWED_REGS1(n))
 #define SIGNED_OP2(sign, n) ((sign) ? GET_ALLOWED_REGS2(s##n) : GET_ALLOWED_REGS2(n))
@@ -173,12 +365,32 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
 
     size_t sz = target_type.ptr_depth ? target_address_size : target_type.size;
     bool sign = target_type.ptr_depth ? false : target_type.sign;
+    type_t expr_type = typeof_expr(expr);
     if(prefered && !is_reg_free(prefered)) prefered = NULL;
+
+    if(!expr_type.ptr_depth && expr_type.data == DATA_FLOAT){
+        if(target_type.repr && target_type.repr->type == tk_bool){
+            reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(1), sign);
+            if(!generate_float_expr(fptr, expr))
+                fail_gen_expr(fptr);
+            gen_cmpz_float(fptr);
+            gen_cond_set(fptr, tk_cmp_neq, tmp, false);
+            return tmp;
+        }else{
+            reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(sz), sign);
+            if(!generate_float_expr(fptr, expr))
+                fail_gen_expr(fptr);
+            gen_float_to_int(fptr, tmp);
+            return tmp;
+        }
+    }
 
     // Buffer
     static reg_t* masked_regs[MAX_REGS];
 
     switch(expr->type){
+    case tk_reg_expr:
+        return (reg_t*) expr->reg.reg;
     case tk_bool_lit:{
         reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(sz), sign);
         gen_set_reg(fptr, tmp, (*expr->term.str == 't') ? "1" : "0", 1);
@@ -265,8 +477,10 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
     case n:{\
         reg_t* tmp = generate_expr(fptr, expr->unary_op.lhs, target_type, prefered ? prefered : GET_FREE_REG(sz));\
         gen_##m##_reg(fptr, tmp);\
-        if(!save_expr(fptr, expr->unary_op.lhs, tmp))\
+        node_reg_expr tmp_expr = (node_reg_expr){tk_reg_expr, NULL, tmp};\
+        if(!save_expr(fptr, expr->unary_op.lhs, (node_expr*) &tmp_expr))\
             fail_gen_expr(fptr);\
+        (void) alloc_reg(tmp, sign);\
         return tmp;\
     }
     INC_LIKE_EXPR(tk_inc, inc)
@@ -275,8 +489,10 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
     case n:{\
         reg_t* tmp = generate_expr(fptr, expr->unary_op.lhs, target_type, prefered ? prefered : GET_FREE_REG(sz));\
         gen_##m##_reg(fptr, tmp);\
-        if(!save_expr(fptr, expr->unary_op.lhs, tmp))\
+        node_reg_expr tmp_expr = (node_reg_expr){tk_reg_expr, NULL, tmp};\
+        if(!save_expr(fptr, expr->unary_op.lhs, (node_expr*) &tmp_expr))\
             fail_gen_expr(fptr);\
+        (void) alloc_reg(tmp, sign);\
         gen_##l##_reg(fptr, tmp);\
         return tmp;\
     }
@@ -301,45 +517,69 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
         reg_mask op1 = SIGNED_OP1(sign, m), op2 = SIGNED_OP2(sign, m), affected = SIGNED_AFFECTED(sign, m);\
         reg_t* tmp1 = generate_expr(fptr, expr->bin_op.lhs, target_type, (prefered && REG_IN_MASK(prefered, op1)) ? prefered : GET_MASK_REG(sz, op1));\
         reg_t* tmp2 = generate_expr(fptr, expr->bin_op.rhs, target_type, GET_MASK_REG(sz, op2));\
-        reg_t* replacements[MAX_REGS];/*v*/\
+        reg_t* replacements[MAX_REGS];\
         int n = get_mask_occup_regs(affected, true, registers, masked_regs);\
         for(int i = 0; i < n; i++)\
-            replacements[i] = transfer_reg(fptr, masked_regs[i], GET_MASK_REG(masked_regs[i]->size, ALL_REGS_EXCEPT(affected))); /*^*/\
+            replacements[i] = transfer_reg(fptr, masked_regs[i], GET_MASK_REG(masked_regs[i]->size, ALL_REGS_EXCEPT(affected)));\
         if(!REG_IN_MASK(tmp1, op1)){\
             reg_t* tmp3 = GET_OCC_MASK_REG(sz, op1);\
             reg_t* tmp4 = GET_MASK_REG(sz, ALL_REGS_EXCEPT(affected));\
-            transfer_reg(fptr, tmp3, tmp4);\
-            transfer_reg(fptr, tmp1, tmp3);\
+            (void) transfer_reg(fptr, tmp3, tmp4);\
+            (void) transfer_reg(fptr, tmp1, tmp3);\
             (sign) ? gen_s##m##_regs(fptr, tmp3, tmp2) : gen_##m##_regs(fptr, tmp3, tmp2);\
-            transfer_reg(fptr, tmp3, tmp1);\
-            transfer_reg(fptr, tmp4, tmp3);\
-            for(int i = 0; i < n; i++)/**/\
+            (void) transfer_reg(fptr, tmp3, tmp1);\
+            (void) transfer_reg(fptr, tmp4, tmp3);\
+            for(int i = 0; i < n; i++)\
                 (void) transfer_reg(fptr, replacements[i], masked_regs[i]);\
             return tmp1;\
         }else if(!REG_IN_MASK(tmp2, op2)){\
             reg_t* tmp3 = GET_OCC_MASK_REG(sz, op2);\
             reg_t* tmp4 = GET_MASK_REG(sz, ALL_REGS_EXCEPT(SIGNED_AFFECTED(sign, m)));\
-            transfer_reg(fptr, tmp3, tmp4);\
-            transfer_reg(fptr, tmp2, tmp3);\
+            (void) transfer_reg(fptr, tmp3, tmp4);\
+            (void) transfer_reg(fptr, tmp2, tmp3);\
             (sign) ? gen_s##m##_regs(fptr, tmp1, tmp3) : gen_##m##_regs(fptr, tmp1, tmp3);\
-            transfer_reg(fptr, tmp4, tmp3);\
-            for(int i = 0; i < n; i++)/**/\
+            (void) transfer_reg(fptr, tmp4, tmp3);\
+            for(int i = 0; i < n; i++)\
                 (void) transfer_reg(fptr, replacements[i], masked_regs[i]);\
             return tmp1;\
         }\
         (sign) ? gen_s##m##_regs(fptr, tmp1, tmp2) : gen_##m##_regs(fptr, tmp1, tmp2);\
-        free_reg(tmp2);\
-        for(int i = 0; i < n; i++)/**/\
+        (void) free_reg(tmp2);\
+        for(int i = 0; i < n; i++)\
             (void) transfer_reg(fptr, replacements[i], masked_regs[i]);\
         return tmp1;\
     }
     MULT_LIKE_EXPR(tk_mult, mul)
     MULT_LIKE_EXPR(tk_div, div)
     MULT_LIKE_EXPR(tk_mod, mod)
+    case tk_shl:
+    case tk_shr:{
+        reg_mask lhs, rhs;
+        if(expr->type == tk_shl) lhs = GET_ALLOWED_REGS1(shl), rhs = GET_ALLOWED_REGS2(shl);
+        else lhs = SIGNED_OP1(sign, shr), rhs = SIGNED_OP2(sign, shr);
+        reg_t* tmp1 = generate_expr(fptr, expr->bin_op.lhs, target_type, (prefered && REG_IN_MASK(prefered, lhs)) ? prefered : GET_MASK_REG(sz, lhs));
+        reg_t* tmp2 = generate_expr(fptr, expr->bin_op.rhs, (type_t){1, GET_DUMMY_TYPE(uint8), false, DATA_INT, 0}, GET_MASK_REG(1, rhs));
+        if(!REG_IN_MASK(tmp2, rhs)){
+            reg_t* tmp3 = GET_OCC_MASK_REG(1, rhs);
+            reg_t* tmp4 = GET_FREE_REG(1);
+            (void) transfer_reg(fptr, tmp3, tmp4);
+            (void) transfer_reg(fptr, tmp2, tmp3);
+            if(expr->type == tk_shl) gen_shl_regs(fptr, tmp1, tmp3);
+            else if(sign) gen_sshr_regs(fptr, tmp1, tmp3);
+            else gen_shr_regs(fptr, tmp1, tmp3);
+            (void) transfer_reg(fptr, tmp4, tmp3);
+            return tmp1;
+        }
+        if(expr->type == tk_shl) gen_shl_regs(fptr, tmp1, tmp2);
+        else if(sign) gen_sshr_regs(fptr, tmp1, tmp2);
+        else gen_shr_regs(fptr, tmp1, tmp2);
+        (void) free_reg(tmp2);
+        return tmp1;
+    }
     case tk_not:{
+        reg_t* tmp2 = alloc_reg((prefered && prefered->size == 1) ? prefered : GET_FREE_REG(1), sign);
         reg_t* tmp1 = generate_expr(fptr, expr->unary_op.lhs, typeof_expr(expr->unary_op.lhs), NULL);
         gen_cmpz_reg(fptr, tmp1);
-        reg_t* tmp2 = alloc_reg(GET_FREE_REG(1), sign);
         gen_cond_set(fptr, tk_cmp_eq, tmp2, false);
         (void) free_reg(tmp1);
         if(sz != 1)
@@ -350,39 +590,49 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
     case tk_or:{
         size_t skip_label = label_count++;
         type_t t = typeof_expr(expr->bin_op.lhs);
-        reg_t* tmp1 = generate_expr(fptr, expr->bin_op.lhs, t, NULL);
+        reg_t* tmp1 = NULL;
         if(!t.repr || t.repr->type != tk_bool){
-            reg_t* tmp2 = alloc_reg(GET_FREE_REG(1), sign);
-            gen_cmpz_reg(fptr, tmp1);
-            gen_cond_set(fptr, tk_cmp_neq, tmp2, false);
-            if(expr->type == tk_and)
-                gen_cond_jump(fptr, tk_cmp_eq, skip_label, false);
-            else
-                gen_cond_jump(fptr, tk_cmp_neq, skip_label, false);
-            free_reg(tmp1);
-            tmp1 = tmp2;
+            if(t.ptr_depth || t.data == DATA_INT){
+                tmp1 = generate_expr(fptr, expr->bin_op.lhs, t, NULL);
+                reg_t* tmp2 = alloc_reg(GET_FREE_REG(1), sign);
+                gen_cmpz_reg(fptr, tmp1);
+                gen_cond_set(fptr, tk_cmp_neq, tmp2, false);
+                (void) free_reg(tmp1);
+                tmp1 = tmp2;
+            }else if(t.data == DATA_FLOAT){
+                tmp1 = alloc_reg(prefered ? prefered : GET_FREE_REG(1), sign);
+                if(!generate_float_expr(fptr, expr->bin_op.lhs))
+                    fail_gen_expr(fptr);
+                gen_cmpz_float(fptr);
+                gen_cond_set(fptr, tk_cmp_neq, tmp1, false);
+            }
         }else{
+            tmp1 = generate_expr(fptr, expr->bin_op.lhs, t, (prefered && prefered->size == 1) ? prefered : NULL);
             gen_cmpz_reg(fptr, tmp1);
-            if(expr->type == tk_and)
-                gen_cond_jump(fptr, tk_cmp_eq, skip_label, false);
-            else
-                gen_cond_jump(fptr, tk_cmp_neq, skip_label, false);
-        }
-        t = typeof_expr(expr->bin_op.rhs);
-        reg_t* tmp2 = generate_expr(fptr, expr->bin_op.rhs, t, NULL);
-        if(!t.repr || t.repr->type != tk_bool){
-            reg_t* tmp3 = alloc_reg(GET_FREE_REG(1), sign);
-            gen_cmpz_reg(fptr, tmp2);
-            gen_cond_set(fptr, tk_cmp_neq, tmp3, false);
-            free_reg(tmp2);
-            tmp2 = tmp3;
         }
         if(expr->type == tk_and)
-            gen_and_regs(fptr, tmp1, tmp2);
+            gen_cond_jump(fptr, tk_cmp_eq, skip_label, false);
         else
-            gen_or_regs(fptr, tmp1, tmp2);
+            gen_cond_jump(fptr, tk_cmp_neq, skip_label, false);
+        t = typeof_expr(expr->bin_op.rhs);
+        if(!t.repr || t.repr->type != tk_bool){
+            if(t.ptr_depth || t.data == DATA_INT){
+                reg_t* tmp2 = generate_expr(fptr, expr->bin_op.rhs, t, NULL);
+                gen_cmpz_reg(fptr, tmp2);
+                gen_cond_set(fptr, tk_cmp_neq, tmp1, false);
+                (void) free_reg(tmp2);
+                tmp2 = tmp1;
+            }else if(t.data == DATA_FLOAT){
+                if(!generate_float_expr(fptr, expr->bin_op.rhs))
+                    fail_gen_expr(fptr);
+                gen_cmpz_float(fptr);
+                gen_cond_set(fptr, tk_cmp_neq, tmp1, false);
+            }
+        }else{
+            (void) free_reg(tmp1);
+            generate_expr(fptr, expr->bin_op.rhs, t, tmp1);
+        }
         gen_label(fptr, skip_label);
-        (void) free_reg(tmp2);
         if(sz != 1)
             tmp1 = transfer_reg(fptr, tmp1, (prefered && is_reg_free(prefered)) ? prefered : GET_FREE_REG(sz));
         return tmp1;
@@ -394,17 +644,45 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
     case tk_cmp_l:
     case tk_cmp_le:{
         type_t t1 = typeof_expr(expr->bin_op.lhs), t2 = typeof_expr(expr->bin_op.rhs);
-        if(!t1.data || !t2.data || t1.data != t2.data){
+        if(!t1.data || !t2.data || ((t1.ptr_depth) ? DATA_INT : t1.data) != ((t2.ptr_depth) ? DATA_INT : t2.data)){
             print_context_expr("Cannot compare two values of incompatible types", expr);
             fail_gen_expr(fptr);
         }
         type_t biggest_t = (t1.size > t2.size) ? t1 : t2;
-        reg_t *lhs = generate_expr(fptr, expr->bin_op.lhs, biggest_t, NULL), *rhs = generate_expr(fptr, expr->bin_op.rhs, biggest_t, NULL);
-        gen_compare(fptr, lhs, rhs);
-        (void) free_reg(lhs);
-        (void) free_reg(rhs);
-        reg_t* tmp = alloc_reg(GET_FREE_REG(1), sign);
-        gen_cond_set(fptr, expr->type, tmp, t1.sign | t2.sign);
+        reg_t* tmp = alloc_reg((prefered && prefered->size == 1) ? prefered : NULL, sign);
+        if(biggest_t.ptr_depth || biggest_t.data == DATA_INT){
+            reg_t *lhs = generate_expr(fptr, expr->bin_op.lhs, biggest_t, NULL), *rhs = generate_expr(fptr, expr->bin_op.rhs, biggest_t, NULL);
+            gen_compare(fptr, lhs, rhs);
+            (void) free_reg(lhs);
+            (void) free_reg(rhs);
+        }else if(biggest_t.data == DATA_FLOAT){
+            t1.sign = t2.sign = false;
+            if(!generate_float_expr(fptr, expr->bin_op.rhs) || !generate_float_expr(fptr, expr->bin_op.lhs))
+                return false;
+            gen_cmp_floats(fptr);
+        }
+        if(!tmp) tmp = alloc_reg(GET_FREE_REG(1), sign);
+        gen_cond_set(fptr, expr->type, tmp, t1.sign || t2.sign);
+        if(sz != 1)
+            tmp = transfer_reg(fptr, tmp, (prefered && is_reg_free(prefered)) ? prefered : GET_FREE_REG(sz));
+        return tmp;
+    }
+    case tk_cmp_approx:{
+        if(!get_var("FP_PRECISION", 12)){
+            print_context_expr("Missing FP_PRECISION global variable.", expr);
+            HC_WARN("FP_PRECISION must be a declared global variable containing the max difference between two numbers approximately equal.");
+            fail_gen_expr(fptr);
+        }
+        type_t t1 = typeof_expr(expr->bin_op.lhs), t2 = typeof_expr(expr->bin_op.rhs);
+        if(!t1.data || !t2.data || t1.ptr_depth || t1.data != DATA_FLOAT || t2.ptr_depth || t2.data != DATA_FLOAT){
+            print_context_expr("Cannot compare approximately values that are not floats", expr);
+            fail_gen_expr(fptr);
+        }
+        if(!generate_float_expr(fptr, expr->bin_op.rhs) || !generate_float_expr(fptr, expr->bin_op.lhs))
+            return false;
+        gen_cmp_approx_floats(fptr);
+        reg_t* tmp = alloc_reg((prefered && prefered->size == 1) ? prefered : GET_FREE_REG(1), sign);
+        gen_cond_set(fptr, tk_cmp_ge, tmp, false);
         if(sz != 1)
             tmp = transfer_reg(fptr, tmp, (prefered && is_reg_free(prefered)) ? prefered : GET_FREE_REG(sz));
         return tmp;
@@ -492,120 +770,41 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
     }
     case tk_type_cast:{
         type_t cast_type = type_from_tk(expr->type_cast.lhs->start);
-        if(sz == ((cast_type.ptr_depth) ? target_address_size : cast_type.size)){
+        size_t cast_size = (cast_type.ptr_depth) ? target_address_size : cast_type.size;
+        short cast_data = (cast_type.ptr_depth) ? DATA_INT : cast_type.data;
+        if(cast_data == DATA_FLOAT){
+            if(!generate_float_expr(fptr, expr->type_cast.rhs))
+                fail_gen_expr(fptr);
+            reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(sz), sign);
+            gen_float_to_int(fptr, tmp);
+            return tmp;
+        }
+        if(sz == cast_size){
             reg_t* tmp = generate_expr(fptr, expr->type_cast.rhs, cast_type, prefered);
             if(sign == ((cast_type.ptr_depth) ? false : cast_type.sign))
                 tmp->occupied = (sign) ? OCCUP_SIGNED : OCCUP_UNSIGNED;
             return tmp;
-        }else if(sz > ((cast_type.ptr_depth) ? target_address_size : cast_type.size)){
+        }else if(sz > cast_size){
             reg_t* tmp2 = alloc_reg(prefered, sign);
             reg_t* tmp1 = generate_expr(fptr, expr->type_cast.rhs, cast_type, NULL);
             if(!tmp2) tmp2 = alloc_reg(GET_FREE_REG(sz), sign);
             return transfer_reg(fptr, tmp1, tmp2);
         }else{
-            print_context_expr("Trying to convert bigger type into smaller type", expr);
-            fail_gen_expr(fptr);
+            reg_t* tmp = generate_expr(fptr, expr->type_cast.rhs, cast_type, NULL);
+            return get_lower_nbytes(fptr, tmp, sz);
         }
     }
     case tk_func_call:{
-        // Get the function
-        func_t* func = get_func(expr->func.identifier->str, expr->func.identifier->strlen);
-        if(!func){
-            print_context_expr("Unknown function", expr);
-            fail_gen_expr(fptr);
-        }
+        func_t* func = NULL;
+        size_t func_call_sz = generate_func_call(fptr, expr, &func);
 
-        // The amount of bytes allocated on the stack
-        size_t func_call_sz = (func->type.ptr_depth) ? target_address_size : func->type.size;
-
-        // Get the occupied registers to save on the stack
-        // (because a function can affect registers)
-        int n = get_mask_occup_regs(ALL_REGS, true, registers, masked_regs);
-        for(int i = 0; i < n; i++){
-            func_call_sz = (func_call_sz + masked_regs[i]->size - 1) / masked_regs[i]->size * masked_regs[i]->size;
-            func_call_sz += masked_regs[i]->size;
-        }
-
-        // Get the size of all arguments + return value
-        for(node_var_decl* arg = &func->args->var_decl; arg; arg = &arg->next->var_decl){
-            type_t arg_type = type_from_tk(arg->var_type);
-            size_t arg_size = (arg_type.ptr_depth) ? target_address_size : arg_type.size;
-            func_call_sz = (func_call_sz + arg_size - 1) / arg_size * arg_size;
-            func_call_sz += arg_size;
-        }
-
-        // Allocate the stack space for everything
-        func_call_sz = (func_call_sz + 15) / 16 * 16;
-        if(func_call_sz)
-            gen_alloc_stack(fptr, func_call_sz);
-        stack_sz += func_call_sz;
-
-        // Save each occupied register on the stack
-        size_t arg_ptr = 0;
-        for(int i = 0; i < n; i++){
-            arg_ptr = (arg_ptr + masked_regs[i]->size - 1) / masked_regs[i]->size * masked_regs[i]->size;
-            arg_ptr += masked_regs[i]->size;
-            gen_save_stack(fptr, masked_regs[i], func_call_sz - arg_ptr);
-        }
-
-        // Generate each argument
-        arg_ptr = (func->type.ptr_depth) ? target_address_size : func->type.size;
-        node_expr* arg_expr = expr->func.args;
-        for(node_var_decl* arg = &func->args->var_decl; arg; arg = &arg->next->var_decl){
-            node_expr* next_arg = NULL;
-            if(!arg_expr || arg_expr->type == tk_nothing){
-                if(!arg->expr){
-                    print_context("In function call here", expr->func.identifier);
-                    print_context("Missing argument and no default value", arg->identifier);
-                    fail_gen_expr(fptr);
-                }
-                arg_expr = arg->expr;
-            }
-            if(arg_expr)
-                next_arg = arg_expr->next;
-
-            type_t expr_type = typeof_expr(arg_expr), arg_type = type_from_tk(arg->var_type);
-            size_t arg_size = (arg_type.ptr_depth) ? target_address_size : arg_type.size;
-
-            // If the argument isn't compatible
-            if(expr_type.data != arg_type.data || expr_type.ptr_depth != arg_type.ptr_depth){
-                print_context_expr("Incompatible argument type", arg_expr);
-                print_context("Expected argument type", arg->var_type);
-                print_type("Type ", expr_type, " is not compatible!");
-                fail_gen_expr(fptr);
-            }
-
-            reg_t* tmp = EXPR_ONCE(arg_expr, arg_type, NULL);
-            arg_ptr = (arg_ptr + arg_size - 1) / arg_size * arg_size;
-            gen_save_stack(fptr, tmp, arg_ptr);
-            arg_ptr += arg_size;
-
-            arg_expr = next_arg;
-        }
-
-        if(arg_expr){
-            print_context_expr("Too many arguments provided", arg_expr);
-            fail_gen_expr(fptr);
-        }
-
-        // Call the function
-        gen_call_func(fptr, func->str, func->strlen);
-
-        // Retrieve every register off the stack
-        arg_ptr = 0;
-        n = get_mask_occup_regs(ALL_REGS, true, registers, masked_regs);
-        for(int i = 0; i < n; i++){
-            arg_ptr = (arg_ptr + masked_regs[i]->size - 1) / masked_regs[i]->size * masked_regs[i]->size;
-            arg_ptr += masked_regs[i]->size;
-            gen_load_stack(fptr, masked_regs[i], func_call_sz - arg_ptr);
-        }
-
-        // Get the return value or 0 if it doesnt return anything
+        // Get the return value
+        size_t return_sz = (func->type.ptr_depth) ? target_address_size : func->type.size;
         reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(sz), sign);
-        if((func->type.ptr_depth) ? true : func->type.size)
+        if(return_sz && sz <= return_sz)
             gen_load_stack(fptr, tmp, 0);
-        else
-            gen_set_reg(fptr, tmp, "0", 1);
+        else if(return_sz)
+            gen_loadx_stack(fptr, tmp, 0, return_sz, sign);
 
         // Deallocate the stack space of the function
         if(func_call_sz)
@@ -613,7 +812,8 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
         stack_sz -= func_call_sz;
         return tmp;
     }
-    case tk_stack_alloc:{
+    // NOT WORTH IT AT THE MOMENT
+    /*case tk_stack_alloc:{
         if(sz != target_address_size){
             print_context_expr("Cannot store address in smaller type", expr);
             print_type("Type ", target_type, " is not big enough for an address.");
@@ -635,14 +835,101 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
         reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(sz), sign);
         gen_load_stack_ptr(fptr, tmp, 0);
         return tmp;
-    }
+    }*/
     }
     print_context_expr("Expression type not implemented", expr);
     fail_gen_expr(fptr);
     return NULL;
 }
 
-bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type){
+// Floating point expressions
+bool generate_float_expr(HC_FILE fptr, node_expr* expr){
+    type_t expr_type = typeof_expr(expr);
+    if(!expr_type.data){
+        print_context_expr("Expression of invalid type", expr);
+        return false;
+    }else if(!expr_type.ptr_depth && expr_type.data == DATA_INT){
+        reg_t* tmp = EXPR_ONCE(expr, ((type_t){8, GET_DUMMY_TYPE(int64), true, DATA_INT, 0}), NULL);
+        gen_int_to_float(fptr, tmp);
+        return true;
+    }else if(expr_type.data != DATA_FLOAT){
+        print_type("Cannot convert type ",expr_type," to float");
+        print_context_expr("Cannot convert expression to float", expr);
+        return false;
+    }
+
+    switch(expr->type){
+    case tk_float_lit:
+        gen_load_float(fptr, append_float_literal(&expr->term));
+        break;
+    case tk_identifier:{
+        var_t* var = get_var(expr->term.str, expr->term.strlen);
+        if(var->location == VAR_STACK)
+            gen_load_stack_float(fptr, stack_sz - var->stack_ptr);
+        else if(var->location == VAR_ARG)
+            gen_load_arg_float(fptr, var->stack_ptr);
+        else if(var->location == VAR_GLOBAL)
+            gen_load_global_float(fptr, var->str, var->strlen);
+        else{
+            print_context_ex("Not implemented", expr->term.str, expr->term.strlen);
+            return false;
+        }
+        break;
+    }case tk_neg:
+        if(!generate_float_expr(fptr, expr->unary_op.lhs))
+            return false;
+        gen_neg_float(fptr);
+        break;
+    case tk_add:
+    case tk_sub:
+    case tk_mult:
+    case tk_div:
+        if(!generate_float_expr(fptr, expr->bin_op.lhs) || !generate_float_expr(fptr, expr->bin_op.rhs))
+            return false;
+        if(expr->type == tk_add)
+            gen_add_floats(fptr);
+        else if(expr->type == tk_sub)
+            gen_sub_floats(fptr);
+        else if(expr->type == tk_mult)
+            gen_mul_floats(fptr);
+        else
+            gen_div_floats(fptr);
+        break;
+    case tk_deref:{
+        expr_type.ptr_depth++;
+        reg_t* ptr = EXPR_ONCE(expr->unary_op.lhs, expr_type, NULL);
+        gen_load_ptr_float(fptr, ptr);
+        break;
+    }
+    case tk_open_bracket:{
+        expr_type.ptr_depth++;
+        reg_t* ptr = generate_expr(fptr, expr->bin_op.lhs, expr_type, NULL);
+        reg_t* idx = generate_expr(fptr, expr->bin_op.rhs, (type_t){8, GET_DUMMY_TYPE(uint64), false, DATA_INT, 0}, NULL);
+        gen_load_idx_float(fptr, ptr, idx, 8);
+        (void) free_reg(ptr);
+        (void) free_reg(idx);
+        break;
+    }
+    case tk_type_cast:
+        return generate_float_expr(fptr, expr->type_cast.rhs);
+    case tk_func_call:{
+        func_t* func = NULL;
+        size_t func_call_sz = generate_func_call(fptr, expr, &func);
+
+        gen_load_stack_float(fptr, 0);
+
+        if(func_call_sz)
+            gen_dealloc_stack(fptr, func_call_sz);
+        stack_sz -= func_call_sz;
+        break;
+    }default:
+        print_context_expr("Unkwown / float operation", expr);
+        return false;
+    }
+    return true;
+}
+
+bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info parent){
     if(!fn_type.data && stmt->type != tk_func_decl && stmt->type != tk_var_decl && stmt->type != tk_arr_decl){
         HC_PRINT(BOLD "Sadly I can't tell you where the error is, but here is the invalid statement's type: %lu :(" RESET_ATTR "\n", stmt->type);
         HC_ERR("Cannot do more than declaring functions, variables or arrays outside a function!");
@@ -678,6 +965,17 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type){
                         func.type.ptr_depth == last_def->type.ptr_depth && func.type.data == last_def->type.data);
             node_var_decl* last_arg = &last_def->args->var_decl;
             for(node_var_decl* arg = &func.args->var_decl; same && arg; arg = &arg->next->var_decl, last_arg = &last_arg->next->var_decl){
+                if((arg->type == tk_var_args) != (last_arg->type == tk_var_args)){
+                    if(arg->type != tk_var_args)
+                        print_context("Var args not matching", arg->identifier);
+                    else
+                        print_context("Var args not matching", last_arg->identifier);
+                    same = false;
+                    break;
+                }else if(arg->type == tk_var_args){
+                    last_arg = NULL;
+                    break;
+                }
                 type_t t1 = type_from_tk(arg->var_type), t2 = type_from_tk(last_arg->var_type);
                 if(!last_arg || t1.size != t2.size || t1.sign != t2.sign || t1.ptr_depth != t2.ptr_depth || t1.data != t2.data)
                     same = false;
@@ -702,8 +1000,6 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type){
             return true;
         }
 
-        print_context("Func def here", stmt->func_decl.identifier);
-
         // Setup the function
         stack_sz = stack_ptr = 0;
         label_count = 1;
@@ -721,8 +1017,17 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type){
 
         // Add arguments as variables
         for(node_var_decl* arg = &func.args->var_decl; arg; arg = &arg->next->var_decl){
+            // Variable arguments start (@varg_start)
+            if(arg->type == tk_var_args){
+                arg_ptr = (arg_ptr + 7) / 8 * 8;
+                var_t arg_var = {"@varg_start", 11, arg_ptr, VAR_ARG, (type_t){8, GET_DUMMY_TYPE(uint64), false, DATA_INT, 0}};
+                vector_append(vars, &arg_var);
+                break;
+            }
+
             type_t arg_type = type_from_tk(arg->var_type);
             if(arg->expr){
+                // Check if default value is compatible
                 type_t default_type = typeof_expr(arg->expr);
                 if(!default_type.data || default_type.data != arg_type.data || default_type.ptr_depth != arg_type.ptr_depth){
                     if(default_type.data)
@@ -730,6 +1035,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type){
                     return false;
                 }
             }
+            // Register argument as variable in function scope
             size_t arg_size = (arg_type.ptr_depth) ? target_address_size : arg_type.size;
             arg_ptr = (arg_ptr + arg_size - 1) / arg_size * arg_size;
             var_t arg_var = {arg->identifier->str, arg->identifier->strlen, arg_ptr, VAR_ARG, arg_type};
@@ -739,7 +1045,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type){
 
         // Go through each statement
         for(node_stmt* ptr = stmt->func_decl.stmts; ptr; ptr = ptr->next){
-            if(!generate_stmt(fptr, ptr, func.type))
+            if(!generate_stmt(fptr, ptr, func.type, parent))
                 return false;
         }
 
@@ -749,26 +1055,36 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type){
 
         // First label is dedicated to returns
         gen_label(fptr, 0);
-        //gen_quit_scope(fptr, func_sz);
         gen_return_func(fptr);
-
-
 
         return true;
     }
     case tk_if:{
         // Allocate labels
         size_t other_label = label_count++, end_label = label_count++;
+        parent.stack_sz = stack_sz;
+        parent.next_label = other_label;
+        parent.end_label = end_label;
 
         // Generate condition
-        reg_t* cond = EXPR_ONCE(stmt->if_stmt.cond, typeof_expr(stmt->if_stmt.cond), NULL);
-        gen_cmpz_reg(fptr, cond);
+        type_t cond_type = typeof_expr(stmt->if_stmt.cond);
+        if(cond_type.ptr_depth || cond_type.data == DATA_INT){
+            reg_t* cond = EXPR_ONCE(stmt->if_stmt.cond, cond_type, NULL);
+            gen_cmpz_reg(fptr, cond);
+        }else if(cond_type.data == DATA_FLOAT){
+            if(!generate_float_expr(fptr, stmt->if_stmt.cond))
+                return false;
+            gen_cmpz_float(fptr);
+        }else{
+            print_context_expr("Cannot use as a condition", stmt->if_stmt.cond);
+            return false;
+        }
         gen_cond_jump(fptr, tk_cmp_eq, other_label, false);
 
         // Go through the if's scope if its condition is true
         scope_t scope = gen_init_scope(fptr, stmt->if_stmt.stmts);
         for(node_stmt* ptr = stmt->if_stmt.stmts; ptr; ptr = ptr->next){
-            if(!generate_stmt(fptr, ptr, fn_type))
+            if(!generate_stmt(fptr, ptr, fn_type, parent))
                 return false;
         }
 
@@ -790,16 +1106,27 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type){
             // Generate it
             if(stmt->type == tk_else_if){
                 other_label = label_count++;
+                parent.next_label = other_label;
 
                 // Generate the alternate condition
-                cond = EXPR_ONCE(stmt->if_stmt.cond, typeof_expr(stmt->if_stmt.cond), NULL);
-                gen_cmpz_reg(fptr, cond);
+                cond_type = typeof_expr(stmt->if_stmt.cond);
+                if(cond_type.ptr_depth || cond_type.data == DATA_INT){
+                    reg_t* cond = EXPR_ONCE(stmt->if_stmt.cond, cond_type, NULL);
+                    gen_cmpz_reg(fptr, cond);
+                }else if(cond_type.data == DATA_FLOAT){
+                    if(!generate_float_expr(fptr, stmt->if_stmt.cond))
+                        return false;
+                    gen_cmpz_float(fptr);
+                }else{
+                    print_context_expr("Cannot use as a condition", stmt->if_stmt.cond);
+                    return false;
+                }
                 gen_cond_jump(fptr, tk_cmp_eq, other_label, false);
 
                 // Go through the else if's scopes
                 scope_t else_if_scope = gen_init_scope(fptr, stmt->if_stmt.stmts);
                 for(node_stmt* ptr = stmt->if_stmt.stmts; ptr; ptr = ptr->next){
-                    if(!generate_stmt(fptr, ptr, fn_type))
+                    if(!generate_stmt(fptr, ptr, fn_type, parent))
                         return false;
                 }
 
@@ -810,9 +1137,11 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type){
                 gen_label(fptr, other_label);
             }else{
                 // Just go through the else's scope
+                parent.next_label = 0;
                 scope_t else_scope = gen_init_scope(fptr, stmt->scope.stmts);
+                parent.stack_sz = stack_sz;
                 for(node_stmt* ptr = stmt->scope.stmts; ptr; ptr = ptr->next){
-                    if(!generate_stmt(fptr, ptr, fn_type))
+                    if(!generate_stmt(fptr, ptr, fn_type, parent))
                         return false;
                 }
                 gen_quit_scope(fptr, else_scope);
@@ -823,7 +1152,6 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type){
 
         // The end of the if statement chain
         gen_label(fptr, end_label);
-
         return true;
     }
     // If we stumble upon else if / else without an if behind it
@@ -838,9 +1166,8 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type){
     // Basic scope: { ... }
     case tk_open_braces:{
         scope_t scope = gen_init_scope(fptr, stmt->scope.stmts);
-
         for(node_stmt* ptr = stmt->scope.stmts; ptr; ptr = ptr->next){
-            if(!generate_stmt(fptr, ptr, fn_type))
+            if(!generate_stmt(fptr, ptr, fn_type, parent))
                 return false;
         }
 
@@ -848,26 +1175,39 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type){
         return true;
     }
     case tk_while:{
-        size_t start_label = label_count++, end_label= label_count++;
+        size_t start_label = label_count++, end_label = label_count++;
+        parent.stack_sz = stack_sz;
+        parent.continue_label = start_label;
+        parent.break_label = end_label;
 
         // Start the loop
         scope_t while_scope = gen_init_scope(fptr, stmt->while_stmt.stmts);
         gen_label(fptr, start_label);
 
         // Check the condition
-        reg_t* cond = EXPR_ONCE(stmt->while_stmt.cond, typeof_expr(stmt->while_stmt.cond), NULL);
-        gen_cmpz_reg(fptr, cond);
+        type_t cond_type = typeof_expr(stmt->while_stmt.cond);
+        if(cond_type.ptr_depth || cond_type.data == DATA_INT){
+            reg_t* cond = EXPR_ONCE(stmt->while_stmt.cond, cond_type, NULL);
+            gen_cmpz_reg(fptr, cond);
+        }else if(cond_type.data == DATA_FLOAT){
+            if(!generate_float_expr(fptr, stmt->while_stmt.cond))
+                return false;
+            gen_cmpz_float(fptr);
+        }else{
+            print_context_expr("Cannot use as a condition", stmt->while_stmt.cond);
+            return false;
+        }
         gen_cond_jump(fptr, tk_cmp_eq, end_label, false);
 
         // Generate the scope
         for(node_stmt* ptr = stmt->while_stmt.stmts; ptr; ptr = ptr->next){
-            if(!generate_stmt(fptr, ptr, fn_type))
+            if(!generate_stmt(fptr, ptr, fn_type, parent))
                 return false;
         }
 
         // When the loop continues
-        if(stack_sz > while_scope.stack_sz + while_scope.size)
-            gen_dealloc_stack(fptr, stack_sz - (while_scope.stack_sz + while_scope.size));
+        //if(stack_sz > parent.stack_sz)
+        //    gen_dealloc_stack(fptr, stack_sz - parent.stack_sz);
         gen_jump(fptr, start_label);
 
         // When the loop ends
@@ -876,7 +1216,10 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type){
         return true;
     }
     case tk_repeat:{
-        size_t start_label = label_count++, end_label = label_count++;
+        size_t start_label = label_count++, step_label = label_count++, end_label = label_count++;
+        parent.stack_sz = stack_sz;
+        parent.continue_label = step_label;
+        parent.break_label = end_label;
 
         // Start the loop
         reg_t* cond = generate_expr(fptr, stmt->repeat_stmt.cond, typeof_expr(stmt->repeat_stmt.cond), NULL);
@@ -889,23 +1232,52 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type){
 
         // Generate the scope
         for(node_stmt* ptr = stmt->repeat_stmt.stmts; ptr; ptr = ptr->next){
-            if(!generate_stmt(fptr, ptr, fn_type))
+            if(!generate_stmt(fptr, ptr, fn_type, parent))
                 return false;
         }
 
         // When the loop continues
-        if(stack_sz > repeat_scope.stack_sz + repeat_scope.size)
-            gen_dealloc_stack(fptr, stack_sz - (repeat_scope.stack_sz + repeat_scope.size));
+        gen_label(fptr, step_label);
+        //if(stack_sz > parent.stack_sz)
+        //    gen_dealloc_stack(fptr, stack_sz - parent.stack_sz);
         gen_dec_reg(fptr, cond);
         gen_jump(fptr, start_label);
 
         // When the loop ends
         gen_label(fptr, end_label);
+        (void) free_reg(cond);
         gen_quit_scope(fptr, repeat_scope);
         return true;
     }
+    case tk_loop:{
+        parent.stack_sz = stack_sz;
+
+        size_t start_label = label_count++, end_label = label_count++;
+        scope_t loop_scope = gen_init_scope(fptr, stmt->scope.stmts);
+        parent.continue_label = start_label;
+        parent.break_label = end_label;
+
+        gen_label(fptr, start_label);
+
+        // Generate the scope
+        for(node_stmt* ptr = stmt->scope.stmts; ptr; ptr = ptr->next){
+            if(!generate_stmt(fptr, ptr, fn_type, parent))
+                return false;
+        }
+
+        // When the loop continues
+        //if(stack_sz > parent.stack_sz)
+        //    gen_dealloc_stack(fptr, stack_sz - parent.stack_sz);
+        gen_jump(fptr, start_label);
+
+        gen_label(fptr, end_label);
+        gen_quit_scope(fptr, loop_scope);
+        return true;
+    }
     case tk_for:{
-        size_t start_label = label_count++, end_label= label_count++;
+        size_t start_label = label_count++, step_label = label_count++, end_label = label_count++;
+
+        parent.stack_sz = stack_sz;
 
         // Start the loop
         scope_t for_scope;
@@ -915,31 +1287,45 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type){
             last_init->next = stmt->for_stmt.stmts;
             for_scope = gen_init_scope(fptr, (node_stmt*) stmt->for_stmt.init);
             for(; (node_stmt*) stmt->for_stmt.init != stmt->for_stmt.stmts; stmt->for_stmt.init = &stmt->for_stmt.init->next->var_decl)
-                generate_stmt(fptr, (node_stmt*) stmt->for_stmt.init, fn_type);
+                generate_stmt(fptr, (node_stmt*) stmt->for_stmt.init, fn_type, parent);
         }else
             for_scope = gen_init_scope(fptr, stmt->for_stmt.stmts);
         gen_label(fptr, start_label);
 
+        parent.continue_label = step_label;
+        parent.break_label = end_label;
+
         // Check the condition
-        reg_t* cond = EXPR_ONCE(stmt->for_stmt.cond, typeof_expr(stmt->for_stmt.cond), NULL);
-        gen_cmpz_reg(fptr, cond);
+        type_t cond_type = typeof_expr(stmt->for_stmt.cond);
+        if(cond_type.ptr_depth || cond_type.data == DATA_INT){
+            reg_t* cond = EXPR_ONCE(stmt->for_stmt.cond, cond_type, NULL);
+            gen_cmpz_reg(fptr, cond);
+        }else if(cond_type.data == DATA_FLOAT){
+            if(!generate_float_expr(fptr, stmt->for_stmt.cond))
+                return false;
+            gen_cmpz_float(fptr);
+        }else{
+            print_context_expr("Cannot use as a condition", stmt->for_stmt.cond);
+            return false;
+        }
         gen_cond_jump(fptr, tk_cmp_eq, end_label, false);
 
         // Generate the scope
         for(node_stmt* ptr = stmt->for_stmt.stmts; ptr; ptr = ptr->next){
-            if(!generate_stmt(fptr, ptr, fn_type))
+            if(!generate_stmt(fptr, ptr, fn_type, parent))
                 return false;
         }
 
         // Step
+        gen_label(fptr, step_label);
         for(node_stmt* ptr = stmt->for_stmt.step; ptr; ptr = ptr->next){
-            if(!generate_stmt(fptr, ptr, fn_type))
+            if(!generate_stmt(fptr, ptr, fn_type, parent))
                 return false;
         }
 
         // When the loop continues
-        if(stack_sz > for_scope.stack_sz + for_scope.size)
-            gen_dealloc_stack(fptr, stack_sz - (for_scope.stack_sz + for_scope.size));
+        //if(stack_sz > parent.stack_sz)
+        //    gen_dealloc_stack(fptr, stack_sz - parent.stack_sz);
         gen_jump(fptr, start_label);
 
         // When the loop ends
@@ -967,9 +1353,14 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type){
 
             // Save the default value
             if(stmt->var_decl.expr){
-                reg_t* tmp = EXPR_ONCE(stmt->var_decl.expr, var_type, NULL);
-
-                gen_save_stack(fptr, tmp, stack_sz - var_ptr);
+                if(var_type.ptr_depth || var_type.data == DATA_INT){
+                    reg_t* tmp = EXPR_ONCE(stmt->var_decl.expr, var_type, NULL);
+                    gen_save_stack(fptr, tmp, stack_sz - var_ptr);
+                }else if(var_type.data == DATA_FLOAT){
+                    if(!generate_float_expr(fptr, stmt->var_decl.expr))
+                        return false;
+                    gen_save_stack_float(fptr, stack_sz - var_ptr);
+                }
             }
 
             // Register the variable in the variable vector
@@ -977,9 +1368,13 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type){
             vector_append(vars, &new_var);
         }else{
             // Global variables
-            if(stmt->var_decl.expr && (stmt->var_decl.expr->type == tk_int_lit ||
-               stmt->var_decl.expr->type == tk_char_lit || stmt->var_decl.expr->type == tk_str_lit ||
-               stmt->var_decl.expr->type == tk_bool_lit)){
+            if(stmt->var_decl.expr && (
+            stmt->var_decl.expr->type == tk_int_lit ||
+            stmt->var_decl.expr->type == tk_char_lit ||
+            stmt->var_decl.expr->type == tk_str_lit ||
+            stmt->var_decl.expr->type == tk_bool_lit ||
+            stmt->var_decl.expr->type == tk_float_lit
+            )){
                 node_term* last_lit = global_var_values;
                 stmt->var_decl.expr->term.next = NULL;
                 if(!last_lit)
@@ -1041,33 +1436,62 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type){
         }
         return true;
     }
-    case tk_assign:{
-        type_t type = typeof_expr(stmt->var_assign.var);
-        reg_t* val = generate_expr(fptr, stmt->var_assign.expr, type, NULL);
-        bool ok = save_expr(fptr, stmt->var_assign.var, val);
-        (void) free_reg(val);
-        return ok;
-    }
+    case tk_assign:
+        return save_expr(fptr, stmt->var_assign.var, stmt->var_assign.expr);
     case tk_add_assign:
     case tk_sub_assign:
     case tk_mult_assign:
     case tk_div_assign:
     case tk_mod_assign:{
-        type_t type = typeof_expr(stmt->var_assign.var);
         node_bin_op op = (node_bin_op){stmt->type - tk_add_assign + tk_add, NULL, stmt->var_assign.var, stmt->var_assign.expr};
-        reg_t* val = generate_expr(fptr, (node_expr*) &op, type, NULL);
-        bool ok = save_expr(fptr, stmt->var_assign.var, val);
-        (void) free_reg(val);
-        return ok;
+        return save_expr(fptr, stmt->var_assign.var, (node_expr*) &op);
     }
     case tk_expr_stmt:{
         // Just generate the expression with the target of a 64 bit int or a type we know
         type_t type = typeof_expr(stmt->expr.expr);
         if(!type.data || !((type.ptr_depth) ? true : type.size))
             type = (type_t){8, GET_DUMMY_TYPE(int64), true, DATA_INT, 0};
-        EXPR_ONCE(stmt->expr.expr, type, NULL);
+        if(type.ptr_depth || type.data == DATA_INT)
+            EXPR_ONCE(stmt->expr.expr, type, NULL);
+        else if(type.data == DATA_FLOAT){
+            if(!generate_float_expr(fptr, stmt->expr.expr))
+                return false;
+            gen_pop_float(fptr);
+        }
         return true;
     }
+    case tk_continue:
+        if(!parent.continue_label){
+            print_context("Not in a loop", stmt->control.token);
+            return false;
+        }
+        gen_jump(fptr, parent.continue_label);
+        return true;
+    case tk_break:
+        if(!parent.break_label){
+            print_context("Not in a loop", stmt->control.token);
+            return false;
+        }
+        gen_jump(fptr, parent.break_label);
+        return true;
+    case tk_end:
+        if(!parent.end_label){
+            print_context("Not in an if / switch statement", stmt->control.token);
+            return false;
+        }
+        if(stack_sz - parent.stack_sz)
+            gen_dealloc_stack(fptr, stack_sz - parent.stack_sz);
+        gen_jump(fptr, parent.end_label);
+        return true;
+    case tk_next:
+        if(!parent.next_label){
+            print_context("Not in an if / switch statement", stmt->control.token);
+            return false;
+        }
+        if(stack_sz - parent.stack_sz)
+            gen_dealloc_stack(fptr, stack_sz - parent.stack_sz);
+        gen_jump(fptr, parent.next_label);
+        return true;
     case tk_asm:{
         // Variables
         const char* str;
@@ -1086,9 +1510,15 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type){
 
         // Go through each expression in the extra args
         for(node_expr* expr = stmt->asm_stmt.args; expr && tmp_count < 10; expr = expr->next, tmp_count++){
-            tmps[tmp_count] = generate_expr(fptr, expr, typeof_expr(expr), NULL);
-            if(!tmps[tmp_count]){
-                print_context_expr("Not enough registers for all values (try separating inline assembly in two parts?)", expr);
+            type_t expr_type = typeof_expr(expr);
+            if(expr_type.ptr_depth || expr_type.data == DATA_INT){
+                tmps[tmp_count] = generate_expr(fptr, expr, expr_type, NULL);
+                if(!tmps[tmp_count]){
+                    print_context_expr("Not enough registers for all values (try separating inline assembly in two parts?)", expr);
+                    return false;
+                }
+            }else{
+                print_context_expr("If value is not an int, use pointer to value", expr);
                 return false;
             }
         }
@@ -1125,7 +1555,13 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type){
     case tk_return:
         // Return value if possible
         if((fn_type.ptr_depth) ? true : fn_type.size && stmt->ret.expr){
-            gen_save_return(fptr, EXPR_ONCE(stmt->ret.expr, fn_type, NULL));
+            if(fn_type.ptr_depth || fn_type.data == DATA_INT)
+                gen_save_return(fptr, EXPR_ONCE(stmt->ret.expr, fn_type, NULL));
+            else if(fn_type.data == DATA_FLOAT){
+                if(!generate_float_expr(fptr, stmt->ret.expr))
+                    return false;
+                gen_save_arg_float(fptr, 0);
+            }
         }else if(stmt->ret.expr){
             print_context_expr("Unexpected return value, function returns nothing", stmt->ret.expr);
             print_context("Function's type has a size of 0 bytes", fn_type.repr);
@@ -1148,11 +1584,14 @@ static void generate_quit(HC_FILE fptr){
 bool generate(const char* output_file, node_stmt* AST, bool library){
     HC_FILE fptr = HC_FOPEN_WRITE(output_file);
 
+
+    // Start the code section (aka text section)
+    HC_FPRINTF(fptr, "%s", target_text_section);
     gen_setup(fptr, library);
 
     // Go through each statement and generate it
     for(; AST; AST = AST->next){
-        if(!generate_stmt(fptr, AST, INVALID_TYPE)){
+        if(!generate_stmt(fptr, AST, INVALID_TYPE, (scope_info){0,0,0,0,0})){
             generate_quit(fptr);
             return false;
         }
@@ -1176,7 +1615,10 @@ bool generate(const char* output_file, node_stmt* AST, bool library){
         if(var->location == VAR_GLOBAL){
             if(var->stack_ptr){
                 if(global_val->type != tk_str_lit)
-                  gen_declare_global(fptr, var->str, var->strlen, var->type.ptr_depth ? target_address_size : var->type.size, global_val->str, global_val->strlen);
+                    gen_declare_global(fptr,
+                        var->str, var->strlen,
+                        var->type.ptr_depth ? target_address_size : var->type.size,
+                        global_val->str, global_val->strlen);
                 else{
                     if(var->type.ptr_depth == 0 && var->type.size != target_address_size){
                         print_context_expr("Cannot assign non-pointer variable to a string literal", (node_expr*) global_val);
@@ -1208,6 +1650,9 @@ bool generate(const char* output_file, node_stmt* AST, bool library){
     size_t i = 0;
     for(node_term* str_lit = str_literals; str_lit; str_lit = &str_lit->next->term, i++)
         gen_declare_str(fptr, i, str_lit->str, str_lit->strlen);
+    i = 0;
+    for(node_term* float_lit = float_literals; float_lit; float_lit = &float_lit->next->term, i++)
+        gen_declare_float(fptr, i, float_lit->str, float_lit->strlen);
 
     generate_quit(fptr);
     return true;

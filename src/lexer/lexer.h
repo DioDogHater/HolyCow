@@ -75,23 +75,19 @@ enum{
     tk_while,
     tk_for,            // for(init; cond; step){ ... }
     tk_repeat,         // repeat(n){ ... } -> repeats n times
+    tk_loop,           // loop{ ... } -> repeats infinitely
     tk_switch,
-    tk_next,           // @next
     tk_return,
     tk_break,
     tk_continue,
+    tk_next,           // @next
+    tk_end,            // @end
     tk_asm,            // @asm("...")
+    tk_struct,
+    tk_class,
     tk_sizeof,         // sizeof(...)
     tk_typeof,         // typeof(...)
     tk_stack_alloc,    // @stack_alloc(type, n)
-
-    // Preprocessor directives
-    //tk_include,        // #include
-    //tk_define,         // #define
-    //tk_macro,          // #macro
-    //tk_ifdef,          // #ifdef
-    //tk_ifndef,         // #ifndef
-    //tk_endif,          // #endif
 
     // Symbols
     tk_assign,         // =
@@ -104,12 +100,15 @@ enum{
     tk_semicolon,      // ;
     tk_colon,          // :
     tk_dot,            // .
+    tk_var_args,       // ...
     tk_comma,          // ,
 
     // Parser values
     tk_func_decl,   // Function declaration
     tk_var_decl,    // Variable declaration
     tk_arr_decl,    // Array declaration
+    tk_struct_decl, // Struct declaration
+    tk_class_decl,  // Class declaration
     tk_deref,       // Dereferencing (*)
     tk_getaddr,     // Get address (&)
     tk_type_cast,   // Type cast e.g. (type)
@@ -117,6 +116,8 @@ enum{
     tk_func_call,   // A function call
     tk_post_inc,    // Post increment
     tk_post_dec,    // Post decrement
+    tk_reg_expr,    // Register expression
+    tk_construct,   // Structure construction EX: MyStruct{1, 2, 3, ...}
 
     // Invalid
     tk_invalid
@@ -162,7 +163,7 @@ token_t* consume_token(token_t**);
 bool consume_tk_type(token_t**, tk_type);
 
 // Tokenize a file's contents
-#define MAX_MACROS 256
+#define MAX_MACROS 2048
 token_t* tokenize(file_t*, arena_t*, token_t*);
 
 // Free included files

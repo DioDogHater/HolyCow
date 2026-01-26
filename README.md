@@ -1,11 +1,13 @@
 # The Holy Cow programming language
-is a language inspire by ***Holy C***, the legendary language created by **Terry A. Davis*,
-one of the greatest programmers of all time. This is not a copy or an attempt to remake it,
-only a language that draws some features from it, with compatibility outside of **TempleOS**.
+is a language inspired by the ***C Programming Language***, ***Rust*** and
+***Holy C***, the legendary language created by **Terry A. Davis*. This is
+an attempt at making a more programmer-friendly C-like programming language
+without delving too much in complex concepts. A lightweight and enjoyable C++
+is close to what I aim for. 
 
 # Requirements
 For now, you can only use the language with **Linux**, but compatibility is an issue I'm willing to work on.
-You will need the *cmake* build platform and a C compiler.
+You will need *cmake*, *make*, *nasm* and *ld* to start compiling right away.
 
 # Building
 ```
@@ -29,7 +31,7 @@ This the end goal of how my language will look like.
 - uint8 or char, int8
 - uint16, int16
 - uint32, int32
-- uint64, int64 or int
+- uint64 or uint, int64 or int
 - float (64 bit floating point number)
 - flag (a flag is a boolean that occupies a single bit)
 - bool (boolean as a single byte, but (bool)54 == (bool)100)
@@ -41,8 +43,12 @@ string x = "Hello world!";
 int16 my_variable = 0;
 
 // Preprocessor directives
-#include "header_file.h"
+// Source files end with .hc
+// Header files end with .hhc
+#include "header_file.hhc"
+
 #define twenty_five "twenty_five"
+
 #macro test(x, y) (x * y)
 
 // It is possible to create modules (namespaces)
@@ -52,20 +58,23 @@ module test{
     }
 }
 
+// Now to access greet() you must use test.greet()
+
 // Constant expression
 constexpr float five_over_2 = 5 / 2;
 
 // Functions can have default values, as long as they're constant
 void hello_world(string msg = "Default"){
     // Displays a string on screen (can have formats)
-    println(msg);
+    println(msg.str);
     
     // Gets a value from stdin (input)
     // try ... except ... is a way to handle exceptions
     int64 value;
     try{
-        input("%l",&value))
+        scan("%i",&value);
     }except{
+        // fail() is a println() + exit()
         fail("Invalid integer value.");
     }
     
@@ -83,7 +92,7 @@ void hello_world(string msg = "Default"){
     // Switch statements
     switch(value){
     case 0 .. 5:
-        print("Between 0 and 5\n");
+        print("Between 0 and 5, inclusive\n");
     case 6 || 7:
         print("6 ... 7?");
         @next;              // Goes to next case
@@ -104,12 +113,7 @@ void hello_world(string msg = "Default"){
     
     // For loop
     for(int i = 0; i < 50; i += 2){
-        print("i = %d\n", i);
-    }
-    
-    // For ... in ... loop
-    for(char c in msg){
-        print("%c", c);
+        print("i = %i\n", i);
     }
     
     // Print a new line
@@ -120,6 +124,12 @@ void hello_world(string msg = "Default"){
         print(".");
     }
     
+    // Loop loop (infinite loop)
+    loop{
+        println("Hello world!");
+        break;
+    }
+    
     println();
 }
 
@@ -128,17 +138,18 @@ void hello_world(string msg = "Default"){
 * No polymorphism, inheritance possible
 * Function overloading works
 * No security (public, private)
-* Operator overloading
+* Basic operator overloading
 */
 class Animal{
     string name;
     int age;
     
-    Animal(string name, int age){
-        this.name = name;
-        this.age = age;
+    static Animal new(string _name, int _age){
+        // You can construct a class like a struct
+        return Animal{_name, _age};
     }
     string to_string(){
+        // "this" is a pointer to the class calling the method
         return format("%s : %d yo", this.name, this.age);
     }
 }
@@ -151,12 +162,12 @@ class Pet from Animal{
     /*
     * Variable arguments
     * Allocate on the stack if possible (otherwise error will appear)
-    * Stack allocation is possible for max 256 bytes
+    * Stack allocation is possible for max 1024KB
     * (only in a scope with compile time constants)
     * vargs.size is a compile time constant in this case
     */
-    Pet(string name, int age, ...vargs) : @stack(sizeof(string) * vargs.size) {
-        super(name, age);
+    static Pet new(string _name, int _age, ...vargs) : @stack(sizeof(string) * vargs.size) {
+        super(_name, _age);
         owners = @stack;
         for(int i = 0; i < vargs.size; i++)
             owners[i] = vargs.get(i, const char*);

@@ -19,7 +19,8 @@ int test(int a, int b = -26, int c){
 // Variable arguments
 // VARGS is an array of all extra arguments
 // Recommended to store VARGS in a variable
-void print_numbers(uint count, ...){
+// Number of variable arguments is stored in count
+void print_numbers(...count){
     // In this case, the numbers are ints,
     // so vargs is an array of ints
     int* vargs = VARGS;

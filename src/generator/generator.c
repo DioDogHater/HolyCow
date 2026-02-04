@@ -12,6 +12,7 @@ size_t label_count = 1;
 vector_t vars[1] = { NEW_VECTOR(var_t) };
 vector_t funcs[1] = { NEW_VECTOR(func_t) };
 vector_t structs[1] = { NEW_VECTOR(struct_t) };
+vector_t unions[1] = { NEW_VECTOR(union_t) };
 
 node_term* str_literals = NULL;
 size_t str_literal_count = 0;
@@ -21,22 +22,51 @@ size_t float_literal_count = 0;
 
 static node_term* global_var_values = NULL;
 
-// Find a variable with its name
-var_t* get_var(const char* str, size_t strlen){
-    for(size_t i = 0; i < vector_size(vars); i++){
-        var_t* var = vector_at(vars, i);
-        if(var->strlen == strlen && strncmp(var->str, str, strlen) == 0)
-            return var;
+// Find a named thing in a vector
+void* find_named_thing(vector_t* vec, const char* str, size_t strlen){
+    for(size_t i = 0; i < vector_size(vec); i++){
+        struct{ const char* str; size_t strlen; }* thing = vector_at(vec, i);
+        if(thing->strlen == strlen && strncmp(thing->str, str, strlen) == 0)
+            return thing;
     }
     return NULL;
 }
 
+// Find a variable with its name
+var_t* get_var(const char* str, size_t strlen){
+    return (var_t*) find_named_thing(vars, str, strlen);
+}
+
 // Find a function with its name
 func_t* get_func(const char* str, size_t strlen){
-    for(size_t i = 0; i < vector_size(funcs); i++){
-        func_t* func = vector_at(funcs, i);
-        if(func->strlen == strlen && strncmp(func->str, str, strlen) == 0)
-            return func;
+    return (func_t*) find_named_thing(funcs, str, strlen);
+}
+
+// Find a struct with its name
+struct_t* get_struct(const char* str, size_t strlen){
+    return (struct_t*) find_named_thing(structs, str, strlen);
+}
+
+// Find a structure's member
+var_t* get_member(struct_t* struc, const char* str, size_t strlen){
+    return (var_t*) find_named_thing(struc->members, str, strlen);
+}
+
+// Find a structure's method
+func_t* get_method(struct_t* struc, const char* str, size_t strlen){
+    return (func_t*) find_named_thing(struc->funcs, str, strlen);
+}
+
+// Find a union type
+union_t* get_union(const char* str, size_t strlen){
+    return (union_t*) find_named_thing(unions, str, strlen);
+}
+
+// Find a union's member
+node_stmt* get_union_member(union_t* uni, const char* str, size_t strlen){
+    for(node_stmt* ptr = uni->members; ptr; ptr = ptr->next){
+        if(ptr->var_decl.identifier->strlen == strlen && strncmp(ptr->var_decl.identifier->str, str, strlen) == 0)
+            return ptr;
     }
     return NULL;
 }
@@ -46,9 +76,12 @@ size_t get_scope_size(node_stmt* scope){
     size_t total = 0;
     for(; scope; scope = scope->next){
         if(scope->type == tk_var_decl){
-            size_t sz = sizeof_type(scope->var_decl.var_type);
-            total = (total + sz - 1) / sz * sz;
-            total += sz;
+            type_t var_type = type_from_tk(scope->var_decl.var_type);
+            size_t var_sz = SIZEOF_T(var_type), var_align = ALIGNOF_T(var_type);
+            if(!var_type.data || !var_sz)
+                return 0;
+            total = ALIGN(total, var_align);
+            total += SIZEOF_T(var_type);
         }else if(scope->type == tk_arr_decl){
             size_t elem_count = 0, strlen = scope->arr_decl.elem_count->strlen;
             for(const char* str = scope->arr_decl.elem_count->str; strlen; str++, strlen--){
@@ -56,12 +89,15 @@ size_t get_scope_size(node_stmt* scope){
                     return 0;
                 elem_count = elem_count * 10 + (int)(*str - '0');
             }
-            size_t sz = sizeof_type(scope->var_decl.var_type);
-            total = (total + sz - 1) / sz * sz;
-            total += sz * elem_count;
+            type_t elem_type = type_from_tk(scope->arr_decl.elem_type);
+            size_t elem_sz = SIZEOF_T(elem_type), elem_align = ALIGNOF_T(elem_type);
+            if(!elem_type.data || !elem_sz)
+                return 0;
+            total = ALIGN(total, elem_align);
+            total += elem_sz * elem_count;
         }
     }
-    return (total + 15) / 16 * 16;
+    return ALIGN(total, 16);
 }
 
 // Initialise the scope and save the state before it starts
@@ -179,7 +215,7 @@ static bool save_expr(HC_FILE fptr, node_expr* expr, node_expr* value){
             return false;
         }
         reg_t* ptr = generate_expr(fptr, expr->bin_op.lhs, ptr_type, NULL);
-        reg_t* idx = generate_expr(fptr, expr->bin_op.rhs, (type_t){8, GET_DUMMY_TYPE(uint64), false, DATA_INT, 0}, NULL);
+        reg_t* idx = generate_expr(fptr, expr->bin_op.rhs, (type_t){8, GET_DUMMY_TYPE(uint64), false, DATA_INT, 8, 0}, NULL);
         if(--ptr_type.ptr_depth) ptr_type.size = target_address_size;
         if(ptr_type.ptr_depth || ptr_type.data == DATA_INT){
             reg_t* data = EXPR_ONCE(value, ptr_type, NULL);
@@ -224,28 +260,31 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func){
     // (because a function can affect registers)
     int n = get_mask_occup_regs(ALL_REGS, true, registers, masked_regs);
     for(int i = 0; i < n; i++){
-        func_call_sz = (func_call_sz + masked_regs[i]->size - 1) / masked_regs[i]->size * masked_regs[i]->size;
+        func_call_sz = ALIGN(func_call_sz, masked_regs[i]->size);
         func_call_sz += masked_regs[i]->size;
     }
 
     // Get the size of all arguments + return value
     node_expr* arg_expr = expr->func.args;
+    size_t varg_count = 0;
     for(node_var_decl* arg = &func->args->var_decl; arg; arg = &arg->next->var_decl){
         if(arg->type == tk_var_args){
-            func_call_sz = (func_call_sz + 7) / 8 * 8;
-            for(; arg_expr; arg_expr = arg_expr->next)
+            func_call_sz = ALIGN(func_call_sz, 8);
+            if(((node_expr_stmt*)arg)->expr)
+                func_call_sz += 8;
+            for(; arg_expr; arg_expr = arg_expr->next, varg_count++)
                 func_call_sz += 8;
             break;
         }
         type_t arg_type = type_from_tk(arg->var_type);
-        size_t arg_size = (arg_type.ptr_depth) ? target_address_size : arg_type.size;
-        func_call_sz = (func_call_sz + arg_size - 1) / arg_size * arg_size;
-        func_call_sz += arg_size;
+        size_t arg_align = ALIGNOF_T(arg_type);
+        func_call_sz = ALIGN(func_call_sz, arg_align);
+        func_call_sz += SIZEOF_T(arg_type);
         if(arg_expr) arg_expr = arg_expr->next;
     }
 
     // Allocate the stack space for everything
-    func_call_sz = (func_call_sz + 15) / 16 * 16;
+    func_call_sz = ALIGN(func_call_sz, 16);
     if(func_call_sz)
         gen_alloc_stack(fptr, func_call_sz);
     stack_sz += func_call_sz;
@@ -253,7 +292,7 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func){
     // Save each occupied register on the stack
     size_t arg_ptr = 0;
     for(int i = 0; i < n; i++){
-        arg_ptr = (arg_ptr + masked_regs[i]->size - 1) / masked_regs[i]->size * masked_regs[i]->size;
+        arg_ptr = ALIGN(arg_ptr, masked_regs[i]->size);
         arg_ptr += masked_regs[i]->size;
         gen_save_stack(fptr, masked_regs[i], func_call_sz - arg_ptr);
     }
@@ -266,7 +305,15 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func){
 
         // Variable arguments
         if(arg->type == tk_var_args){
-            arg_ptr = (arg_ptr + 7) / 8 * 8;
+            arg_ptr = ALIGN(arg_ptr, 8);
+            if(((node_expr_stmt*)arg)->expr){
+                char buff[256];
+                reg_t* tmp = alloc_reg(GET_FREE_REG(8), false);
+                gen_set_reg(fptr, tmp, buff, snprintf(buff, 255, "%lu", varg_count));
+                gen_save_stack(fptr, tmp, arg_ptr);
+                free_reg(tmp);
+                arg_ptr += 8;
+            }
 
             // Go through each additional argument
             for(; arg_expr; arg_expr = next_arg){
@@ -275,7 +322,7 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func){
 
                 // Int value
                 if(expr_type.ptr_depth || expr_type.data == DATA_INT){
-                    reg_t* tmp = EXPR_ONCE(arg_expr, ((type_t){8, GET_DUMMY_TYPE(int64), true, DATA_INT, 0}), NULL);
+                    reg_t* tmp = EXPR_ONCE(arg_expr, ((type_t){8, GET_DUMMY_TYPE(int64), true, DATA_INT, 8, 0}), NULL);
                     gen_save_stack(fptr, tmp, arg_ptr);
                 }
                 // Float value
@@ -285,7 +332,7 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func){
                     gen_save_stack_float(fptr, arg_ptr);
                 }// Other data types
                 else{
-                    print_context_expr("Variable argument data type not implemented", arg_expr);
+                    print_context_expr("Unsupported variable argument type", arg_expr);
                     fail_gen_expr(fptr);
                 }
                 arg_ptr += 8;
@@ -304,10 +351,10 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func){
             next_arg = arg_expr->next;
 
         type_t expr_type = typeof_expr(arg_expr), arg_type = type_from_tk(arg->var_type);
-        size_t arg_size = (arg_type.ptr_depth) ? target_address_size : arg_type.size;
+        size_t arg_size = SIZEOF_T(arg_type), arg_align = ALIGNOF_T(arg_type);
 
         // If the argument isn't compatible
-        if(((expr_type.ptr_depth) ? DATA_INT : expr_type.data) != ((arg_type.ptr_depth) ? DATA_INT : arg_type.data) ||
+        if(DATAOF_T(expr_type) != DATAOF_T(arg_type) ||
             expr_type.ptr_depth != arg_type.ptr_depth){
             print_context_expr("Incompatible argument type", arg_expr);
             print_context("Expected argument type", arg->var_type);
@@ -315,7 +362,7 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func){
             fail_gen_expr(fptr);
         }
 
-        arg_ptr = (arg_ptr + arg_size - 1) / arg_size * arg_size;
+        arg_ptr = ALIGN(arg_ptr, arg_align);
         if(expr_type.ptr_depth || expr_type.data == DATA_INT){
             reg_t* tmp = EXPR_ONCE(arg_expr, arg_type, NULL);
             gen_save_stack(fptr, tmp, arg_ptr);
@@ -344,7 +391,7 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func){
     arg_ptr = 0;
     n = get_mask_occup_regs(ALL_REGS, true, registers, masked_regs);
     for(int i = 0; i < n; i++){
-        arg_ptr = (arg_ptr + masked_regs[i]->size - 1) / masked_regs[i]->size * masked_regs[i]->size;
+        arg_ptr = ALIGN(arg_ptr, masked_regs[i]->size);
         arg_ptr += masked_regs[i]->size;
         gen_load_stack(fptr, masked_regs[i], func_call_sz - arg_ptr);
     }
@@ -487,7 +534,7 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
     INC_LIKE_EXPR(tk_dec, dec)
 #define POST_INC_LIKE_EXPR(n, m, l) \
     case n:{\
-        reg_t* tmp = generate_expr(fptr, expr->unary_op.lhs, target_type, prefered ? prefered : GET_FREE_REG(sz));\
+        reg_t* tmp = generate_expr(fptr, expr->unary_op.lhs, expr_type, prefered ? prefered : GET_FREE_REG(sz));\
         gen_##m##_reg(fptr, tmp);\
         node_reg_expr tmp_expr = (node_reg_expr){tk_reg_expr, NULL, tmp};\
         if(!save_expr(fptr, expr->unary_op.lhs, (node_expr*) &tmp_expr))\
@@ -558,7 +605,7 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
         if(expr->type == tk_shl) lhs = GET_ALLOWED_REGS1(shl), rhs = GET_ALLOWED_REGS2(shl);
         else lhs = SIGNED_OP1(sign, shr), rhs = SIGNED_OP2(sign, shr);
         reg_t* tmp1 = generate_expr(fptr, expr->bin_op.lhs, target_type, (prefered && REG_IN_MASK(prefered, lhs)) ? prefered : GET_MASK_REG(sz, lhs));
-        reg_t* tmp2 = generate_expr(fptr, expr->bin_op.rhs, (type_t){1, GET_DUMMY_TYPE(uint8), false, DATA_INT, 0}, GET_MASK_REG(1, rhs));
+        reg_t* tmp2 = generate_expr(fptr, expr->bin_op.rhs, (type_t){1, GET_DUMMY_TYPE(uint8), false, DATA_INT, 1, 0}, GET_MASK_REG(1, rhs));
         if(!REG_IN_MASK(tmp2, rhs)){
             reg_t* tmp3 = GET_OCC_MASK_REG(1, rhs);
             reg_t* tmp4 = GET_FREE_REG(1);
@@ -644,7 +691,7 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
     case tk_cmp_l:
     case tk_cmp_le:{
         type_t t1 = typeof_expr(expr->bin_op.lhs), t2 = typeof_expr(expr->bin_op.rhs);
-        if(!t1.data || !t2.data || ((t1.ptr_depth) ? DATA_INT : t1.data) != ((t2.ptr_depth) ? DATA_INT : t2.data)){
+        if(!t1.data || !t2.data || DATAOF_T(t1) != DATAOF_T(t2)){
             print_context_expr("Cannot compare two values of incompatible types", expr);
             fail_gen_expr(fptr);
         }
@@ -718,7 +765,7 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
             type_t ptr_type = typeof_expr(expr->unary_op.lhs);
             ptr_type.ptr_depth++;
             reg_t* ptr = generate_expr(fptr, expr->unary_op.lhs->bin_op.lhs, ptr_type, NULL);
-            reg_t* idx = generate_expr(fptr, expr->unary_op.lhs->bin_op.rhs, (type_t){8, GET_DUMMY_TYPE(uint64), false, DATA_INT, 0}, NULL);
+            reg_t* idx = generate_expr(fptr, expr->unary_op.lhs->bin_op.rhs, (type_t){8, GET_DUMMY_TYPE(uint64), false, DATA_INT, 8, 0}, NULL);
             gen_load_idx_ptr(fptr, tmp, ptr, idx, ptr_type.size);
             (void) free_reg(ptr);
             (void) free_reg(idx);
@@ -756,7 +803,7 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
         }
         reg_t* elem = alloc_reg(prefered, sign);
         reg_t* ptr = generate_expr(fptr, expr->bin_op.lhs, ptr_type, NULL);
-        reg_t* idx = generate_expr(fptr, expr->bin_op.rhs, (type_t){8, GET_DUMMY_TYPE(uint64), false, DATA_INT, 0}, NULL);
+        reg_t* idx = generate_expr(fptr, expr->bin_op.rhs, (type_t){8, GET_DUMMY_TYPE(uint64), false, DATA_INT, 8, 0}, NULL);
         ptr_type.ptr_depth--;
         if(ptr_type.ptr_depth) ptr_type.size = target_address_size;
         if(!elem) elem = alloc_reg(GET_FREE_REG(sz), sign);
@@ -770,8 +817,8 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
     }
     case tk_type_cast:{
         type_t cast_type = type_from_tk(expr->type_cast.lhs->start);
-        size_t cast_size = (cast_type.ptr_depth) ? target_address_size : cast_type.size;
-        short cast_data = (cast_type.ptr_depth) ? DATA_INT : cast_type.data;
+        size_t cast_size = SIZEOF_T(cast_type);
+        short cast_data = DATAOF_T(cast_type);
         if(cast_data == DATA_FLOAT){
             if(!generate_float_expr(fptr, expr->type_cast.rhs))
                 fail_gen_expr(fptr);
@@ -781,7 +828,7 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
         }
         if(sz == cast_size){
             reg_t* tmp = generate_expr(fptr, expr->type_cast.rhs, cast_type, prefered);
-            if(sign == ((cast_type.ptr_depth) ? false : cast_type.sign))
+            if(sign == SIGNOF_T(cast_type))
                 tmp->occupied = (sign) ? OCCUP_SIGNED : OCCUP_UNSIGNED;
             return tmp;
         }else if(sz > cast_size){
@@ -799,7 +846,7 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
         size_t func_call_sz = generate_func_call(fptr, expr, &func);
 
         // Get the return value
-        size_t return_sz = (func->type.ptr_depth) ? target_address_size : func->type.size;
+        size_t return_sz = SIZEOF_T(func->type);
         reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(sz), sign);
         if(return_sz && sz <= return_sz)
             gen_load_stack(fptr, tmp, 0);
@@ -849,7 +896,7 @@ bool generate_float_expr(HC_FILE fptr, node_expr* expr){
         print_context_expr("Expression of invalid type", expr);
         return false;
     }else if(!expr_type.ptr_depth && expr_type.data == DATA_INT){
-        reg_t* tmp = EXPR_ONCE(expr, ((type_t){8, GET_DUMMY_TYPE(int64), true, DATA_INT, 0}), NULL);
+        reg_t* tmp = EXPR_ONCE(expr, ((type_t){8, GET_DUMMY_TYPE(int64), true, DATA_INT, 8, 0}), NULL);
         gen_int_to_float(fptr, tmp);
         return true;
     }else if(expr_type.data != DATA_FLOAT){
@@ -904,7 +951,7 @@ bool generate_float_expr(HC_FILE fptr, node_expr* expr){
     case tk_open_bracket:{
         expr_type.ptr_depth++;
         reg_t* ptr = generate_expr(fptr, expr->bin_op.lhs, expr_type, NULL);
-        reg_t* idx = generate_expr(fptr, expr->bin_op.rhs, (type_t){8, GET_DUMMY_TYPE(uint64), false, DATA_INT, 0}, NULL);
+        reg_t* idx = generate_expr(fptr, expr->bin_op.rhs, (type_t){8, GET_DUMMY_TYPE(uint64), false, DATA_INT, 8, 0}, NULL);
         gen_load_idx_float(fptr, ptr, idx, 8);
         (void) free_reg(ptr);
         (void) free_reg(idx);
@@ -930,9 +977,15 @@ bool generate_float_expr(HC_FILE fptr, node_expr* expr){
 }
 
 bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info parent){
-    if(!fn_type.data && stmt->type != tk_func_decl && stmt->type != tk_var_decl && stmt->type != tk_arr_decl){
+    if(!fn_type.data &&
+        stmt->type != tk_func_decl &&
+        stmt->type != tk_var_decl &&
+        stmt->type != tk_arr_decl &&
+        stmt->type != tk_struct &&
+        stmt->type != tk_union &&
+        stmt->type != tk_class){
         HC_PRINT(BOLD "Sadly I can't tell you where the error is, but here is the invalid statement's type: %lu :(" RESET_ATTR "\n", stmt->type);
-        HC_ERR("Cannot do more than declaring functions, variables or arrays outside a function!");
+        HC_ERR("Cannot do more than declaring functions, variables, arrays or data structures outside a function!");
         return false;
     }
 
@@ -1010,7 +1063,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
         scope_t func_scope = gen_init_scope(fptr, stmt->func_decl.stmts);
 
         // @return variable in the function scope
-        arg_ptr += (func.type.ptr_depth) ? target_address_size : func.type.size;
+        arg_ptr += SIZEOF_T(func.type);
         var_t return_var = {"@return", 7, 0,
                             VAR_ARG, func.type};
         vector_append(vars, &return_var);
@@ -1019,27 +1072,33 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
         for(node_var_decl* arg = &func.args->var_decl; arg; arg = &arg->next->var_decl){
             // Variable arguments start (@varg_start)
             if(arg->type == tk_var_args){
-                arg_ptr = (arg_ptr + 7) / 8 * 8;
-                var_t arg_var = {"@varg_start", 11, arg_ptr, VAR_ARG, (type_t){8, GET_DUMMY_TYPE(uint64), false, DATA_INT, 0}};
+                arg_ptr = ALIGN(arg_ptr, 8);
+                if(((node_expr_stmt*)arg)->expr){
+                    node_term vargc = ((node_expr_stmt*)arg)->expr->term;
+                    var_t argc = {vargc.str, vargc.strlen, arg_ptr, VAR_ARG, (type_t){8, GET_DUMMY_TYPE(uint64), false, DATA_INT, 8, 0}};
+                    if(get_var(vargc.str, vargc.strlen)){
+                        print_context_ex("Another argument has the same name", vargc.str, vargc.strlen);
+                        return false;
+                    }
+                    vector_append(vars, &argc);
+                    arg_ptr += 8;
+                }
+                var_t arg_var = {"@varg_start", 11, arg_ptr, VAR_ARG, (type_t){8, GET_DUMMY_TYPE(uint64), false, DATA_INT, 8, 0}};
                 vector_append(vars, &arg_var);
                 break;
             }
 
             type_t arg_type = type_from_tk(arg->var_type);
-            if(arg->expr){
-                // Check if default value is compatible
-                type_t default_type = typeof_expr(arg->expr);
-                if(!default_type.data || default_type.data != arg_type.data || default_type.ptr_depth != arg_type.ptr_depth){
-                    if(default_type.data)
-                        print_context_expr("Default value has incompatible type", arg->expr);
-                    return false;
-                }
-            }
+
             // Register argument as variable in function scope
-            size_t arg_size = (arg_type.ptr_depth) ? target_address_size : arg_type.size;
-            arg_ptr = (arg_ptr + arg_size - 1) / arg_size * arg_size;
+            size_t arg_align = ALIGNOF_T(arg_type);
+            arg_ptr = ALIGN(arg_ptr, arg_align);
             var_t arg_var = {arg->identifier->str, arg->identifier->strlen, arg_ptr, VAR_ARG, arg_type};
-            arg_ptr += arg_size;
+            arg_ptr += SIZEOF_T(arg_type);
+            if(get_var(arg->identifier->str, arg->identifier->strlen)){
+                print_context("Another argument has the same name", arg->identifier);
+                return false;
+            }
             vector_append(vars, &arg_var);
         }
 
@@ -1064,7 +1123,8 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
         size_t other_label = label_count++, end_label = label_count++;
         parent.stack_sz = stack_sz;
         parent.next_label = other_label;
-        parent.end_label = end_label;
+        if(!parent.end_label)
+            parent.end_label = end_label;
 
         // Generate condition
         type_t cond_type = typeof_expr(stmt->if_stmt.cond);
@@ -1165,6 +1225,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
     }
     // Basic scope: { ... }
     case tk_open_braces:{
+        parent.end_label = 0;
         scope_t scope = gen_init_scope(fptr, stmt->scope.stmts);
         for(node_stmt* ptr = stmt->scope.stmts; ptr; ptr = ptr->next){
             if(!generate_stmt(fptr, ptr, fn_type, parent))
@@ -1176,6 +1237,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
     }
     case tk_while:{
         size_t start_label = label_count++, end_label = label_count++;
+        parent.end_label = 0;
         parent.stack_sz = stack_sz;
         parent.continue_label = start_label;
         parent.break_label = end_label;
@@ -1217,6 +1279,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
     }
     case tk_repeat:{
         size_t start_label = label_count++, step_label = label_count++, end_label = label_count++;
+        parent.end_label = 0;
         parent.stack_sz = stack_sz;
         parent.continue_label = step_label;
         parent.break_label = end_label;
@@ -1250,6 +1313,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
         return true;
     }
     case tk_loop:{
+        parent.end_label = 0;
         parent.stack_sz = stack_sz;
 
         size_t start_label = label_count++, end_label = label_count++;
@@ -1277,6 +1341,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
     case tk_for:{
         size_t start_label = label_count++, step_label = label_count++, end_label = label_count++;
 
+        parent.end_label = 0;
         parent.stack_sz = stack_sz;
 
         // Start the loop
@@ -1343,12 +1408,21 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
         }
 
         type_t var_type = type_from_tk(stmt->var_decl.var_type);
-        size_t var_sz = (var_type.ptr_depth) ? target_address_size : var_type.size;
+        if(!var_type.data){
+            print_context("Invalid type!", stmt->var_decl.var_type);
+            return false;
+        }
+
+        size_t var_sz = SIZEOF_T(var_type), var_align = ALIGNOF_T(var_type);
+        if(!var_sz){
+            print_context("Variable type is 0 bytes big!", stmt->var_decl.var_type);
+            return false;
+        }
 
         if(fn_type.data){
             // Stack variables
-            stack_ptr = (stack_ptr + var_sz - 1) / var_sz * var_sz;
-            stack_ptr += (var_type.ptr_depth) ? target_address_size : var_type.size;
+            stack_ptr = ALIGN(stack_ptr, var_align);
+            stack_ptr += var_sz;
             size_t var_ptr = stack_ptr;
 
             // Save the default value
@@ -1360,6 +1434,8 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
                     if(!generate_float_expr(fptr, stmt->var_decl.expr))
                         return false;
                     gen_save_stack_float(fptr, stack_sz - var_ptr);
+                }else{
+                    print_context_expr("Not implemented yet", stmt->var_decl.expr);
                 }
             }
 
@@ -1369,11 +1445,11 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
         }else{
             // Global variables
             if(stmt->var_decl.expr && (
-            stmt->var_decl.expr->type == tk_int_lit ||
-            stmt->var_decl.expr->type == tk_char_lit ||
-            stmt->var_decl.expr->type == tk_str_lit ||
-            stmt->var_decl.expr->type == tk_bool_lit ||
-            stmt->var_decl.expr->type == tk_float_lit
+               stmt->var_decl.expr->type == tk_int_lit ||
+               stmt->var_decl.expr->type == tk_char_lit ||
+               stmt->var_decl.expr->type == tk_str_lit ||
+               stmt->var_decl.expr->type == tk_bool_lit ||
+               stmt->var_decl.expr->type == tk_float_lit
             )){
                 node_term* last_lit = global_var_values;
                 stmt->var_decl.expr->term.next = NULL;
@@ -1403,7 +1479,11 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             return false;
         }
 
-        type_t var_type = type_from_tk(stmt->arr_decl.elem_type);
+        type_t elem_type = type_from_tk(stmt->arr_decl.elem_type);
+        if(!elem_type.data){
+            print_context("Invalid type!", stmt->arr_decl.elem_type);
+            return false;
+        }
 
         // Get the number of elements in the array
         size_t elem_count = 0, strlen = stmt->arr_decl.elem_count->strlen;
@@ -1416,24 +1496,74 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
         }
 
         // Get the size of the array and adjust the pointer depth of the var's type
-        size_t elem_size = (var_type.ptr_depth) ? target_address_size : var_type.size;
+        size_t elem_size = SIZEOF_T(elem_type), elem_align = ALIGNOF_T(elem_type);
+        if(!elem_size){
+            print_context("Array element type is 0 bytes big!", stmt->arr_decl.elem_type);
+            return false;
+        }
+
         size_t arr_size = elem_size * elem_count;
-        var_type.ptr_depth++;
+        elem_type.ptr_depth++;
 
         if(fn_type.data){
             // Stack array
-            stack_ptr = (stack_ptr + elem_size - 1) / elem_size * elem_size;
+            stack_ptr = ALIGN(stack_ptr, elem_align);
             stack_ptr += arr_size;
             size_t var_ptr = stack_ptr;
 
             // Register the variable in the variable vector
-            var_t new_var = {stmt->arr_decl.identifier->str, stmt->arr_decl.identifier->strlen, var_ptr, VAR_ARRAY, var_type};
+            var_t new_var = {stmt->arr_decl.identifier->str, stmt->arr_decl.identifier->strlen, var_ptr, VAR_ARRAY, elem_type};
             vector_append(vars, &new_var);
         }else{
             // Global array
-            var_t new_var = {stmt->arr_decl.identifier->str, stmt->arr_decl.identifier->strlen, arr_size, VAR_GLOBAL_ARR, var_type};
+            var_t new_var = {stmt->arr_decl.identifier->str, stmt->arr_decl.identifier->strlen, arr_size, VAR_GLOBAL_ARR, elem_type};
             vector_append(vars, &new_var);
         }
+        return true;
+    }
+    case tk_struct:{
+        const char* str = stmt->struct_decl.identifier->str;
+        size_t strlen = stmt->struct_decl.identifier->strlen;
+
+        struct_t* last_def = get_struct(str, strlen);
+        if(last_def && last_def->size && stmt->struct_decl.members){
+            print_context_ex("Struct already defined", str, strlen);
+            print_context_ex("Last definition here", last_def->str, last_def->strlen);
+            return false;
+        }
+
+        struct_t new_struct = {str, strlen, 0, 1, {NEW_VECTOR(var_t)}, {NEW_VECTOR(func_t)}};
+        if(!stmt->struct_decl.members && !last_def){
+            vector_append(structs, &new_struct);
+            return true;
+        }
+
+        for(node_stmt* ptr = stmt->struct_decl.members; ptr; ptr = ptr->next){
+            if(ptr->type != tk_var_decl){
+                print_context_ex("Expected only member declarations, got another statement instead here", str, strlen);
+                return false;
+            }
+            type_t var_type = type_from_tk(ptr->var_decl.var_type);
+            size_t var_sz = SIZEOF_T(var_type), var_align = ALIGNOF_T(var_type);
+            if(!var_type.data){
+                print_context("Invalid member type!", ptr->var_decl.identifier);
+                return false;
+            }
+            if(!var_sz){
+                print_context("Member type is 0 bytes big!", ptr->var_decl.var_type);
+                return false;
+            }
+            new_struct.size = ALIGN(new_struct.size, var_align);
+            new_struct.align = MAX(new_struct.align, var_align);
+            var_t member_var = {ptr->var_decl.identifier->str, ptr->var_decl.identifier->strlen, new_struct.size, VAR_MEMBER, var_type};
+            new_struct.size += var_sz;
+            vector_append(new_struct.members, &member_var);
+        }
+
+        if(!last_def)
+            vector_append(structs, &new_struct);
+        else
+            *last_def = new_struct;
         return true;
     }
     case tk_assign:
@@ -1449,8 +1579,8 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
     case tk_expr_stmt:{
         // Just generate the expression with the target of a 64 bit int or a type we know
         type_t type = typeof_expr(stmt->expr.expr);
-        if(!type.data || !((type.ptr_depth) ? true : type.size))
-            type = (type_t){8, GET_DUMMY_TYPE(int64), true, DATA_INT, 0};
+        if(!type.data || !SIZEOF_T(type))
+            type = (type_t){8, GET_DUMMY_TYPE(int64), true, DATA_INT, 8, 0};
         if(type.ptr_depth || type.data == DATA_INT)
             EXPR_ONCE(stmt->expr.expr, type, NULL);
         else if(type.data == DATA_FLOAT){

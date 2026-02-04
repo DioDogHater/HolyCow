@@ -44,7 +44,7 @@ static void show_usage(const char* msg){
         "   -l, --link      : Set libraries to be linked\n"
         "   -s, --static    : Compiles a static library (object file) instead of executable\n"
         "   -d, --debug     : Adds debug info to output executable\n"
-        "   -r, --reg-info  : Displays the target's registers\n"
+        "   --target-info   : Displays the target's information\n"
     );
     arena_destroy(arena);
     HC_FAIL();
@@ -75,19 +75,6 @@ static bool match_arg(const char** arg, const char* value){
     *arg = arg_ptr;
 
     return true;
-}
-
-// Print useful information on a register
-static void print_reg_info(reg_t* reg_arr, int ljust){
-    size_t reg_count = 0;
-    for(; reg_arr && reg_arr->name; reg_arr++, reg_count++){
-        if(!ljust)
-            HC_PRINT("\n");
-        HC_PRINT("%*s> " BOLD BLUE_FG "%s" RESET_ATTR "%*s\t%lu bytes, mask : %d\n", ljust, "", reg_arr->name, 8-ljust, "", reg_arr->size, reg_arr->mask);
-        if(reg_arr->children)
-            print_reg_info(reg_arr->children, ljust + 2);
-    }
-    if(!ljust) HC_CONFIRM("\nTotal of %lu registers.", reg_count);
 }
 
 // Parse the arguments given to the compiler
@@ -150,9 +137,9 @@ static void parse_compiler_args(int argc, char* argv[]){
                 else if(match_arg(&arg, "-d") || match_arg(&arg, "--debug"))
                     options.debug = true;
 
-                else if(match_arg(&arg, "-r") || match_arg(&arg, "--reg-info")){
-                    HC_PRINT("Target %s : %d bit registers, %lu byte addresses\n", target_architecture, target_cpu, target_address_size);
-                    print_reg_info(registers, 0);
+                else if(match_arg(&arg, "--target-info")){
+                    HC_CONFIRM("Target %s : %d bit architecture, %lu byte addresses.\n", target_architecture, target_cpu, target_address_size);
+                    HC_CONFIRM("Assembler used : %s\nLinker used : %s\n", target_assembler, target_linker);
                     HC_FAIL();
                 }
 

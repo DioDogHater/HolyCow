@@ -37,15 +37,12 @@ bool signof_type(token_t* tk){
     if(!tk)
         return 0;
 
-    // Ignore const
-    if(tk->type == tk_const)
-        tk = tk->next;
-
     switch(tk->type){
         case tk_flag:
         case tk_void:
         case tk_bool:
         case tk_float:
+        case tk_identifier:
             return false;
         case tk_int8:
         case tk_int16:
@@ -68,10 +65,6 @@ size_t sizeof_type(token_t* tk){
     if(!tk)
         return 0;
 
-    // Ignore const
-    if(tk->type == tk_const)
-        tk = tk->next;
-
     switch(tk->type){
         case tk_flag:
         case tk_void:
@@ -93,18 +86,41 @@ size_t sizeof_type(token_t* tk){
     }
 
     print_context("Type of unknown size", tk);
-    return 0;
+    return ~0;
 }
 
 type_t type_from_tk(token_t* tk){
-    size_t sz = sizeof_type(tk);
-    bool sign = signof_type(tk);
-    int ptr_depth = 0;
-    for(token_t* ptr = (tk->type == tk_const) ? tk->next->next : tk->next; ptr && ptr->type == tk_mult; ptr = ptr->next)
-        ptr_depth++;
-    type_t t = (type_t){sz, tk, sign, DATA_INT, ptr_depth};
-    if(tk->type == tk_float)
-        t.data = DATA_FLOAT;
+    type_t t;
+    if(tk->type == tk_const)
+        tk = tk->next;
+    t.repr = tk, t.ptr_depth = 0;
+    if(tk->type != tk_identifier){
+        size_t sz = sizeof_type(tk);
+        if(sz == ~0)
+            return INVALID_TYPE;
+        bool sign = signof_type(tk);
+        t.size = sz, t.align = sz, t.sign = sign;
+        t.data = (tk->type == tk_float) ? DATA_FLOAT : DATA_INT;
+    }else{
+        t.sign = false;
+        struct_t* struc = get_struct(tk->str, tk->strlen);
+        if(struc){
+            t.size = struc->size, t.align = struc->align;
+            t.data = DATA_STRUCT;
+        }
+        union_t* unio = get_union(tk->str, tk->strlen);
+        if(unio){
+            t.size = unio->size, t.align = struc->align;
+            t.data = DATA_UNION;
+        }
+
+        if(!struc && !unio){
+            print_context("Type does not exist!", tk);
+            return INVALID_TYPE;
+        }
+    }
+    for(token_t* ptr = tk->next; ptr && ptr->type == tk_mult; ptr = ptr->next)
+        t.ptr_depth++;
     return t;
 }
 
@@ -122,13 +138,11 @@ type_t typeof_expr(node_expr* expr){
         case tk_or:
         case tk_not:
         case tk_bool_lit:
-            max = (type_t){1,GET_DUMMY_TYPE(bool),false,DATA_INT,0};
-            break;
-        case tk_char_lit:
-            max = (type_t){1,GET_DUMMY_TYPE(uint8),false,DATA_INT,0};
+            max = (type_t){1, GET_DUMMY_TYPE(bool), false, DATA_INT, 1, 0};
             break;
         case tk_str_lit:
-            max = (type_t){1,GET_DUMMY_TYPE(uint8),false,DATA_INT,1};
+        case tk_char_lit:
+            max = (type_t){1, GET_DUMMY_TYPE(uint8), false, DATA_INT, 1, expr->type == tk_str_lit};
             break;
         case tk_int_lit:{
             const char* str = expr->term.str;
@@ -137,16 +151,16 @@ type_t typeof_expr(node_expr* expr){
             for(; strlen; str++, strlen--)
                 r = r * 10 + (uint64_t)(*str - '0');
             if(r < (1 << 7))
-                max = (type_t){1,GET_DUMMY_TYPE(int8),true,DATA_INT,0};
+                max = (type_t){1, GET_DUMMY_TYPE(int8), true, DATA_INT, 1, 0};
             else if(r < (1 << 15))
-                max = (type_t){2,GET_DUMMY_TYPE(int16),true,DATA_INT,0};
+                max = (type_t){2, GET_DUMMY_TYPE(int16), true, DATA_INT, 2, 0};
             else if(r < (1 << 31))
-                max = (type_t){4,GET_DUMMY_TYPE(int32),true,DATA_INT,0};
+                max = (type_t){4, GET_DUMMY_TYPE(int32), true, DATA_INT, 4, 0};
             else
-                max = (type_t){8,GET_DUMMY_TYPE(int64),true,DATA_INT,0};
+                max = (type_t){8, GET_DUMMY_TYPE(int64), true, DATA_INT, 8, 0};
             break;
         }case tk_float_lit:{
-            max = (type_t){8,GET_DUMMY_TYPE(float),true,DATA_FLOAT,0};
+            max = (type_t){8, GET_DUMMY_TYPE(float), true, DATA_FLOAT, 8, 0};
             break;
         }case tk_identifier:{
             var_t* var = get_var(expr->term.str, expr->term.strlen);

@@ -8,6 +8,8 @@
 extern const char* target_architecture;  // e.g. "x86 Linux"
 extern const unsigned int target_cpu;    // Either 32 or 64 bit
 extern const size_t target_address_size; // For 32 bit, should be 4 bytes and for 64 bit, should be 8 bytes
+extern const char* target_assembler;
+extern const char* target_linker;
 
 // Information about the program's essential sections (for assembly)
 extern const char* target_entry_point;

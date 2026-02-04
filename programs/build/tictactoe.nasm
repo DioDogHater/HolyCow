@@ -279,6 +279,44 @@ check_win:
 	leave
 	ret
 
+global check_tie:function
+check_tie:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 16
+	mov rbx, board
+	mov [rsp+8], rbx
+	mov bl, 9
+	.L1:
+	test bl, bl
+	je .L3
+	mov rcx, [rsp+8]
+	mov sil, [rcx]
+	mov cl, ' '
+	cmp sil, cl
+	sete cl
+	test cl, cl
+	je .L4
+	mov cl, 0
+	mov [rbp+16], cl
+	jmp .L0
+	jmp .L5
+	.L4:
+	.L5:
+	mov rcx, [rsp+8]
+	inc rcx
+	mov [rsp+8], rcx
+	.L2:
+	dec bl
+	jmp .L1
+	.L3:
+	mov bl, 1
+	mov [rbp+16], bl
+	jmp .L0
+	.L0:
+	leave
+	ret
+
 global main:function
 main:
 	push rbp
@@ -496,6 +534,16 @@ main:
 	mov [state], rbx
 	jmp .L22
 	.L21:
+	sub rsp, 16
+	call check_tie
+	mov bl, [rsp+0]
+	add rsp, 16
+	test bl, bl
+	je .L23
+	mov rbx, 2
+	mov [state], rbx
+	jmp .L22
+	.L23:
 	mov rbx, 0
 	mov [state], rbx
 	.L22:
@@ -521,14 +569,14 @@ main:
 	cmp bl, cl
 	sete bl
 	test bl, bl
-	je .L23
+	je .L24
 	call init
 	mov rbx, 0
 	mov [state], rbx
-	jmp .L24
-	.L23:
-	jmp .L2
+	jmp .L25
 	.L24:
+	jmp .L2
+	.L25:
 	.L4:
 	jmp .L1
 	.L2:
@@ -555,6 +603,8 @@ extern to_upper
 extern set_rounding
 extern modf
 extern sqrt
+extern pow
+extern log
 extern sin
 extern cos
 extern tan
@@ -569,8 +619,11 @@ extern div_fixed
 extern mod_fixed
 extern memset
 extern memcpy
+extern memmove
 extern strlen
 extern strfind
+extern strdfind
+extern strcpy
 extern flush_stdout
 extern print_str
 extern print_char

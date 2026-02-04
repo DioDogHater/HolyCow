@@ -7,20 +7,25 @@
 // Types of data
 enum data_types{
     DATA_INVALID = 0,
-    DATA_INT,       // Integers OR pointers
+    DATA_INT,       // Integers, booleans or pointers
     DATA_FLOAT,     // Floats are handled differently
-    DATA_STRUCT,    // Structs are trickier to handle
-    DATA_CLASS,     // Classes are way trickier to handle
+    DATA_STRUCT,    // Structs are more tricky
+    DATA_UNION,     // Unions are easier than structs
 };
 
 typedef struct{
-    size_t size;        // Size in bytes of a value of said type
-    token_t* repr;      // Representation (tokens used to represent the type) (optional)
-    short sign;         // Sign of type (difference between int64 and uint64)
-    short data;         // Type of data
-    int ptr_depth;      // 0 = direct value, 1 = pointer to value, 2 = pointer to pointer to value, etc.
+    size_t size;      // Size in bytes of a value of said type
+    token_t* repr;    // Representation (tokens used to represent the type) (optional)
+    bool sign;        // Sign of type (difference between int64 and uint64)
+    uint8_t data;     // Type of data
+    uint16_t align;   // Align of the type (same as size except when dealing with structs / unions / classes)
+    int ptr_depth;    // 0 = direct value, 1 = pointer to value, 2 = pointer to pointer to value, etc.
 } type_t;
-#define INVALID_TYPE (type_t){0, NULL, false, DATA_INVALID, 0}
+#define INVALID_TYPE (type_t){0, NULL, false, DATA_INVALID, 0, 0}
+#define SIZEOF_T(t) (((t).ptr_depth) ? (target_address_size) : ((t).size))
+#define SIGNOF_T(t) (((t).ptr_depth) ? (false) : (t).sign)
+#define DATAOF_T(t) (((t).ptr_depth) ? (DATA_INT) : (t).data)
+#define ALIGNOF_T(t) (((t).ptr_depth) ? (8) : ((t).align))
 
 // Types that can be used temporarily without
 // actually being in the source files

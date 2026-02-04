@@ -7,6 +7,7 @@
 #define MAX3(x,y,z) (MAX(MAX(x,y),z))
 #define ABS(x) (((x) < 0) ? -(x) : (x))
 #define CLAMP(x,a,b) (MIN(MAX(x,a),b))
+#define ALIGN(x,a) (((x)+(a)-1) / (a) * (a))
 
 #define KB 1024
 #define MB 1048576

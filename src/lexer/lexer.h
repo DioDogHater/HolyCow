@@ -84,6 +84,7 @@ enum{
     tk_end,            // @end
     tk_asm,            // @asm("...")
     tk_struct,
+    tk_union,
     tk_class,
     tk_sizeof,         // sizeof(...)
     tk_typeof,         // typeof(...)
@@ -107,8 +108,6 @@ enum{
     tk_func_decl,   // Function declaration
     tk_var_decl,    // Variable declaration
     tk_arr_decl,    // Array declaration
-    tk_struct_decl, // Struct declaration
-    tk_class_decl,  // Class declaration
     tk_deref,       // Dereferencing (*)
     tk_getaddr,     // Get address (&)
     tk_type_cast,   // Type cast e.g. (type)

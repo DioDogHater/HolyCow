@@ -48,6 +48,15 @@ bool check_win(char pl){
     return false;
 }
 
+bool check_tie(){
+    char* ptr = board;
+    repeat(9){
+        if(*ptr == ' '){ return false; }
+        ++ptr;
+    }
+    return true;
+}
+
 int main(uint argc, char** argv){
     char buffer[16];
 
@@ -93,6 +102,7 @@ int main(uint argc, char** argv){
             // Set the coordinate to the player's symbol
             board[row*3+col] = player;
             if(check_win(player)){ state = STATE_END; }
+            else if(check_tie()){ state = STATE_END; }
             else{ state = STATE_TURN; }
         }else{
             print_board();

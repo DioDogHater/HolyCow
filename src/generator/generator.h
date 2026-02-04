@@ -67,6 +67,7 @@ typedef struct{
     const char* str;
     size_t strlen;
     size_t size;
+    size_t align;
     vector_t members[1];
     vector_t funcs[1];
 } struct_t;
@@ -78,6 +79,21 @@ struct_t* get_struct(const char*, size_t);
 var_t* get_member(struct_t*, const char*, size_t);
 // Find a class' method
 func_t* get_method(struct_t*, const char*, size_t);
+
+// Unions / variants
+typedef struct{
+    const char* str;
+    size_t strlen;
+    size_t size;
+    size_t align;
+    node_stmt* members;
+} union_t;
+extern vector_t unions[1];
+
+// Find a union type
+union_t* get_union(const char*, size_t);
+// Find a union's member
+node_stmt* get_union_member(union_t*, const char*, size_t);
 
 // Scopes
 // A snapshot of the moment before the scope starts

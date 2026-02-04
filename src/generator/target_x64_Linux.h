@@ -7,6 +7,9 @@
 const char* target_architecture = "x64 Linux";
 const size_t target_address_size = 8; // bytes
 const unsigned int target_cpu = 64;
+const char* target_assembler = "nasm (Netwide Assembler)";
+const char* target_linker = "ld (GNU Linker)";
+
 const char* target_entry_point = "_start";
 const char* target_text_section = "section .text\n";
 const char* target_data_section = "section .data\n";

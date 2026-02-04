@@ -6,6 +6,7 @@ int main(uint argc, char** argv);
 #define VARGS &@varg_start
 #define STDIN  0
 #define STDOUT 1
+#define STDERR 2
 #define INT_MIN 0x8000000000000000
 #define INT_MAX 0x7FFFFFFFFFFFFFFF
 #define UINT_MIN 0x0000000000000000
@@ -23,21 +24,23 @@ char to_lower(char c);
 char to_upper(char c);
 
 // Floating point arithmetic
-#define FP_NEAREST  0x00
-#define FP_DOWN     0x04
-#define FP_UP       0x08
-#define FP_ZERO     0x0C
-void set_rounding(uint8 mode = FP_ZERO);
+#define FP_ROUND    0x00
+#define FP_FLOOR    0x04
+#define FP_CEIL     0x08
+#define FP_TRUNC    0x0C
+void set_rounding(uint8 mode = FP_TRUNC);
 float modf(float x, float d);
 float sqrt(float x);
+float pow(float x, float p);
+float log(float x);
 
-#define PI 3.1415
+#define PI 3.14159265359
 float sin(float x);
 float cos(float x);
 float tan(float x);
 float atan2(float y, float x);
 
-float round(float x, uint8 mode = FP_NEAREST);
+float round(float x, uint8 mode = FP_ROUND);
 
 // Fixed point arithmetic
 #define fixed int32
@@ -62,10 +65,20 @@ fixed div_fixed(fixed a, fixed b);
 fixed mod_fixed(fixed a, fixed b);
 
 // String operations
+// Set bytes in memory to a value
 void memset(uint8* mem, uint8 data, uint mem_size);
+// Copy memory from src to dest
 void memcpy(uint8* dest, uint8* src, uint mem_size);
+// Move memory from src to dest (copying without corrupting data)
+void memmove(uint8* dest, uint8* src, uint mem_size);
+// Get length of string
 uint strlen(char* str);
-uint strfind(char* str, char c, uint len = -1);
+// Find first occurence of character in string
+int strfind(char* str, char c, uint len = -1, bool reverse = false);
+// Find first occurence of a different character in string
+int strdfind(char* str, char c, uint len = -1, bool reverse = false);
+// Copy a string (returns the end of dest after copying)
+char* strcpy(char* dest, char* src);
 
 // Terminal IO
 void flush_stdout();
@@ -75,7 +88,7 @@ void print_decimal(int x);
 void print_udecimal(uint x);
 void print_hex(uint x);
 void print_fixed(fixed x);
-void print_float(float x);
+void print_float(float x, uint digits = 4);
 void print_format(char* fmt, uint* argv);
 void print(char* fmt, ...);
 void println(char* fmt = "", ...);

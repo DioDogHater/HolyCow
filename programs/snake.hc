@@ -1,5 +1,9 @@
 #include "std/stdlib.hhc"
 
-int main(uint argc, char** argv){
+struct vec2 {
+    float x;
+    float y;
+}
 
+int main(uint argc, char** argv){
 }

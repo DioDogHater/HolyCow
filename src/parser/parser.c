@@ -338,7 +338,8 @@ node_stmt* parse_stmt(token_t** tokens, arena_t* arena, bool sc_necessary){
 
     // Variable / array / function declaration
     // Starts with a type and an identifier must follow
-    if((token->type >= tk_int8 && token->type <= tk_constexpr) || (token->type == tk_identifier && peek_tk_type(&token, tk_identifier))){
+    if((token->type >= tk_int8 && token->type <= tk_constexpr) ||
+       (token->type == tk_identifier && (peek_tk_type(&token, tk_identifier) || peek_tk_type(&token, tk_mult)))){
         (void) consume_token(tokens); // Consume the first token
         // If it's a composed type, we need to consume the type after
         if((token->type == tk_const /*|| token->type == tk_constexpr*/) && peek_token(tokens) &&
@@ -367,6 +368,11 @@ node_stmt* parse_stmt(token_t** tokens, arena_t* arena, bool sc_necessary){
                 if(consume_tk_type(tokens, tk_var_args)){
                     new_head = (node_stmt*) ARENA_ALLOC(arena, node_expr_stmt);
                     new_head->expr = (node_expr_stmt){tk_var_args, NULL, NULL};
+                    if(peek_tk_type(tokens, tk_identifier)){
+                        new_head->expr.expr = (node_expr*) ARENA_ALLOC(arena, node_term);
+                        token_t* vargc = consume_token(tokens);
+                        new_head->expr.expr->term = (node_term){tk_identifier, NULL, vargc->str, vargc->strlen};
+                    }
                 }else{
                     new_head = parse_stmt(tokens, arena, false);
                     if(!new_head || new_head->type != tk_var_decl){
@@ -424,6 +430,23 @@ node_stmt* parse_stmt(token_t** tokens, arena_t* arena, bool sc_necessary){
             stmt = (node_stmt*) ARENA_ALLOC(arena, node_var_decl);
             stmt->var_decl = (node_var_decl) {tk_var_decl, NULL, token, identifier, expr};
         }
+    }// Structs / unions
+    else if(token->type == tk_struct || token->type == tk_union){
+        (void) consume_token(tokens);
+        stmt = (node_stmt*) ARENA_ALLOC(arena, node_struct_decl);
+        stmt->struct_decl = (node_struct_decl){token->type, NULL, peek_token(tokens), NULL};
+        if(!consume_tk_type(tokens, tk_identifier)){
+            print_context("Expected identifier to name structure", *tokens);
+            return NULL;
+        }
+        if(consume_tk_type(tokens, tk_semicolon))
+            return stmt;
+        stmt->struct_decl.members = parse_scope(tokens, arena);
+        if(!stmt->struct_decl.members || stmt->struct_decl.members == (node_stmt*)(~0)){
+            print_context("Expected braces containing valid members.", stmt->struct_decl.identifier);
+            return NULL;
+        }
+        return stmt;
     }// if / else if / while / repeat statements (they're all really similar)
     else if(token->type == tk_if || token->type == tk_while || token->type == tk_repeat ||
             token->type == tk_else_if || (token->type == tk_else && token->next && token->next->type == tk_if)){

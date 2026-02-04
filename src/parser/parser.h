@@ -142,7 +142,21 @@ typedef struct{
     node_term* elem_count;
 } node_arr_decl;
 
-// tk_var_assign
+// tk_struct
+// tk_union
+// tk_class
+typedef struct{
+    NODE_STMT_BASE;
+    token_t* identifier;
+    union node_stmt* members;
+} node_struct_decl;
+
+// tk_assign
+// tk_add_assign
+// tk_sub_assign
+// tk_mul_assign
+// tk_div_assign
+// tk_mod_assign
 typedef struct{
     NODE_STMT_BASE;
     node_expr* var;
@@ -212,6 +226,7 @@ typedef union node_stmt{
     node_func_decl func_decl;
     node_var_decl var_decl;
     node_arr_decl arr_decl;
+    node_struct_decl struct_decl;
     node_var_assign var_assign;
     node_if if_stmt;
     node_if while_stmt;

@@ -193,6 +193,8 @@ extern to_upper
 extern set_rounding
 extern modf
 extern sqrt
+extern pow
+extern log
 extern sin
 extern cos
 extern tan
@@ -207,8 +209,11 @@ extern div_fixed
 extern mod_fixed
 extern memset
 extern memcpy
+extern memmove
 extern strlen
 extern strfind
+extern strdfind
+extern strcpy
 extern flush_stdout
 extern print_str
 extern print_char

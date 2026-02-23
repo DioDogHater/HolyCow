@@ -22,13 +22,13 @@ init:
 	sub rsp, 32
 	mov rbx, board
 	mov [rsp+0], rbx
-	mov bl, ' '
+	mov bl, 32
 	mov [rsp+8], bl
 	mov rbx, 9
 	mov [rsp+16], rbx
 	call memset
 	add rsp, 32
-	mov bl, ' '
+	mov bl, 32
 	mov [player], bl
 	.L0:
 	leave
@@ -61,7 +61,7 @@ print_board:
 	mov [rsp+0], rcx
 	mov rcx, 10
 	mov [rsp+8], rcx
-	mov rcx, '-'
+	mov rcx, 45
 	mov [rsp+16], rcx
 	call println
 	mov bl, [rsp+31]
@@ -292,7 +292,7 @@ check_tie:
 	je .L3
 	mov rcx, [rsp+8]
 	mov sil, [rcx]
-	mov cl, ' '
+	mov cl, 32
 	cmp sil, cl
 	sete cl
 	test cl, cl
@@ -336,16 +336,16 @@ main:
 	test bl, bl
 	je .L3
 	mov bl, BYTE [player]
-	mov cl, 'X'
+	mov cl, 88
 	cmp bl, cl
 	sete bl
 	test bl, bl
 	je .L5
-	mov bl, 'O'
+	mov bl, 79
 	mov [player], bl
 	jmp .L6
 	.L5:
-	mov bl, 'X'
+	mov bl, 88
 	mov [player], bl
 	.L6:
 	call print_board
@@ -378,7 +378,7 @@ main:
 	mov [rsp+24], rbx
 	lea rbx, [rsp+32]
 	mov cl, [rbx]
-	mov bl, 'q'
+	mov bl, 113
 	cmp cl, bl
 	sete bl
 	test bl, bl
@@ -434,7 +434,7 @@ main:
 	.L11:
 	lea rcx, [rsp+32]
 	movsx rbx, BYTE [rcx]
-	mov rcx, '1'
+	mov rcx, 49
 	sub rbx, rcx
 	mov [rsp+16], rbx
 	sub rsp, 16
@@ -446,7 +446,7 @@ main:
 	call to_lower
 	movsx rbx, BYTE [rsp+0]
 	add rsp, 16
-	mov rcx, 'a'
+	mov rcx, 97
 	sub rbx, rcx
 	mov [rsp+8], rbx
 	mov rbx, [rsp+16]
@@ -496,7 +496,7 @@ main:
 	mov rcx, [rsp+8]
 	add rax, rcx
 	mov cl, [rbx+rax*1]
-	mov bl, ' '
+	mov bl, 32
 	cmp cl, bl
 	setne bl
 	test bl, bl
@@ -565,7 +565,7 @@ main:
 	call to_lower
 	mov bl, [rsp+0]
 	add rsp, 16
-	mov cl, 'y'
+	mov cl, 121
 	cmp bl, cl
 	sete bl
 	test bl, bl
@@ -624,6 +624,8 @@ extern strlen
 extern strfind
 extern strdfind
 extern strcpy
+extern strcmp
+extern strequal
 extern flush_stdout
 extern print_str
 extern print_char

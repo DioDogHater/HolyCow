@@ -123,8 +123,7 @@ main:
 	sub rsp, 16
 	mov rbx, STR0
 	mov [rsp+0], rbx
-	mov rbx, 1
-	neg rbx
+	mov rbx, 18446744073709551615
 	mov [rsp+8], rbx
 	call print_str
 	add rsp, 16
@@ -155,8 +154,7 @@ main:
 	sub rsp, 16
 	mov rbx, STR1
 	mov [rsp+0], rbx
-	mov rbx, 1
-	neg rbx
+	mov rbx, 18446744073709551615
 	mov [rsp+8], rbx
 	call print_str
 	add rsp, 16
@@ -214,6 +212,8 @@ extern strlen
 extern strfind
 extern strdfind
 extern strcpy
+extern strcmp
+extern strequal
 extern flush_stdout
 extern print_str
 extern print_char

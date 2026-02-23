@@ -42,7 +42,7 @@ char to_lower(char c){
 }
 char to_upper(char c){
     if(is_alpha(c)){
-        return c | 0b11011111;
+        return c & 0b11011111;
     }
     return c;
 }
@@ -261,16 +261,46 @@ int strdfind(char* str, char c, uint len, bool reverse){
 
     // Find the character inside the string
     @asm(rdi, al, rcx,
-         "mov al, %0
-         mov rdi, %1
-         mov rcx, %2
-         repe scasb
-         sub %2, rcx
-         dec %2
-         mov [rbp+16], %2",
-         c, str, len + 1);
+    "mov al, %0
+    mov rdi, %1
+    mov rcx, %2
+    repe scasb
+    sub %2, rcx
+    dec %2
+    mov [rbp+16], %2",
+    c, str, len + 1);
 
     if(@return == len){ return -1; }
+}
+
+// Copy a string from src to dest
+char* strcpy(char* dest, char* src, uint len = -1){
+    if(len == -1){ len = strlen(src); }
+    memcpy(dest, src, len);
+    dest += len;
+    *dest = 0;
+    return dest;
+}
+
+// Compare strings
+int8 strcmp(char* s1, char* s2, uint len = -1){
+    if(len == -1){ len = strlen(s1); }
+    @asm(rsi, rdi, rcx,
+    "mov rsi, %0
+    mov rdi, %1
+    mov rcx, %2
+    repe cmpsb
+    dec rsi
+    dec rdi
+    mov cl, [rsi]
+    mov ch, [rdi]
+    sub cl, ch
+    mov [rbp+16], cl", s1, s2, len);
+}
+
+bool strequal(char* s1, char* s2){
+    if(strlen(s1) != strlen(s2)){ return false; }
+    return (strcmp(s1, s2) == 0);
 }
 
 // Terminal IO
@@ -441,6 +471,15 @@ void print_format(char* fmt, uint* argv){
             print_fixed((fixed)argv[argc++]);
         }else if(*(fmt+1) == 'f'){
             print_float(((float*)argv)[argc++]);
+        }else if(*(fmt+1) == '0'){
+            char buffer[64];
+            ++fmt;
+            if(*(fmt+1) < '2' || *(fmt+1) > '9'){
+                print_str("\nExpected in to be in the range [2, 9] in format specifier %0n\n");
+                exit(1);
+            }
+            uint n_len = *(fmt+1) - '0';
+            print_str(uint_to_string(argv[argc++], buffer, n_len + 1, '0'));
         }else if(*(fmt+1) == '%'){
             print_char('%');
         }else if(*(fmt+1) == '*'){

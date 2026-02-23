@@ -120,8 +120,8 @@ node_expr* parse_term(token_t** tokens, arena_t* arena){
     if(!token)
         return NULL;
 
-    // If it's a type
-    if(token->type >= tk_int8 && token->type <= tk_const){
+    // If it's a built-in type
+    if((token->type >= tk_int8 && token->type <= tk_const)){
         if(token->type == tk_const && peek_token(tokens) &&
            ((peek_token(tokens)->type >= tk_int8 && peek_token(tokens)->type < tk_const) || peek_token(tokens)->type == tk_identifier)){
             token = consume_token(tokens);
@@ -136,6 +136,20 @@ node_expr* parse_term(token_t** tokens, arena_t* arena){
         return expr;
     }
 
+    // If it's a structure / class / union type
+    if(token->type == tk_identifier && peek_tk_type(tokens, tk_mult)){
+        token_t* tk = token->next;
+        for(; tk && tk->type == tk_mult; tk = tk->next);
+        if(tk && tk->type == tk_close_parent){
+            print_context("User defined type", token);
+            expr = (node_expr*) ARENA_ALLOC(arena, node_type);
+            expr->type_expr = (node_type){tk_int8, NULL, token};
+            while(peek_token(tokens) != tk)
+                (void) consume_token(tokens);
+            return expr;
+        }
+    }
+
     switch(token->type){
     case tk_str_lit:
     case tk_bool_lit:
@@ -147,6 +161,7 @@ node_expr* parse_term(token_t** tokens, arena_t* arena){
         break;
     case tk_identifier:
         // For a function call
+        // TODO Change this to be an operator instead
         if(peek_tk_type(tokens, tk_open_parent)){
             (void) consume_token(tokens);
             node_expr *args = NULL, *head = NULL;

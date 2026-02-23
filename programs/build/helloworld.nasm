@@ -50,7 +50,7 @@ print_numbers:
 	sub rsp, 16
 	lea rbx, [rbp+24]
 	mov [rsp+8], rbx
-	mov bl, '>'
+	mov bl, 62
 	mov [rsp+7], bl
 	mov rbx, [rbp+16]
 	.L1:
@@ -72,7 +72,7 @@ print_numbers:
 	mov rsi, 8
 	add rcx, rsi
 	mov [rsp+8], rcx
-	mov cl, ','
+	mov cl, 44
 	mov [rsp+7], cl
 	.L2:
 	dec rbx
@@ -116,7 +116,7 @@ main:
 	sub rsp, 16
 	mov rbx, STR6
 	mov [rsp+0], rbx
-	mov rbx, '@'
+	mov rbx, 64
 	mov [rsp+8], rbx
 	call println
 	add rsp, 16
@@ -125,15 +125,14 @@ main:
 	mov [rsp+0], rbx
 	mov rbx, 5
 	mov [rsp+8], rbx
-	mov rbx, '*'
+	mov rbx, 42
 	mov [rsp+16], rbx
 	call println
 	add rsp, 32
 	sub rsp, 16
 	mov rbx, STR8
 	mov [rsp+0], rbx
-	mov rbx, 647
-	neg rbx
+	mov rbx, -647
 	mov [rsp+8], rbx
 	call println
 	add rsp, 16
@@ -147,7 +146,7 @@ main:
 	sub rsp, 16
 	mov rbx, STR10
 	mov [rsp+0], rbx
-	mov rbx, 0xBEEF
+	mov rbx, 48879
 	mov [rsp+8], rbx
 	call println
 	add rsp, 16
@@ -161,8 +160,7 @@ main:
 	sub rsp, 32
 	mov rbx, STR12
 	mov [rsp+8], rbx
-	mov rbx, 1
-	neg rbx
+	mov rbx, 18446744073709551615
 	mov [rsp+16], rbx
 	call string_to_fixed
 	mov ebx, [rsp+0]
@@ -219,6 +217,8 @@ extern strlen
 extern strfind
 extern strdfind
 extern strcpy
+extern strcmp
+extern strequal
 extern flush_stdout
 extern print_str
 extern print_char

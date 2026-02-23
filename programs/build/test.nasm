@@ -15,8 +15,8 @@ _start:
 	mov rdi, [rsp]
 	syscall
 
-global table:function
-table:
+global frame:function
+frame:
 	push rbp
 	mov rbp, rsp
 	sub rsp, 32
@@ -70,24 +70,42 @@ table:
 	mov rcx, 4
 	add rbx, rcx
 	mov [rsp+16], rbx
+	mov rcx, [rbp+16]
+	mov sil, [rcx]
+	test sil, sil
+	sete bl
+	test bl, bl
+	je .L6
 	sub rsp, 32
 	mov rbx, STR0
+	mov [rsp+0], rbx
+	mov rbx, [rsp+48]
+	mov [rsp+8], rbx
+	mov rbx, 45
+	mov [rsp+16], rbx
+	call println
+	add rsp, 32
+	jmp .L7
+	.L6:
+	sub rsp, 32
+	mov rbx, STR1
 	mov [rsp+0], rbx
 	mov rbx, [rbp+16]
 	mov [rsp+8], rbx
 	mov rbx, [rsp+48]
 	mov [rsp+16], rbx
-	mov rbx, '-'
+	mov rbx, 45
 	mov [rsp+24], rbx
 	call println
 	add rsp, 32
+	.L7:
 	mov rbx, [rbp+24]
-	.L6:
+	.L8:
 	test rbx, rbx
-	je .L8
+	je .L10
 	sub rsp, 32
 	mov [rsp+24], rbx
-	mov rcx, STR1
+	mov rcx, STR2
 	mov [rsp+0], rcx
 	mov rcx, [rsp+56]
 	mov rsi, [rcx]
@@ -101,16 +119,16 @@ table:
 	mov rsi, 8
 	add rcx, rsi
 	mov [rsp+24], rcx
-	.L7:
+	.L9:
 	dec rbx
-	jmp .L6
-	.L8:
+	jmp .L8
+	.L10:
 	sub rsp, 32
-	mov rbx, STR2
+	mov rbx, STR3
 	mov [rsp+0], rbx
 	mov rbx, [rsp+48]
 	mov [rsp+8], rbx
-	mov rbx, '-'
+	mov rbx, 45
 	mov [rsp+16], rbx
 	call println
 	add rsp, 32
@@ -138,50 +156,36 @@ main:
 	test bl, bl
 	je .L1
 	sub rsp, 48
-	mov rbx, STR3
+	mov rbx, STR4
 	mov [rsp+0], rbx
-	mov rbx, 5
+	mov rbx, 10
 	mov [rsp+8], rbx
 	fld QWORD [rsp+56]
 	fstp QWORD [rsp+16]
-	mov rbx, 5
+	mov rbx, 10
 	mov [rsp+24], rbx
 	fld QWORD [rsp+48]
 	fstp QWORD [rsp+32]
+	fld QWORD [FP_PRECISION]
+	fstp QWORD [rsp+40]
 	call println
 	add rsp, 48
 	jmp .L2
 	.L1:
 	.L2:
 	sub rsp, 48
-	mov rbx, STR4
+	mov rbx, STR5
 	mov [rsp+0], rbx
 	mov rbx, 3
 	mov [rsp+8], rbx
-	mov rbx, STR5
-	mov [rsp+16], rbx
 	mov rbx, STR6
-	mov [rsp+24], rbx
+	mov [rsp+16], rbx
 	mov rbx, STR7
-	mov [rsp+32], rbx
-	call table
-	add rsp, 48
-	sub rsp, 32
+	mov [rsp+24], rbx
 	mov rbx, STR8
-	mov [rsp+0], rbx
-	fld QWORD [rsp+40]
-	fstp QWORD [rsp+8]
-	sub rsp, 32
-	fld QWORD [rsp+72]
-	fstp QWORD [rsp+8]
-	mov bl, 0x00
-	mov [rsp+16], bl
-	call round
-	fld QWORD [rsp+0]
-	add rsp, 32
-	fstp QWORD [rsp+16]
-	call println
-	add rsp, 32
+	mov [rsp+32], rbx
+	call frame
+	add rsp, 48
 	sub rsp, 32
 	mov rbx, STR9
 	mov [rsp+0], rbx
@@ -190,7 +194,7 @@ main:
 	sub rsp, 32
 	fld QWORD [rsp+72]
 	fstp QWORD [rsp+8]
-	mov bl, 0x04
+	mov bl, 0
 	mov [rsp+16], bl
 	call round
 	fld QWORD [rsp+0]
@@ -206,7 +210,7 @@ main:
 	sub rsp, 32
 	fld QWORD [rsp+72]
 	fstp QWORD [rsp+8]
-	mov bl, 0x08
+	mov bl, 4
 	mov [rsp+16], bl
 	call round
 	fld QWORD [rsp+0]
@@ -222,7 +226,23 @@ main:
 	sub rsp, 32
 	fld QWORD [rsp+72]
 	fstp QWORD [rsp+8]
-	mov bl, 0x0C
+	mov bl, 8
+	mov [rsp+16], bl
+	call round
+	fld QWORD [rsp+0]
+	add rsp, 32
+	fstp QWORD [rsp+16]
+	call println
+	add rsp, 32
+	sub rsp, 32
+	mov rbx, STR12
+	mov [rsp+0], rbx
+	fld QWORD [rsp+40]
+	fstp QWORD [rsp+8]
+	sub rsp, 32
+	fld QWORD [rsp+72]
+	fstp QWORD [rsp+8]
+	mov bl, 12
 	mov [rsp+16], bl
 	call round
 	fld QWORD [rsp+0]
@@ -266,6 +286,8 @@ extern strlen
 extern strfind
 extern strdfind
 extern strcpy
+extern strcmp
+extern strequal
 extern flush_stdout
 extern print_str
 extern print_char
@@ -295,30 +317,32 @@ dq 0.001
 
 section .rodata
 STR0:
-db "+%[ %s %*C+",0
-STR1:
-db "|%[ %s%L|",0
-STR2:
 db "+%*c+",0
+STR1:
+db "+%[ %s %*C+",0
+STR2:
+db "|%[ %s%L|",0
 STR3:
-db "%*f ~= %*f",0
+db "+%*c+",0
 STR4:
-db "Foo tierlist",0
+db "%*f ~= %*f ± %f",0
 STR5:
-db "1. Foo",0
+db "Foo tierlist",0
 STR6:
-db "2. Bar",0
+db "1. Foo",0
 STR7:
-db "3. Foo-bar",0
+db "2. Bar",0
 STR8:
-db "round(%f, FP_ROUND) = %f",0
+db "3. Foo-bar",0
 STR9:
-db "round(%f, FP_FLOOR) = %f",0
+db "round(%f, FP_ROUND) = %f",0
 STR10:
-db "round(%f, FP_CEIL)  = %f",0
+db "round(%f, FP_FLOOR) = %f",0
 STR11:
+db "round(%f, FP_CEIL)  = %f",0
+STR12:
 db "round(%f, FP_TRUNC) = %f",0
 FP0:
-dq 3.14150
+dq 3.14159265359
 FP1:
 dq 3.14155

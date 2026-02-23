@@ -243,7 +243,7 @@ int main(int argc, char* argv[]){
     // We need a buffer to store the .nasm filepath
     char buffer[512];
     snprintf(buffer, 511, "%s.nasm", options.output_file);
-    if(!generate(buffer, AST, options.library)){
+    if(!generate(buffer, AST, arena, options.library)){
         HC_ERR("\nGENERATION FAILED!");
         compiler_quit();
         return EXIT_FAILURE;

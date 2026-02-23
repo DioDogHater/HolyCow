@@ -1,48 +1,81 @@
 // Prototype declaration of the main entry point
 int main(uint argc, char** argv);
 
-// Macros
+// ================ Macros ====================
+// Invalid pointer, null pointer
 #define NULL (void*) 0
+// Array to variable arguments
 #define VARGS &@varg_start
+// standard input stream (file descriptor)
 #define STDIN  0
+// standard output stream (file descriptor)
 #define STDOUT 1
+// standard error stream (file descriptor)
 #define STDERR 2
+// Min / max values for int type
 #define INT_MIN 0x8000000000000000
 #define INT_MAX 0x7FFFFFFFFFFFFFFF
+// Min / max values for uint type
 #define UINT_MIN 0x0000000000000000
 #define UINT_MAX 0xFFFFFFFFFFFFFFFF
 
-// Miscelaneous utilities
+// ========== Miscelaneous utilities ===========
+// Get absolute (positive) integer number
 int absi(int x);
+// Get absolute (positive) floating point number
 float absf(float x);
+// Randomize memory
 void random(uint8* data, uint size);
+// Get a random int from min to max
 int randint(int min, int max);
+// Check if character is alphabetic
 bool is_alpha(char c);
+// Check if character is numerical
 bool is_num(char c);
+// Check if character is either alphabetic or numerical
 bool is_alnum(char c);
+// Makes character lowercase
 char to_lower(char c);
+// Makes character uppercase
 char to_upper(char c);
 
-// Floating point arithmetic
+// ======= Floating point arithmetic ===========
 #define FP_ROUND    0x00
 #define FP_FLOOR    0x04
 #define FP_CEIL     0x08
 #define FP_TRUNC    0x0C
+// Set the rounding to a specific mode for future operations
+// Rounding mode is not set by default !!!
+// Please ensure rounding mode before float / int operations
 void set_rounding(uint8 mode = FP_TRUNC);
+// Get the remainder of x divided by d (modulo)
 float modf(float x, float d);
+// Square root
 float sqrt(float x);
+// x to the power p (exponentiation)
 float pow(float x, float p);
+// Logarithm
 float log(float x);
 
 #define PI 3.14159265359
+// Sine function
 float sin(float x);
+// Cosine function
 float cos(float x);
+// Tangent function
 float tan(float x);
+// Arctangent function (with quadrant checking)
+// Returns the angle between x+ axis and the point (x, y)
 float atan2(float y, float x);
 
+// Rounding
+// round(x)           -> round(x)
+// round(x, FP_FLOOR) -> floor(x)
+// round(x, FP_CEIL)  -> ceil(x)
+// round(x, FP_TRUNC) -> (int)x
 float round(float x, uint8 mode = FP_ROUND);
 
-// Fixed point arithmetic
+// ========= Fixed point arithmetic ============
 #define fixed int32
 #define FIXED_PRECISION  15
 #define FIXED_PRECISION2 30
@@ -64,7 +97,7 @@ fixed div_fixed(fixed a, fixed b);
 // mod_fixed(a, b) = a % b
 fixed mod_fixed(fixed a, fixed b);
 
-// String operations
+// ============ String operations ============
 // Set bytes in memory to a value
 void memset(uint8* mem, uint8 data, uint mem_size);
 // Copy memory from src to dest
@@ -78,10 +111,21 @@ int strfind(char* str, char c, uint len = -1, bool reverse = false);
 // Find first occurence of a different character in string
 int strdfind(char* str, char c, uint len = -1, bool reverse = false);
 // Copy a string (returns the end of dest after copying)
-char* strcpy(char* dest, char* src);
+// len = length of dest string
+char* strcpy(char* dest, char* src, uint len = -1);
+// Compare strings
+// if s1 == s2, returns 0
+// if s1 != s2, return s1 - s2
+int8 strcmp(char* s1, char* s2, uint len = -1);
+// Check if strings are equal
+// Checks if their length are equal
+bool strequal(char* s1, char* s2);
 
-// Terminal IO
+// ========== Terminal IO ==============
+// stdout buffering
 void flush_stdout();
+
+// Specific printing functions
 void print_str(char* str, uint len = -1);
 void print_char(char c);
 void print_decimal(int x);
@@ -89,19 +133,113 @@ void print_udecimal(uint x);
 void print_hex(uint x);
 void print_fixed(fixed x);
 void print_float(float x, uint digits = 4);
+
+// Print formatted text
+// fmt is the string to format
+
+/* ### FORMAT SPECIFIERS ###
+ * %u, %i:
+ *  Print uint / int x
+ *      print("%u", x);
+ *      print("%i", x);
+ *
+ * %0n:
+ *  Print uint x, with '0' to fill space to be n characters long
+ *  n must be between 2 and 9, inclusive
+ *      print("%0n", x);
+ *  EX: print("%04", 10); -> "0010"
+ *
+ * %x:
+ *  Print uint x as hexadecimal
+ *      print("%x", x);
+ *
+ * %c, %*c:
+ *  Print character c once, or n times if %*c is used
+ *      print("%c", c);
+ *      print("%*c", c, n);
+ *
+ * %s, %*s:
+ *  Print string s entirely or the n first characters of s if %*s is used
+ *      print("%s", s);
+ *      print("%*s", n, s);
+ *
+ * %f, %*f:
+ *  Print float x up to 4 decimals or n decimals if %*f is used
+ *      print("%f", x);
+ *
+ * %F:
+ *  Print fixed point number x (fixed) up to 4 decimals
+ *      print("%F", x);
+ *
+ * %b:
+ *  Print bool b
+ *      print("%b", b);
+ *
+ * %[, %L, %*L:
+ *  Align text between %[ and %L (or %*L) left to be at least n characters long
+ *  When using %L, spaces will be used to fill space
+ *  When using %*L, character c will be used to fill space
+ *  NOTE: Printing a newline between %[ and %L (or %*L) will cause undefined behavior
+ *      print("%[text to align%L", n);
+ *      print("%[text to align%L", n, c);
+ *
+ * %[, %R, %*R:
+ *  Align text between %[ and %R (or %*R) right to be at least n characters long
+ *  When using %R, spaces will be used to fill space
+ *  When using %*R, character c will be used to fill space
+ *  NOTE: Printing a newline between %[ and %R (or %*R) will cause undefined behavior
+ *      print("%[text to align%R", n);
+ *      print("%[text to align%R", n, c);
+ *
+ * %[, %C, %*C:
+ *  Align text between %[ and %C (or %*C) in the middle to be at least n characters long
+ *  When using %C, spaces will be used to fill space
+ *  When using %*C, character c will be used to fill space
+ *  NOTE: Printing a newline between %[ and %C (or %*C) will cause undefined behavior
+ *      print("%[text to center%C", n);
+ *      print("%[text to center%*C", n, c);
+ *
+ * %[, %T, %*T:
+ *  Truncate text between %[ and %T (or %*T) to a length n
+ *  When using %T, text will be truncated at the end
+ *  When using %*T, text will be truncated at the end
+ *  NOTE: Printing a newline between %[ and %T (or %*T) will cause undefined behavior
+ *      print("%[text to truncate%T", n);
+ *      print("%[text to truncate%*T", n);
+ *
+ * %A:
+ *  Align cursor to be n characters away from start of line
+ *  When using %A, spaces will be used to fill space
+ *  When using %*A, character c will be used to fill space
+ *      print("%A", n);
+ *      print("%*A", n, c);
+ *
+ * %%:
+ *  Print '%'
+ *      print("%%");
+ */
+
+// argv should be the array of arguments given to format the string
 void print_format(char* fmt, uint* argv);
 void print(char* fmt, ...);
 void println(char* fmt = "", ...);
+
+// Print an error message, then exit with 1
 void error(char* fmt = "error", ...);
+
+// Get user input from stdin
 uint input(char* buff, uint len);
 char input_char();
 
-// Int <-> string conversion
+// ===== Int <-> string conversion ======
+// Convert an int to a string
+// if filler != 0, filler will be used to fill to be len - 1 long
+// Ex: int_to_string(10, str, 5, '0') -> 0010
 char* int_to_string(int x, char* str, uint len, char filler = 0);
 char* uint_to_string(uint x, char* str, uint len, char filler = 0);
 int string_to_int(char* str, uint len = -1);
 
-// OS interaction
+// ========== OS interaction ============
 int read(uint fd, char* buffer, uint len);
 int write(uint fd, char* buffer, uint len);
 #define EXIT_SUCCESS  0

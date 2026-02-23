@@ -147,9 +147,7 @@ type_t typeof_expr(node_expr* expr){
         case tk_int_lit:{
             const char* str = expr->term.str;
             size_t strlen = expr->term.strlen;
-            uint64_t r = 0;
-            for(; strlen; str++, strlen--)
-                r = r * 10 + (uint64_t)(*str - '0');
+            uint64_t r = eval_int_lit(&expr->term);
             if(r < (1 << 7))
                 max = (type_t){1, GET_DUMMY_TYPE(int8), true, DATA_INT, 1, 0};
             else if(r < (1 << 15))

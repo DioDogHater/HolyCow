@@ -11,6 +11,7 @@
 #include "target_requirements.h"
 #include "regs.h"
 #include "hc_types.h"
+#include "evaluator.h"
 
 // Stack size and pointer
 extern size_t stack_ptr;
@@ -33,8 +34,7 @@ enum var_locations {
     VAR_ARRAY,
     VAR_GLOBAL,
     VAR_GLOBAL_ARR,
-    VAR_ARG,
-    VAR_MEMBER
+    VAR_ARG
 };
 
 typedef struct{
@@ -70,6 +70,7 @@ typedef struct{
     size_t align;
     vector_t members[1];
     vector_t funcs[1];
+    node_expr* default_values;
 } struct_t;
 extern vector_t structs[1];
 
@@ -131,6 +132,7 @@ typedef struct{
     size_t end_label;
     size_t next_label;
     size_t stack_sz;
+    arena_t* arena;
 } scope_info;
 
 // Generate a statement
@@ -138,6 +140,6 @@ bool generate_stmt(HC_FILE, node_stmt*, type_t, scope_info);
 
 // Generates the assembly for the program
 // For now, there is no optimisation step
-bool generate(const char*, node_stmt*, bool);
+bool generate(const char*, node_stmt*, arena_t*, bool);
 
 #endif

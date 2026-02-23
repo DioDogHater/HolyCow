@@ -2,7 +2,8 @@
 #ifdef TARGET_x64_Linux
 
 #include "../dev/libs.h"
-#include "target_requirements.h"
+#include "../generator/target_requirements.h"
+#include "x64_regs.h"
 
 const char* target_architecture = "x64 Linux";
 const size_t target_address_size = 8; // bytes
@@ -51,57 +52,6 @@ int link(const char* output_file, char* link_files){
     return system(buffer);
 }
 
-#undef REGISTER_COUNT
-#define REGISTER_COUNT 6
-
-#define BASIC_REG(a, m) \
-REGISTER("r" a "x", 8, (m), REGISTER_ARRAY(\
-    REGISTER("e" a "x", 4, (m), REGISTER_ARRAY(\
-        REGISTER(a "x", 2, (m), REGISTER_ARRAY(\
-            REGISTER(a "l", 1, (m), NULL)\
-        ))\
-    ))\
-))
-
-#define EXTENDED_REG(n, m) \
-REGISTER("r" n, 8, (m), REGISTER_ARRAY(\
-    REGISTER("r" n "d", 4, (m), REGISTER_ARRAY(\
-        REGISTER("r" n "w", 2, (m), REGISTER_ARRAY(\
-            REGISTER("r" n "b", 1, (m), NULL)\
-        ))\
-    ))\
-))
-
-reg_t registers[] = {
-    BASIC_REG("b",1),
-    BASIC_REG("c",2),
-    REGISTER("rsi", 8, 4, REGISTER_ARRAY(
-        REGISTER("esi", 4, 4, REGISTER_ARRAY(
-            REGISTER("si", 2, 4, REGISTER_ARRAY(
-                REGISTER("sil", 1, 4, NULL)
-            ))
-        ))
-    )),
-    REGISTER("rdi", 8, 5, REGISTER_ARRAY(
-        REGISTER("edi", 4, 5, REGISTER_ARRAY(
-            REGISTER("di", 2, 5, REGISTER_ARRAY(
-                REGISTER("dil", 1, 5, NULL)
-            ))
-        ))
-    )),
-    EXTENDED_REG("8", 6),
-    EXTENDED_REG("9", 7),
-    EXTENDED_REG("10", 8),
-    EXTENDED_REG("11", 9),
-    EXTENDED_REG("12", 10),
-    EXTENDED_REG("13", 11),
-    EXTENDED_REG("14", 12),
-    EXTENDED_REG("15", 13),
-    BASIC_REG("a",0),
-    BASIC_REG("d",3),
-    (reg_t){NULL}
-};
-
 void gen_alloc_stack(HC_FILE fptr, size_t size){ HC_FPRINTF(fptr, "\tsub rsp, %lu\n", size); }
 void gen_dealloc_stack(HC_FILE fptr, size_t size){ HC_FPRINTF(fptr, "\tadd rsp, %lu\n", size); }
 void gen_start_func(HC_FILE fptr, const char* func_name, size_t strlen, bool priv){
@@ -109,7 +59,7 @@ void gen_start_func(HC_FILE fptr, const char* func_name, size_t strlen, bool pri
         HC_FPRINTF(fptr, "\nglobal %.*s:function", (int)strlen, func_name);
     else
         HC_FPRINTF(fptr, "\nstatic %.*s:function", (int)strlen, func_name);
-    HC_FPRINTF(fptr, "\n%.*s:\n\tpush rbp\n\tmov rbp, rsp\n", (int)strlen, func_name, (int)strlen, func_name);
+    HC_FPRINTF(fptr, "\n%.*s:\n\tpush rbp\n\tmov rbp, rsp\n", (int)strlen, func_name);
 }
 void gen_return_func(HC_FILE fptr){ HC_FPRINTF(fptr, "\tleave\n\tret\n"); }
 void gen_push_stack(HC_FILE fptr, reg_t* op){
@@ -122,7 +72,7 @@ void gen_pop_stack(HC_FILE fptr, reg_t* op){
     if(op->size == 2 || op->size == 8)
         HC_FPRINTF(fptr, "\tpop %s\n", op->name);
     else
-        HC_FPRINTF(fptr, "\tmov [rsp], %s\n\tadd rsp, %lu\n", op->size, op->name);
+        HC_FPRINTF(fptr, "\tmov [rsp], %s\n\tadd rsp, %lu\n", op->name, op->size);
 }
 
 // Unary ops
@@ -341,8 +291,8 @@ void gen_declare_str(HC_FILE fptr, size_t id, const char* str, size_t strlen){
             str++, strlen--;
         }else if(*str == '\\' && *(str+1) == 'x'){
             str++, strlen--;
-            HC_FPRINTF(fptr, "\",0%.*s,\"",2,str+1);
-            str++, strlen--;
+            HC_FPRINTF(fptr, "\",0x%.*s,\"",2,str+1);
+            str += 2, strlen -= 2;
         }else if(*str == '\\' && *(str+1) == '\n'){
             str++, strlen--;
         }else if(*str == '\\'){

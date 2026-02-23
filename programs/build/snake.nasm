@@ -54,6 +54,8 @@ extern strlen
 extern strfind
 extern strdfind
 extern strcpy
+extern strcmp
+extern strequal
 extern flush_stdout
 extern print_str
 extern print_char

@@ -1,8 +1,9 @@
 #include "generator.h"
+#include "evaluator.h"
 #include "hc_types.h"
 #include "regs.h"
 #include "target_requirements.h"
-#include "target_x64_Linux.h"
+#include "../targets/target_x64_Linux.h"
 
 // Global variables
 size_t stack_ptr = 0;
@@ -83,12 +84,7 @@ size_t get_scope_size(node_stmt* scope){
             total = ALIGN(total, var_align);
             total += SIZEOF_T(var_type);
         }else if(scope->type == tk_arr_decl){
-            size_t elem_count = 0, strlen = scope->arr_decl.elem_count->strlen;
-            for(const char* str = scope->arr_decl.elem_count->str; strlen; str++, strlen--){
-                if(*str < '0' || *str > '9')
-                    return 0;
-                elem_count = elem_count * 10 + (int)(*str - '0');
-            }
+            size_t elem_count = eval_int_lit(scope->arr_decl.elem_count);
             type_t elem_type = type_from_tk(scope->arr_decl.elem_type);
             size_t elem_sz = SIZEOF_T(elem_type), elem_align = ALIGNOF_T(elem_type);
             if(!elem_type.data || !elem_sz)
@@ -435,32 +431,30 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
     // Buffer
     static reg_t* masked_regs[MAX_REGS];
 
+    // Check if we can substitute the expression with
+    // a compile-time evaluated integer value
+    if(sign){
+        int64_t result;
+        if(eval_int_expr(expr, &result)){
+            char buff[256];
+            reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(sz), true);
+            gen_set_reg(fptr, tmp, buff, snprintf(buff, 255, "%li", result));
+            return tmp;
+        }
+    }else{
+        uint64_t result;
+        if(eval_uint_expr(expr, &result)){
+            char buff[256];
+            reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(sz), false);
+            gen_set_reg(fptr, tmp, buff, snprintf(buff, 255, "%lu", result));
+            return tmp;
+        }
+    }
+
     switch(expr->type){
     case tk_reg_expr:
         return (reg_t*) expr->reg.reg;
-    case tk_bool_lit:{
-        reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(sz), sign);
-        gen_set_reg(fptr, tmp, (*expr->term.str == 't') ? "1" : "0", 1);
-        return tmp;
-    }case tk_char_lit:{
-        reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(sz), sign);
-        if(expr->term.strlen == 4){
-            if(strncmp(expr->term.str, "'\n'", 4))
-                gen_set_reg(fptr, tmp, "10", 2);
-            else if(strncmp(expr->term.str, "'\t'", 4))
-                gen_set_reg(fptr, tmp, "9", 1);
-            else if(strncmp(expr->term.str, "'\0", 4))
-                gen_set_reg(fptr, tmp, "0", 1);
-            else
-                gen_set_reg(fptr, tmp, expr->term.str, 4);
-        }else
-            gen_set_reg(fptr, tmp, expr->term.str, expr->term.strlen);
-        return tmp;
-    }case tk_int_lit:{
-        reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(sz), sign);
-        gen_set_reg(fptr, tmp, expr->term.str, expr->term.strlen);
-        return tmp;
-    }case tk_str_lit:{
+    case tk_str_lit:{
         if(sz != target_address_size){
             print_context_ex("Cannot fit address into type with different size", expr->term.str, expr->term.strlen);
             print_type("Type ", target_type, " is not the right size");
@@ -904,6 +898,9 @@ bool generate_float_expr(HC_FILE fptr, node_expr* expr){
         print_context_expr("Cannot convert expression to float", expr);
         return false;
     }
+
+    // Try to evaluate a compile-time value
+    // TODO later
 
     switch(expr->type){
     case tk_float_lit:
@@ -1486,14 +1483,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
         }
 
         // Get the number of elements in the array
-        size_t elem_count = 0, strlen = stmt->arr_decl.elem_count->strlen;
-        for(const char* str = stmt->arr_decl.elem_count->str; strlen; str++, strlen--){
-            if(*str < '0' || *str > '9'){
-                print_context_ex("Expected base 10 integer literal", str, strlen);
-                return false;
-            }
-            elem_count = elem_count * 10 + (int)(*str - '0');
-        }
+        size_t elem_count = eval_int_lit(stmt->arr_decl.elem_count);
 
         // Get the size of the array and adjust the pointer depth of the var's type
         size_t elem_size = SIZEOF_T(elem_type), elem_align = ALIGNOF_T(elem_type);
@@ -1521,45 +1511,94 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
         }
         return true;
     }
-    case tk_struct:{
+    case tk_struct:
+    case tk_class:{
         const char* str = stmt->struct_decl.identifier->str;
         size_t strlen = stmt->struct_decl.identifier->strlen;
 
         struct_t* last_def = get_struct(str, strlen);
-        if(last_def && last_def->size && stmt->struct_decl.members){
+        if(stmt->type == tk_struct && last_def && last_def->size){
             print_context_ex("Struct already defined", str, strlen);
             print_context_ex("Last definition here", last_def->str, last_def->strlen);
             return false;
         }
 
-        struct_t new_struct = {str, strlen, 0, 1, {NEW_VECTOR(var_t)}, {NEW_VECTOR(func_t)}};
-        if(!stmt->struct_decl.members && !last_def){
-            vector_append(structs, &new_struct);
-            return true;
-        }
-
+        struct_t new_struct = {str, strlen, 0, 1, {NEW_VECTOR(var_t)}, {NEW_VECTOR(func_t)}, NULL};
         for(node_stmt* ptr = stmt->struct_decl.members; ptr; ptr = ptr->next){
-            if(ptr->type != tk_var_decl){
+            // Scalar members
+            if(ptr->type == tk_var_decl){
+                type_t var_type = type_from_tk(ptr->var_decl.var_type);
+                size_t var_sz = SIZEOF_T(var_type), var_align = ALIGNOF_T(var_type);
+
+                if(!var_type.data){
+                    print_context("Invalid member type!", ptr->var_decl.identifier);
+                    return false;
+                }
+
+                // We don't want an empty type (0 byte big type)
+                if(!var_sz){
+                    print_context("Member type is 0 bytes big!", ptr->var_decl.var_type);
+                    return false;
+                }
+
+                // Calculate the struct's size with alignment
+                new_struct.size = ALIGN(new_struct.size, var_align);
+                new_struct.align = MAX(new_struct.align, var_align);
+                var_t member_var = {ptr->var_decl.identifier->str, ptr->var_decl.identifier->strlen, new_struct.size, VAR_STACK, var_type};
+                new_struct.size += var_sz;
+
+                // Append the member
+                vector_append(new_struct.members, &member_var);
+
+                // Add default value to linked list
+                // If there is none, we add a nothing expression
+                if(new_struct.default_values){
+                    node_expr* val = new_struct.default_values;
+                    for(; val->next; val = val->next);
+                    if(ptr->var_decl.expr)
+                        val->next = ptr->var_decl.expr;
+                    else{
+                        val->next = (node_expr*) ARENA_ALLOC(parent.arena, node_nothing_expr);
+                        val->next->none = (node_nothing_expr){tk_nothing, NULL};
+                    }
+                }else if(ptr->var_decl.expr)
+                    new_struct.default_values = ptr->var_decl.expr;
+                else{
+                    new_struct.default_values = (node_expr*) ARENA_ALLOC(parent.arena, node_nothing_expr);
+                    new_struct.default_values->none = (node_nothing_expr){tk_nothing, NULL};
+                }
+            }// Array members
+            else if(ptr->type == tk_arr_decl){
+                type_t elem_type = type_from_tk(ptr->arr_decl.elem_type);
+                size_t elem_sz = SIZEOF_T(elem_type), elem_align = ALIGNOF_T(elem_type);
+                size_t elem_count = eval_int_lit(ptr->arr_decl.elem_count);
+
+                if(!elem_type.data){
+                    print_context("Invalid array member type!", ptr->arr_decl.identifier);
+                    return false;
+                }
+
+                if(!elem_sz){
+                    print_context("Array member holds empty (0 bytes big) type.", ptr->arr_decl.identifier);
+                    return false;
+                }
+
+                // Calculate struct's size and alignment
+                new_struct.size = ALIGN(new_struct.size, elem_align);
+                new_struct.align = MAX(new_struct.align, elem_align);
+                elem_type.ptr_depth++;
+                var_t member_arr = (var_t){ptr->arr_decl.identifier->str, ptr->arr_decl.identifier->strlen, new_struct.size, VAR_ARRAY, elem_type};
+                new_struct.size += elem_sz * elem_count;
+
+                // Append array to members
+                vector_append(new_struct.members, &member_arr);
+            }else{
                 print_context_ex("Expected only member declarations, got another statement instead here", str, strlen);
                 return false;
             }
-            type_t var_type = type_from_tk(ptr->var_decl.var_type);
-            size_t var_sz = SIZEOF_T(var_type), var_align = ALIGNOF_T(var_type);
-            if(!var_type.data){
-                print_context("Invalid member type!", ptr->var_decl.identifier);
-                return false;
-            }
-            if(!var_sz){
-                print_context("Member type is 0 bytes big!", ptr->var_decl.var_type);
-                return false;
-            }
-            new_struct.size = ALIGN(new_struct.size, var_align);
-            new_struct.align = MAX(new_struct.align, var_align);
-            var_t member_var = {ptr->var_decl.identifier->str, ptr->var_decl.identifier->strlen, new_struct.size, VAR_MEMBER, var_type};
-            new_struct.size += var_sz;
-            vector_append(new_struct.members, &member_var);
         }
 
+        // Add / replace definition
         if(!last_def)
             vector_append(structs, &new_struct);
         else
@@ -1711,7 +1750,7 @@ static void generate_quit(HC_FILE fptr){
     vector_destroy(funcs);
 }
 
-bool generate(const char* output_file, node_stmt* AST, bool library){
+bool generate(const char* output_file, node_stmt* AST, arena_t* arena, bool library){
     HC_FILE fptr = HC_FOPEN_WRITE(output_file);
 
 
@@ -1721,7 +1760,7 @@ bool generate(const char* output_file, node_stmt* AST, bool library){
 
     // Go through each statement and generate it
     for(; AST; AST = AST->next){
-        if(!generate_stmt(fptr, AST, INVALID_TYPE, (scope_info){0,0,0,0,0})){
+        if(!generate_stmt(fptr, AST, INVALID_TYPE, (scope_info){0,0,0,0,0,arena})){
             generate_quit(fptr);
             return false;
         }

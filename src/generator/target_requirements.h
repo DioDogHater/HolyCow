@@ -34,7 +34,7 @@ typedef struct reg_t{
     unsigned int mask;
 } reg_t;
 #define REGISTER(name, size, m, children) (reg_t){(name), (children), (size), OCCUP_NONE, (m)}
-#define REGISTER_ARRAY(...) ((reg_t[]){__VA_ARGS__, (reg_t){NULL}})
+#define NULL_REG (reg_t){NULL}
 
 #define MAX_REGS 128
 typedef uint64_t reg_mask;

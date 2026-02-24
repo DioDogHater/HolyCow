@@ -980,7 +980,8 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
         stmt->type != tk_arr_decl &&
         stmt->type != tk_struct &&
         stmt->type != tk_union &&
-        stmt->type != tk_class){
+        stmt->type != tk_class &&
+        stmt->type != tk_asm){
         HC_PRINT(BOLD "Sadly I can't tell you where the error is, but here is the invalid statement's type: %lu :(" RESET_ATTR "\n", stmt->type);
         HC_ERR("Cannot do more than declaring functions, variables, arrays or data structures outside a function!");
         return false;

@@ -229,6 +229,7 @@ void error(char* fmt = "error", ...);
 
 // Get user input from stdin
 uint input(char* buff, uint len);
+// Get a single character from stdin
 char input_char();
 
 // ===== Int <-> string conversion ======

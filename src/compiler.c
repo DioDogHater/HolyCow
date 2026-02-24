@@ -41,7 +41,7 @@ static void show_usage(const char* msg){
         "Options:\n"
         "   -h, --help      : Displays this help menu\n"
         "   -o, --output    : Set the output file path\n"
-        "   -l, --link      : Set libraries to be linked\n"
+        "   -l, --link      : Set libraries to be linked, each separated by a comma (,)\n"
         "   -s, --static    : Compiles a static library (object file) instead of executable\n"
         "   -d, --debug     : Adds debug info to output executable\n"
         "   --target-info   : Displays the target's information\n"
@@ -123,8 +123,8 @@ static void parse_compiler_args(int argc, char* argv[]){
                 // Link files argument
                 else if(match_arg(&arg, "-l") || match_arg(&arg, "--link")){
                     if(*options.link_files)
-                        show_usage("Linking files given two times, they must be separated by a single ';'\n"
-                                   "Example: -l lib1.o;lib2.o;lib3.o");
+                        show_usage("Linking files given two times, they must be separated by a single ',' instead\n"
+                                   "Example: -l lib1.o,lib2.o,lib3.o");
                     last_arg = C_ARG_LINK;
                 }
 

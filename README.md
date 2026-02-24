@@ -1,8 +1,8 @@
 # The Holy Cow programming language
 is a language inspired by the ***C Programming Language***, ***Rust*** and
-***Holy C***, the legendary language created by **Terry A. Davis*. This is
+***Holy C***, the legendary language created by *Terry A. Davis*. This is
 an attempt at making a more programmer-friendly C-like programming language
-without delving too much in complex concepts. A lightweight and enjoyable C++
+without delving too much in complex concepts. A simpler and enjoyable C++
 is close to what I aim for. 
 
 # Requirements
@@ -135,7 +135,7 @@ void hello_world(string msg = "Default"){
 
 /*
 * Classes ressemble C++ classes
-* No polymorphism, inheritance possible
+* No polymorphism, but inheritance is possible
 * Function overloading works
 * No security (public, private)
 * Basic operator overloading

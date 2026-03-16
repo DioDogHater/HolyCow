@@ -76,6 +76,8 @@ extern vector_t structs[1];
 
 // Find a structure type
 struct_t* get_struct(const char*, size_t);
+// Find a structure type using a token
+struct_t* get_struct_tk(token_t*);
 // Find a structure's member
 var_t* get_member(struct_t*, const char*, size_t);
 // Find a class' method
@@ -93,6 +95,8 @@ extern vector_t unions[1];
 
 // Find a union type
 union_t* get_union(const char*, size_t);
+// Find a union type with a token
+union_t* get_union_tk(token_t*);
 // Find a union's member
 node_stmt* get_union_member(union_t*, const char*, size_t);
 
@@ -114,6 +118,11 @@ void gen_quit_scope(HC_FILE, scope_t);
 
 
 // GENERATION
+bool save_struct(HC_FILE, struct_t*, reg_t*, node_expr*);
+bool save_union(HC_FILE, union_t*, reg_t*, node_expr*);
+bool save_expr(HC_FILE, node_expr*, node_expr*);
+bool get_expr_address(HC_FILE, reg_t*, node_expr*);
+size_t generate_func_call(HC_FILE, node_expr*, func_t**, reg_t*);
 
 // Generate an integer expression.
 // Returns the register where the value is stored.

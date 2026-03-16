@@ -2,8 +2,8 @@
 
 #include "../dev/libs.h"
 #include "../generator/target_requirements.h"
-#include "x64_regs.h"
-#include "x64_ops.h"
+#include "nasm_x64_regs.h"
+#include "nasm_x64_ops.h"
 
 const char* target_architecture = "x64 Linux";
 const size_t target_address_size = 8; // bytes
@@ -29,6 +29,7 @@ void gen_setup(HC_FILE fptr, bool library){
         "\tmov rax, [rsp+0]\n"
         "\tlea rbx, [rsp+8]\n"
         "\tsub rsp, 32\n"
+        "\tmov QWORD [rsp], 0\n"
         "\tmov [rsp+8], rax\n"
         "\tmov [rsp+16], rbx\n"
         "\tcall main\n"

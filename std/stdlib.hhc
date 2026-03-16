@@ -48,8 +48,6 @@ char to_upper(char c);
 // Rounding mode is not set by default !!!
 // Please ensure rounding mode before float / int operations
 void set_rounding(uint8 mode = FP_TRUNC);
-// Get the remainder of x divided by d (modulo)
-float modf(float x, float d);
 // Square root
 float sqrt(float x);
 // x to the power p (exponentiation)
@@ -69,11 +67,10 @@ float tan(float x);
 float atan2(float y, float x);
 
 // Rounding
-// round(x)           -> round(x)
-// round(x, FP_FLOOR) -> floor(x)
-// round(x, FP_CEIL)  -> ceil(x)
-// round(x, FP_TRUNC) -> (int)x
-float round(float x, uint8 mode = FP_ROUND);
+float round(float x);
+float floor(float x);
+float ceil(float x);
+float trunc(float x);
 
 // ========= Fixed point arithmetic ============
 #define fixed int32
@@ -147,7 +144,7 @@ void print_float(float x, uint digits = 4);
  *  Print uint x, with '0' to fill space to be n characters long
  *  n must be between 2 and 9, inclusive
  *      print("%0n", x);
- *  EX: print("%04", 10); -> "0010"
+ *  EX: print("%04", 15); -> "0015"
  *
  * %x:
  *  Print uint x as hexadecimal
@@ -224,7 +221,7 @@ void print_format(char* fmt, uint* argv);
 void print(char* fmt, ...);
 void println(char* fmt = "", ...);
 
-// Print an error message, then exit with 1
+// Print an error message, then exit with EXIT_FAILURE
 void error(char* fmt = "error", ...);
 
 // Get user input from stdin

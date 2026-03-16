@@ -1,4 +1,4 @@
-#include "std/stdlib.hhc"
+#include "../std/stdlib.hhc"
 
 // Recursive solution (really slow)
 // My function calling system sucks performance wise for now

@@ -68,6 +68,8 @@ typedef struct{
 // tk_bin_xor
 // tk_shl
 // tk_shr
+// tk_open_bracket
+// tk_open_braces
 typedef struct{
     NODE_EXPR_BASE;
     union node_expr* lhs;
@@ -80,11 +82,35 @@ typedef struct{
 } node_nothing_expr;
 
 // Function call
+// tk_func_call
 typedef struct{
     NODE_EXPR_BASE;
-    token_t* identifier;
+    union node_expr* func;
     union node_expr* args;
 } node_func_expr;
+
+// Construction
+// tk_open_braces
+typedef struct{
+    NODE_EXPR_BASE;
+    token_t* struc;
+    union node_expr* elems;
+} node_construct;
+
+// Union construction
+typedef struct{
+    NODE_EXPR_BASE;
+    token_t* unio;
+    token_t* member;
+    union node_expr* elem;
+} node_uconstruct;
+
+// tk_dot
+typedef struct{
+    NODE_EXPR_BASE;
+    union node_expr* obj;
+    token_t* member;
+} node_access;
 
 // Stack alloc
 typedef struct{
@@ -109,6 +135,9 @@ typedef union node_expr{
     node_bin_op bin_op;
     node_nothing_expr none;
     node_func_expr func;
+    node_construct construct;
+    node_uconstruct uconstruct;
+    node_access access;
     node_stack_alloc salloc;
     node_reg_expr reg;
 } node_expr;
@@ -139,12 +168,13 @@ typedef struct{
     NODE_STMT_BASE;
     token_t* elem_type;
     token_t* identifier;
-    node_term* elem_count;
+    node_expr* elem_count;
 } node_arr_decl;
 
 // tk_struct
-// tk_union
 // tk_class
+// tk_union
+// tk_variant
 typedef struct{
     NODE_STMT_BASE;
     token_t* identifier;

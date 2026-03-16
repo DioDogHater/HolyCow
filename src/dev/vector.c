@@ -6,21 +6,23 @@ bool vector_alloc(vector_t* vector, size_t size){
         HC_ERR("VECTOR : Invalid vector");
         return false;
     }
-    if(vector->memsize - vector->size < size){
+    if((ssize_t)vector->memsize - (ssize_t)vector->size < (ssize_t)size){
         if(vector->memsize){
-            vector->next = HC_MALLOC(sizeof(vector_t));
             if(!vector->next){
-                HC_ERR("VECTOR : Failed to allocate %lu bytes",sizeof(vector_t));
-                return false;
+                vector->next = HC_MALLOC(sizeof(vector_t));
+                if(!vector->next){
+                    HC_ERR("VECTOR : Failed to allocate %lu bytes",sizeof(vector_t));
+                    return false;
+                }
+                *vector->next = (vector_t) _NEW_VECTOR(vector->_data_size);
             }
-            *vector->next = (vector_t) _NEW_VECTOR(vector->_data_size);
-            vector->size += vector->memsize - vector->size;
+            vector->size = vector->memsize;
             return vector_alloc(vector->next, size - (vector->memsize - vector->size));
         }else{
-            vector->memsize = (VECTOR_INIT_SIZE > size) ? (VECTOR_INIT_SIZE) : (size + VECTOR_INIT_SIZE);
+            vector->memsize = size + VECTOR_INIT_SIZE;
             vector->data = HC_MALLOC(vector->_data_size * vector->memsize);
             if(!vector->data){
-                HC_ERR("VECTOR : Failed to allocate %lu bytes",vector->_data_size * size);
+                HC_ERR("VECTOR : Failed to allocate %lu bytes", vector->_data_size * size);
                 return false;
             }
             vector->size = size;
@@ -62,7 +64,7 @@ void* vector_at(vector_t* vector, size_t index){
 void* vector_back(vector_t* vector){
     if(!vector)
         return NULL;
-    return vector_traverse(vector, vector_size(vector)-1);
+    return vector_traverse(vector, vector_size(vector) - 1);
 }
 
 bool vector_append(vector_t* vector, const void* elem){
@@ -71,7 +73,7 @@ bool vector_append(vector_t* vector, const void* elem){
     void* ptr = vector_back(vector);
     if(!ptr)
         return false;
-    memcpy(ptr,elem,vector->_data_size);
+    memcpy(ptr, elem, vector->_data_size);
     return true;
 }
 

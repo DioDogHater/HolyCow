@@ -1,4 +1,4 @@
-#include "std/stdlib.hhc"
+#include "../std/stdlib.hhc"
 
 char board[9];
 char player = ' ';
@@ -26,19 +26,24 @@ void print_board(){
 
 bool check_win(char pl){
     uint i = 0;
+    // Check for straight rows
     repeat(3){
         if(board[i] == pl && board[i+1] == pl && board[i+2] == pl){
             return true;
         }
+        // Go to next row
         i += 3;
     }
     i = 0;
+    // Check for straight columns
     repeat(3){
         if(board[i] == pl && board[3+i] == pl && board[6+i] == pl){
             return true;
         }
+        // Go to the next column
         ++i;
     }
+    // Check diagonals
     if(board[0] == pl && board[4] == pl && board[8] == pl){
         return true;
     }
@@ -50,6 +55,8 @@ bool check_win(char pl){
 
 bool check_tie(){
     char* ptr = board;
+    // If any piece in the board is empty
+    // we can say that the board is not full
     repeat(9){
         if(*ptr == ' '){ return false; }
         ++ptr;
@@ -107,6 +114,7 @@ int main(uint argc, char** argv){
         }else{
             print_board();
             println("\n<< GAME OVER! >>\n- Play again? (y/n) -");
+
             if(to_lower(input_char()) == 'y'){
                 init();
                 state = STATE_TURN;

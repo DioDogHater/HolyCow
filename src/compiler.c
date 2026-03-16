@@ -217,20 +217,6 @@ int main(int argc, char* argv[]){
     // Destroy the keyword table
     keyword_table_destroy();
 
-#ifdef COMPILER_DEBUG
-{
-    int i = 0;
-    token_t* tk = all_tokens;
-    while(tk){
-        HC_PRINT("tk[%d] = ", i);
-        print_token(tk);
-        tk = tk->next;
-        i++;
-    }
-    putchar('\n');
-}
-#endif
-
     // Parse the tokens and turn them into an AST
     node_stmt* AST = parse(all_tokens, arena);
     if(!AST){

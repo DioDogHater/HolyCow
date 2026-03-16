@@ -1,4 +1,5 @@
-#include "std/stdlib.hhc"
+#include "../stdlib.hhc"
+#include "syscall.hhc"
 
 int absi(int x){
     if(x < 0){ return -x; }
@@ -55,13 +56,6 @@ void set_rounding(uint8 mode){
     @asm("fldcw [%0]", &fcw);
 }
 
-float modf(float x, float d){
-    @asm("fld QWORD [rbp+24]
-    fld QWORD [rbp+32]
-    fprem
-    fstp QWORD [rbp+16]
-    fstp st0");
-}
 float sqrt(float x){
     @asm("fld QWORD [rbp+24]
     fsqrt
@@ -93,19 +87,19 @@ float log(float x){
 }
 
 float sin(float x){
-    x = modf(x, 6.28318530718);
+    x %= 6.28318530718;
     @asm("fld QWORD [rbp+24]
     fsin
     fstp QWORD [rbp+16]");
 }
 float cos(float x){
-    x = modf(x, 6.28318530718);
+    x %= 6.28318530718;
     @asm("fld QWORD [rbp+24]
     fcos
     fstp QWORD [rbp+16]");
 }
 float tan(float x){
-    x = modf(x, 6.28318530718);
+    x %= 6.28318530718;
     @asm("fld QWORD [rbp+24]
     fptan
     fstp st0
@@ -118,13 +112,39 @@ float atan2(float y, float x){
     fstp QWORD [rbp+16]");
 }
 
-float round(float x, uint8 mode){
-    set_rounding(mode);
+float round(float x){
+    set_rounding(FP_ROUND);
     @asm(
     "fld QWORD [rbp+24]
     frndint
     fstp QWORD [rbp+16]");
     set_rounding();
+}
+
+float floor(float x){
+    set_rounding(FP_FLOOR);
+    @asm(
+    "fld QWORD [rbp+24]
+    frndint
+    fstp QWORD [rbp+16]");
+    set_rounding();
+}
+
+float ceil(float x){
+    set_rounding(FP_CEIL);
+    @asm(
+    "fld QWORD [rbp+24]
+    frndint
+    fstp QWORD [rbp+16]");
+    set_rounding();
+}
+
+float trunc(float x){
+    set_rounding();
+    @asm(
+    "fld QWORD [rbp+24]
+    frndint
+    fstp QWORD [rbp+16]");
 }
 
 // Fixed point arithmetic
@@ -318,10 +338,11 @@ void flush_stdout(){
 // Prints a string with a specified length
 // If len = -1 (so no length provided), len = strlen(str)
 void print_str(char* str, uint len){
+    if(!str){ print_str("(NULL)"); return; }
     if(len == -1){ len = strlen(str); }
     repeat(len){
         stdout_buff[stdout_cursor++] = *str;
-        if(stdout_cursor > STDOUT_BUFF_SZ || *str == '\n'){ flush_stdout(); }
+        if(stdout_cursor >= STDOUT_BUFF_SZ || *str == '\n'){ flush_stdout(); }
         ++str;
     }
 }
@@ -329,7 +350,8 @@ void print_str(char* str, uint len){
 // Prints a single character
 void print_char(char c){
     stdout_buff[stdout_cursor++] = c;
-    if(stdout_cursor > STDOUT_BUFF_SZ || c == '\n'){ flush_stdout(); }
+    if(stdout_cursor >= STDOUT_BUFF_SZ || c == '\n')
+        flush_stdout();
 }
 
 // Prints a signed 64 bit int in decimal form
@@ -350,8 +372,10 @@ void print_hex(uint x){
     buffer[63] = 0;
     char* lookup = "0123456789ABCDEF";
     char* ptr = buffer + 30;
-    if(x == 0){ *(ptr--) = '0'; }
-    for(; x; x = x >> 4, --ptr){ *ptr = lookup[x & 0xF]; }
+    if(x == 0)
+        *(ptr--) = '0';
+    for(; x; x = x >> 4, --ptr)
+        *ptr = lookup[x & 0xF];
     *(ptr--) = 'x';
     *(ptr) = '0';
     print_str(ptr);
@@ -620,32 +644,45 @@ int string_to_int(char* str, uint len){
 
 // OS stuff
 
+// Syscalls
+int syscall1(int rax, int rdi){
+    @asm(rax, rdi, rsi, rdx,
+         "mov rax, %0
+         mov rdi, %1
+         syscall
+         mov [rbp+16], rax", rax, rdi);
+}
+
+int syscall2(int rax, int rdi, int rsi){
+    @asm(rax, rdi, rsi, rdx,
+         "mov rax, %0
+         mov rdi, %1
+         mov rsi, %2
+         syscall
+         mov [rbp+16], rax", rax, rdi, rsi);
+}
+
+int syscall3(int rax, int rdi, int rsi, int rdx){
+    @asm(rax, rdi, rsi, rdx,
+         "mov rax, %0
+         mov rdi, %1
+         mov rsi, %2
+         mov rdx, %3
+         syscall
+         mov [rbp+16], rax", rax, rdi, rsi, rdx);
+}
+
 // Reads len bytes from file descriptor -> buff
 int read(uint fd, char* buff, uint len){
-    @asm(rax, rdi, rsi, rdx,
-    "mov rax, 0
-    mov rdi, %0
-    mov rsi, %1
-    mov rdx, %2
-    syscall
-    mov [rbp+16], rax", fd, buff, len);
+    return syscall3(0, fd, (uint)buff, len);
 }
 
 // Writes len bytes from buff -> file descriptor
 int write(uint fd, char* buff, uint len){
-    @asm(rax, rdi, rsi, rdx,
-    "mov rax, 1
-    mov rdi, %0
-    mov rsi, %1
-    mov rdx, %2
-    syscall
-    mov [rbp+16], rax", fd, buff, len);
+    return syscall3(1, fd, (uint)buff, len);
 }
 
 // Exits the program instantly with a code
 void exit(int code){
-    @asm(rax, rdi,
-    "mov rax, 60
-    mov rdi, %0
-    syscall", code);
+    syscall1(60, code);
 }

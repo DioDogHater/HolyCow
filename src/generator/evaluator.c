@@ -30,8 +30,7 @@ uint64_t eval_int_lit(node_term* int_lit){
     size_t strlen = int_lit->strlen;
     int64_t val = 0;
     if(str[1] == 'x'){
-        str += 2;
-        strlen -= 2;
+        str += 2, strlen -= 2;
         for(; strlen; strlen--, str++){
             int64_t digit = (*str > '9') ? (*str - 'A' + 10) : (*str - '0');
             val = (val << 4) + digit;
@@ -41,6 +40,10 @@ uint64_t eval_int_lit(node_term* int_lit){
         strlen -= 2;
         for(; strlen; strlen--, str++)
             val = (val << 1) + (*str - '0');
+    }else if(str[1] == 'o'){
+        str += 2, strlen -= 2;
+        for(; strlen; strlen--, str++)
+            val = (val << 3) + (*str - '0');
     }else{
         for(; strlen; strlen--, str++)
             val = val*10 + (*str - '0');
@@ -122,6 +125,8 @@ bool eval_##name##_expr(node_expr* expr, T* result){\
     EVAL_BIN_OP(tk_bin_xor,  ^, name, T)\
     EVAL_BIN_OP(tk_and, &&, name, T)\
     EVAL_BIN_OP(tk_or,  ||, name, T)\
+    EVAL_BIN_OP(tk_shl, <<, name, T)\
+    EVAL_BIN_OP(tk_shr, >>, name, T)\
     }\
     return false;\
 }

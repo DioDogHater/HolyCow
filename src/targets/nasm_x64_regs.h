@@ -1,5 +1,5 @@
-#ifndef x64_REGS_H
-#define x64_REGS_H
+#ifndef NASM_x64_REGS_H
+#define NASM_x64_REGS_H
 
 #include "../generator/target_requirements.h"
 
@@ -43,8 +43,8 @@ reg_t registers[REGISTER_COUNT+1] = {
     BASIC_REG(b,1),
     BASIC_REG(c,2),
     RXI_REG(s, 4),
-    RXI_REG(d, 5),
     EXTENDED_REG(8, 6),
+    RXI_REG(d, 5),
     EXTENDED_REG(9, 7),
     EXTENDED_REG(10, 8),
     EXTENDED_REG(11, 9),

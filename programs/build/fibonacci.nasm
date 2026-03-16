@@ -8,6 +8,7 @@ _start:
 	mov rax, [rsp+0]
 	lea rbx, [rsp+8]
 	sub rsp, 32
+	mov QWORD [rsp], 0
 	mov [rsp+8], rax
 	mov [rsp+16], rbx
 	call main
@@ -189,7 +190,6 @@ extern is_alnum
 extern to_lower
 extern to_upper
 extern set_rounding
-extern modf
 extern sqrt
 extern pow
 extern log
@@ -198,6 +198,9 @@ extern cos
 extern tan
 extern atan2
 extern round
+extern floor
+extern ceil
+extern trunc
 extern int_to_fixed
 extern fraction_to_fixed
 extern string_to_fixed

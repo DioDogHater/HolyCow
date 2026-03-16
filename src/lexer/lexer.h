@@ -116,7 +116,6 @@ enum{
     tk_post_inc,    // Post increment
     tk_post_dec,    // Post decrement
     tk_reg_expr,    // Register expression
-    tk_construct,   // Structure construction EX: MyStruct{1, 2, 3, ...}
 
     // Invalid
     tk_invalid

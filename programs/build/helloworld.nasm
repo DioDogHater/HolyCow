@@ -8,6 +8,7 @@ _start:
 	mov rax, [rsp+0]
 	lea rbx, [rsp+8]
 	sub rsp, 32
+	mov QWORD [rsp], 0
 	mov [rsp+8], rax
 	mov [rsp+16], rbx
 	call main
@@ -60,7 +61,7 @@ print_numbers:
 	mov [rsp+24], rbx
 	mov rcx, STR0
 	mov [rsp+0], rcx
-	movsx rcx, BYTE [rsp+39]
+	movzx rcx, BYTE [rsp+39]
 	mov [rsp+8], rcx
 	mov rcx, [rsp+40]
 	mov rsi, [rcx]
@@ -97,31 +98,75 @@ main:
 	mov [rsp+0], rbx
 	call println
 	add rsp, 16
-	sub rsp, 16
-	mov rbx, STR2
-	mov [rsp+0], rbx
-	mov rbx, STR3
-	mov [rsp+8], rbx
-	call println
-	add rsp, 16
 	sub rsp, 32
-	mov rbx, STR4
+	mov rbx, STR2
 	mov [rsp+0], rbx
 	mov rbx, 5
 	mov [rsp+8], rbx
-	mov rbx, STR5
+	mov rbx, 30
 	mov [rsp+16], rbx
 	call println
 	add rsp, 32
 	sub rsp, 16
+	mov rbx, STR3
+	mov [rsp+0], rbx
+	mov rbx, 20
+	mov [rsp+8], rbx
+	call println
+	add rsp, 16
+	sub rsp, 16
+	mov rbx, STR4
+	mov [rsp+0], rbx
+	mov rbx, 20
+	mov [rsp+8], rbx
+	call println
+	add rsp, 16
+	sub rsp, 16
+	mov rbx, STR5
+	mov [rsp+0], rbx
+	mov rbx, 20
+	mov [rsp+8], rbx
+	call println
+	add rsp, 16
+	sub rsp, 16
 	mov rbx, STR6
+	mov [rsp+0], rbx
+	mov rbx, 20
+	mov [rsp+8], rbx
+	call println
+	add rsp, 16
+	sub rsp, 16
+	mov rbx, STR7
+	mov [rsp+0], rbx
+	mov rbx, 20
+	mov [rsp+8], rbx
+	call println
+	add rsp, 16
+	sub rsp, 16
+	mov rbx, STR8
+	mov [rsp+0], rbx
+	mov rbx, STR9
+	mov [rsp+8], rbx
+	call println
+	add rsp, 16
+	sub rsp, 32
+	mov rbx, STR10
+	mov [rsp+0], rbx
+	mov rbx, 5
+	mov [rsp+8], rbx
+	mov rbx, STR11
+	mov [rsp+16], rbx
+	call println
+	add rsp, 32
+	sub rsp, 16
+	mov rbx, STR12
 	mov [rsp+0], rbx
 	mov rbx, 64
 	mov [rsp+8], rbx
 	call println
 	add rsp, 16
 	sub rsp, 32
-	mov rbx, STR7
+	mov rbx, STR13
 	mov [rsp+0], rbx
 	mov rbx, 5
 	mov [rsp+8], rbx
@@ -130,35 +175,42 @@ main:
 	call println
 	add rsp, 32
 	sub rsp, 16
-	mov rbx, STR8
+	mov rbx, STR14
 	mov [rsp+0], rbx
 	mov rbx, -647
 	mov [rsp+8], rbx
 	call println
 	add rsp, 16
 	sub rsp, 16
-	mov rbx, STR9
+	mov rbx, STR15
 	mov [rsp+0], rbx
 	mov rbx, 102532
 	mov [rsp+8], rbx
 	call println
 	add rsp, 16
 	sub rsp, 16
-	mov rbx, STR10
+	mov rbx, STR16
+	mov [rsp+0], rbx
+	mov rbx, 25
+	mov [rsp+8], rbx
+	call println
+	add rsp, 16
+	sub rsp, 16
+	mov rbx, STR17
 	mov [rsp+0], rbx
 	mov rbx, 48879
 	mov [rsp+8], rbx
 	call println
 	add rsp, 16
 	sub rsp, 16
-	mov rbx, STR11
+	mov rbx, STR18
 	mov [rsp+0], rbx
 	mov rbx, 1
 	mov [rsp+8], rbx
 	call println
 	add rsp, 16
 	sub rsp, 32
-	mov rbx, STR12
+	mov rbx, STR19
 	mov [rsp+8], rbx
 	mov rbx, 18446744073709551615
 	mov [rsp+16], rbx
@@ -167,20 +219,30 @@ main:
 	add rsp, 32
 	mov [rsp+12], ebx
 	sub rsp, 16
-	mov rbx, STR13
+	mov rbx, STR20
 	mov [rsp+0], rbx
-	movsx rbx, DWORD [rsp+28]
+	movsxd rbx, DWORD [rsp+28]
 	mov [rsp+8], rbx
 	call println
 	add rsp, 16
 	sub rsp, 16
-	mov rbx, STR14
+	mov rbx, STR21
 	mov [rsp+0], rbx
 	fld QWORD [FP0]
 	fchs
 	fstp QWORD [rsp+8]
 	call println
 	add rsp, 16
+	sub rsp, 32
+	mov rbx, STR22
+	mov [rsp+0], rbx
+	mov rbx, 6
+	mov [rsp+8], rbx
+	fld QWORD [FP1]
+	fchs
+	fstp QWORD [rsp+16]
+	call println
+	add rsp, 32
 	.L0:
 	leave
 	ret
@@ -194,7 +256,6 @@ extern is_alnum
 extern to_lower
 extern to_upper
 extern set_rounding
-extern modf
 extern sqrt
 extern pow
 extern log
@@ -203,6 +264,9 @@ extern cos
 extern tan
 extern atan2
 extern round
+extern floor
+extern ceil
+extern trunc
 extern int_to_fixed
 extern fraction_to_fixed
 extern string_to_fixed
@@ -250,30 +314,48 @@ db "%c %i",0
 STR1:
 db "Hello world!",0
 STR2:
-db "string:            ",34,"%s",34,"",0
+db "%A5 chars from start%A30 chars",0
 STR3:
-db "HolyCow!",0
+db "[%[Aligned left%L]",0
 STR4:
-db "length string:     ",34,"%*s",34,"",0
+db "[%[Aligned right%R]",0
 STR5:
-db "1234567890",0
+db "[%[Centered%C]",0
 STR6:
-db "character:         '%c'",0
+db "%[This is way too long and I want it short%T",0
 STR7:
-db "repeated character: %*c",0
+db "%[This is way too long and I want it short%*T",0
 STR8:
-db "signed int:         %i",0
+db "string:            ",34,"%s",34,"",0
 STR9:
-db "unsigned int:       %u",0
+db "HolyCow!",0
 STR10:
-db "uint (hex):         %x",0
+db "length string:     ",34,"%*s",34,"",0
 STR11:
-db "bool                %b",0
+db "1234567890",0
 STR12:
-db "-16.2126",0
+db "character:         '%c'",0
 STR13:
-db "fixed point number: %F",0
+db "repeated character: %*c",0
 STR14:
-db "float number:       %f",0
+db "signed int:         %i",0
+STR15:
+db "unsigned int:       %u",0
+STR16:
+db "n length uint:      %04",0
+STR17:
+db "uint (hex):         %x",0
+STR18:
+db "bool:               %b",0
+STR19:
+db "-16.2126",0
+STR20:
+db "fixed point:        %F",0
+STR21:
+db "float:              %f",0
+STR22:
+db "float (n digits):   %*f",0
 FP0:
 dq 16.2126
+FP1:
+dq 16.212635

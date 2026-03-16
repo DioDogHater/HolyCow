@@ -21,7 +21,7 @@ typedef struct{
     uint16_t align;   // Align of the type (same as size except when dealing with structs / unions / classes)
     int ptr_depth;    // 0 = direct value, 1 = pointer to value, 2 = pointer to pointer to value, etc.
 } type_t;
-#define INVALID_TYPE (type_t){0, NULL, false, DATA_INVALID, 0, 0}
+#define INVALID_TYPE (type_t){0, GET_DUMMY_TYPE(void), false, DATA_INVALID, 0, 0}
 #define SIZEOF_T(t) (((t).ptr_depth) ? (target_address_size) : ((t).size))
 #define SIGNOF_T(t) (((t).ptr_depth) ? (false) : (t).sign)
 #define DATAOF_T(t) (((t).ptr_depth) ? (DATA_INT) : (t).data)

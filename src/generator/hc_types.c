@@ -1,5 +1,6 @@
 #include "hc_types.h"
 #include "generator.h"
+#include "regs.h"
 
 token_t dummy_types[] = {
     DUMMY_TYPE(int8),
@@ -103,14 +104,14 @@ type_t type_from_tk(token_t* tk){
         t.data = (tk->type == tk_float) ? DATA_FLOAT : DATA_INT;
     }else{
         t.sign = false;
-        struct_t* struc = get_struct(tk->str, tk->strlen);
+        struct_t* struc = get_struct_tk(tk);
         if(struc){
             t.size = struc->size, t.align = struc->align;
             t.data = DATA_STRUCT;
         }
-        union_t* unio = get_union(tk->str, tk->strlen);
+        union_t* unio = get_union_tk(tk);
         if(unio){
-            t.size = unio->size, t.align = struc->align;
+            t.size = unio->size, t.align = unio->align;
             t.data = DATA_UNION;
         }
 
@@ -168,6 +169,9 @@ type_t typeof_expr(node_expr* expr){
             }
             max = var->type;
             break;
+        }case tk_reg_expr:{
+            reg_t* reg = (reg_t*) expr->reg.reg;
+            max = (type_t){reg->size, GET_DUMMY_TYPE(uint64), reg->occupied == OCCUP_SIGNED, DATA_INT, reg->size, 0};
         }case tk_neg:
         case tk_bin_flip:
         case tk_inc:
@@ -184,13 +188,61 @@ type_t typeof_expr(node_expr* expr){
                 return INVALID_TYPE;
             }
             break;
-        case tk_deref:
+        case tk_struct:{
+            struct_t* stru = get_struct_tk(expr->construct.struc);
+            if(!stru){
+                print_context("Structure type does not exist!", expr->construct.struc);
+                return INVALID_TYPE;
+            }
+            max = (type_t){stru->size, expr->construct.struc, false, DATA_STRUCT, stru->align, 0};
+            break;
+        }case tk_union:{
+            union_t* unio = get_union(expr->uconstruct.unio->str, expr->uconstruct.unio->strlen);
+            if(!unio){
+                print_context("Union type does not exist!", expr->uconstruct.unio);
+                return INVALID_TYPE;
+            }
+            max = (type_t){unio->size, expr->uconstruct.unio, false, DATA_UNION, unio->align, 0};
+            break;
+        }case tk_dot:{
+            type_t obj_type = typeof_expr(expr->access.obj);
+            if(!obj_type.data || obj_type.ptr_depth > 1 || (obj_type.data != DATA_STRUCT && obj_type.data != DATA_UNION)){
+                print_context_expr("Expected structure / class / union", expr->access.obj);
+                return INVALID_TYPE;
+            }
+            if(obj_type.data == DATA_STRUCT){
+                struct_t* stru = get_struct_tk(obj_type.repr);
+                var_t* member = get_member(stru, expr->access.member->str, expr->access.member->strlen);
+                if(!member){
+                    print_context("Is not a member of structure / class", expr->access.member);
+                    return INVALID_TYPE;
+                }
+                max = member->type;
+            }else{
+                union_t* unio = get_union(obj_type.repr->str, obj_type.repr->strlen);
+                node_stmt* member = get_union_member(unio, expr->access.member->str, expr->access.member->strlen);
+                if(!member){
+                    print_context("Is not a member of union", expr->access.member);
+                    return INVALID_TYPE;
+                }
+                if(member->type == tk_var_decl)
+                    max = type_from_tk(member->var_decl.var_type);
+                else{
+                    max = type_from_tk(member->arr_decl.elem_type);
+                    max.ptr_depth++;
+                }
+            }
+            break;
+        }case tk_deref:
             max = typeof_expr(expr->unary_op.lhs);
             max.ptr_depth--;
             if(max.ptr_depth < 0){
                 print_context_expr("Trying to dereference a direct value", expr);
                 return INVALID_TYPE;
             }
+            break;
+        case tk_sizeof:
+            max = (type_t){8, GET_DUMMY_TYPE(uint64), false, DATA_INT, 8, 0};
             break;
         case tk_getaddr:
             max = typeof_expr(expr->unary_op.lhs);
@@ -226,8 +278,9 @@ type_t typeof_expr(node_expr* expr){
             else if(t1.data == DATA_FLOAT && t2.data == DATA_FLOAT)
                 max = t1;
             break;
-        }case tk_func_call:{
-            func_t* func = get_func(expr->func.identifier->str, expr->func.identifier->strlen);
+        }
+        case tk_func_call:{
+            func_t* func = get_func(expr->func.func->term.str, expr->func.func->term.strlen);
             if(!func){
                 print_context_expr("Unknown function", expr);
                 return INVALID_TYPE;

@@ -48,6 +48,11 @@ struct_t* get_struct(const char* str, size_t strlen){
     return (struct_t*) find_named_thing(structs, str, strlen);
 }
 
+// get_struct wrapper for tokens
+struct_t* get_struct_tk(token_t* tk){
+    return get_struct(tk->str, tk->strlen);
+}
+
 // Find a structure's member
 var_t* get_member(struct_t* struc, const char* str, size_t strlen){
     return (var_t*) find_named_thing(struc->members, str, strlen);
@@ -61,6 +66,10 @@ func_t* get_method(struct_t* struc, const char* str, size_t strlen){
 // Find a union type
 union_t* get_union(const char* str, size_t strlen){
     return (union_t*) find_named_thing(unions, str, strlen);
+}
+
+union_t* get_union_tk(token_t* tk){
+    return get_union(tk->str, tk->strlen);
 }
 
 // Find a union's member
@@ -84,7 +93,11 @@ size_t get_scope_size(node_stmt* scope){
             total = ALIGN(total, var_align);
             total += SIZEOF_T(var_type);
         }else if(scope->type == tk_arr_decl){
-            size_t elem_count = eval_int_lit(scope->arr_decl.elem_count);
+            uint64_t elem_count;
+            if(!eval_uint_expr(scope->arr_decl.elem_count, &elem_count)){
+                print_context_expr("Expected constant expression", scope->arr_decl.elem_count);
+                return false;
+            }
             type_t elem_type = type_from_tk(scope->arr_decl.elem_type);
             size_t elem_sz = SIZEOF_T(elem_type), elem_align = ALIGNOF_T(elem_type);
             if(!elem_type.data || !elem_sz)
@@ -149,12 +162,230 @@ size_t append_float_literal(node_term* float_lit){
     return float_literal_count++;
 }
 
-// Save a value in an expression
-static bool save_expr(HC_FILE fptr, node_expr* expr, node_expr* value){
+// Save a "memory chunk" (struct / class / union / variant / arrays?)
+static bool save_memory(HC_FILE fptr, size_t sz, reg_t* ptr, node_expr* value){
+    if(value->type == tk_identifier){
+        var_t* var = get_var(value->term.str, value->term.strlen);
+        if(!var){
+            print_context_ex("Unknown identifier", value->term.str, value->term.strlen);
+            return false;
+        }
+        if(var->location == VAR_STACK)
+            gen_copy_stack(fptr, ptr, stack_sz - var->stack_ptr, sz);
+        else if(var->location == VAR_GLOBAL)
+            gen_copy_global(fptr, ptr, var->str, var->strlen, sz);
+        else if(var->location == VAR_ARG)
+            gen_copy_arg(fptr, ptr, var->stack_ptr, sz);
+    }else if(value->type == tk_deref){
+        reg_t* src = EXPR_ONCE(value->unary_op.lhs, typeof_expr(value), NULL);
+        gen_copy_ptr(fptr, ptr, src, sz);
+    }else if(value->type == tk_open_bracket){
+        reg_t* src = generate_expr(fptr, value->bin_op.lhs, typeof_expr(value), NULL);
+        reg_t* idx = generate_expr(fptr, value->bin_op.rhs, (type_t){8, GET_DUMMY_TYPE(uint64), false, DATA_INT, 8, 0}, NULL);
+        gen_copy_idx(fptr, ptr, src, idx, sz);
+        (void) free_reg(src);
+        (void) free_reg(idx);
+    }else if(value->type == tk_func_call){
+        func_t* func = NULL;
+        size_t func_call_sz = generate_func_call(fptr, value, &func, ptr);
+        gen_dealloc_stack(fptr, func_call_sz);
+        stack_sz -= func_call_sz;
+    }else
+        return false;
+    return true;
+}
+
+bool save_struct(HC_FILE fptr, struct_t* stru, reg_t* ptr, node_expr* value){
+    type_t value_type = typeof_expr(value);
+    if(value_type.ptr_depth || value_type.data != DATA_STRUCT){
+        print_context_expr("Expected structure / class", value);
+        return false;
+    }
+    if(get_struct_tk(value_type.repr) != stru){
+        print_context_expr("Incompatible structure type", value);
+        HC_PRINT("Expected structure / class type " BOLD GREEN_FG "%.*s" RESET_ATTR " instead.\n", (int)stru->strlen, stru->str);
+        return false;
+    }
+
+    if(value->type == tk_struct){
+        node_expr* args = value->construct.elems;
+        node_expr* default_args = stru->default_values;
+        size_t i = 0;
+        for(; default_args; i++){
+            var_t* member = vector_at(stru->members, i);
+            node_expr* arg_expr = args;
+
+            if(member->location == VAR_ARRAY)
+                continue;
+
+            if(!args || args->type == tk_nothing){
+                if(default_args->type == tk_nothing){
+                    default_args = default_args->next;
+                    continue; // New behavior (unitialized values)
+                }
+                /*{ // OLD BEHAVIOR
+                    print_context_expr("In structure / class construction", value);
+                    print_context_ex("Expected value to be provided for member", member->str, member->strlen);
+                    return false;
+                }*/
+                arg_expr = default_args;
+            }
+
+            if(args)
+                args = args->next;
+
+            if(member->type.ptr_depth || member->type.data == DATA_INT){
+                reg_t* tmp = EXPR_ONCE(arg_expr, member->type, NULL);
+                gen_save_offset(fptr, tmp, ptr, member->stack_ptr);
+            }else if(member->type.data == DATA_FLOAT){
+                if(!generate_float_expr(fptr, arg_expr))
+                    return false;
+                gen_save_offset_float(fptr, ptr, member->stack_ptr);
+            }else if(member->type.data == DATA_STRUCT || member->type.data == DATA_UNION){
+                reg_t* member_ptr = alloc_reg(GET_MASK_REG(target_address_size, allowed_copy_regs), false);
+                gen_load_offset_ptr(fptr, member_ptr, ptr, member->stack_ptr);
+                if(member->type.data == DATA_STRUCT){
+                    struct_t* member_stru = get_struct_tk(member->type.repr);
+                    if(!save_struct(fptr, member_stru, member_ptr, arg_expr))
+                        return false;
+                }else{
+                    union_t* member_unio = get_union_tk(member->type.repr);
+                    if(!save_union(fptr, member_unio, member_ptr, arg_expr))
+                        return false;
+                }
+                (void) free_reg(member_ptr);
+            }
+
+            default_args = default_args->next;
+            if(args && !default_args){
+                print_context_expr("Too many initialisation values provided", args);
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // If it's not a construction, we just copy memory
+    return save_memory(fptr, stru->size, ptr, value);
+}
+
+bool save_union(HC_FILE fptr, union_t* unio, reg_t* ptr, node_expr* value){
+    type_t value_type = typeof_expr(value);
+    if(value_type.ptr_depth || value_type.data != DATA_UNION){
+        print_context_expr("Expected union", value);
+        return false;
+    }
+    if(get_union_tk(value_type.repr) != unio){
+        print_context_expr("Incompatible union type", value);
+        HC_PRINT("Expected structure / class type " BOLD GREEN_FG "%.*s" RESET_ATTR " instead.\n", (int)unio->strlen, unio->str);
+        return false;
+    }
+    if(value->type == tk_union){
+        node_stmt* member = get_union_member(unio, value->uconstruct.member->str, value->uconstruct.member->strlen);
+        if(!member){
+            print_context("Unknown member", value->uconstruct.member);
+            return false;
+        }
+        if(member->type == tk_arr_decl){
+            print_context("Cannot give value to array member", value->uconstruct.member);
+            return false;
+        }
+        if(!value->uconstruct.elem && member->var_decl.expr)
+            value->uconstruct.elem = member->var_decl.expr;
+        type_t member_type = type_from_tk(member->var_decl.var_type);
+        if(member_type.ptr_depth || member_type.data == DATA_INT)
+            gen_save_ptr(fptr, EXPR_ONCE(value->uconstruct.elem, member_type, NULL), ptr);
+        else if(member_type.data == DATA_FLOAT){
+            if(!generate_float_expr(fptr, value->uconstruct.elem))
+                return false;
+            gen_save_ptr_float(fptr, ptr);
+        }else if(member_type.data == DATA_STRUCT){
+            struct_t* stru = get_struct_tk(member_type.repr);
+            if(!save_struct(fptr, stru, ptr, value->uconstruct.elem))
+                return false;
+        }else if(member_type.data == DATA_UNION){
+            union_t* unio = get_union_tk(member_type.repr);
+            if(!save_union(fptr, unio, ptr, value->uconstruct.elem))
+                return false;
+        }
+        return true;
+    }
+    return save_memory(fptr, unio->size, ptr, value);
+}
+
+// Get the address of a value
+bool get_expr_address(HC_FILE fptr, reg_t* tmp,  node_expr* expr){
     if(expr->type == tk_identifier){
         var_t* var = get_var(expr->term.str, expr->term.strlen);
         if(!var){
+            print_context_expr("Unknown identifier", expr);
+            return false;
+        }
+        if(var->location == VAR_STACK)
+            gen_load_stack_ptr(fptr, tmp, stack_sz - var->stack_ptr);
+        else if(var->location == VAR_GLOBAL)
+            gen_load_global_ptr(fptr, tmp, var->str, var->strlen);
+        else if(var->location == VAR_ARG)
+            gen_load_arg_ptr(fptr, tmp, var->stack_ptr);
+        else if(var->location == VAR_ARRAY || var->location == VAR_GLOBAL_ARR){
+            print_context_expr("Cannot get address to an array, use intermediate pointer variable instead", expr);
+            return false;
+        }else{
+            print_context_expr("Not implemented yet", expr);
+            return false;
+        }
+        return true;
+    }else if(expr->type == tk_open_bracket){
+        type_t ptr_type = typeof_expr(expr);
+        ptr_type.ptr_depth++;
+        reg_t* ptr = generate_expr(fptr, expr->bin_op.lhs, ptr_type, NULL);
+        reg_t* idx = generate_expr(fptr, expr->bin_op.rhs, (type_t){8, GET_DUMMY_TYPE(uint64), false, DATA_INT, 8, 0}, NULL);
+        gen_load_idx_ptr(fptr, tmp, ptr, idx, ptr_type.size);
+        (void) free_reg(ptr);
+        (void) free_reg(idx);
+        return true;
+    }else if(expr->type == tk_dot){
+        type_t obj_type = typeof_expr(expr->access.obj);
+        if(obj_type.ptr_depth > 1 || (obj_type.data != DATA_STRUCT && obj_type.data != DATA_UNION)){
+            print_context_expr("Expected structure / class / union", expr->access.obj);
+            return false;
+        }
+        if(obj_type.data == DATA_STRUCT){
+            struct_t* stru = get_struct_tk(obj_type.repr);
+            var_t* member = get_member(stru, expr->access.member->str, expr->access.member->strlen);
+            if(member->location == VAR_ARRAY){
+                print_context_expr("Cannot get address to array, array is the address itself", expr);
+                return false;
+            }
+            if(obj_type.ptr_depth){
+                generate_expr(fptr, expr->access.obj, obj_type, free_reg(tmp));
+                gen_load_offset_ptr(fptr, tmp, tmp, member->stack_ptr);
+            }else{
+                if(!get_expr_address(fptr, tmp, expr->access.obj))
+                    return false;
+                gen_load_offset_ptr(fptr, tmp, tmp, member->stack_ptr);
+            }
+            return true;
+        }else if(obj_type.data == DATA_UNION)
+            return get_expr_address(fptr, tmp, expr->access.obj);
+    }
+
+    print_context_expr("Unable to get address of expression", expr);
+    return false;
+}
+
+// Save a value in an expression
+bool save_expr(HC_FILE fptr, node_expr* expr, node_expr* value){
+    if(expr->type == tk_identifier){
+        // Variable assignment
+        var_t* var = get_var(expr->term.str, expr->term.strlen);
+        if(!var){
             print_context_ex("Unknown identifier", expr->term.str, expr->term.strlen);
+            return false;
+        }
+
+        if(var->location == VAR_ARRAY || var->location == VAR_GLOBAL_ARR){
+            print_context_ex("Cannot give value to an array", expr->term.str, expr->term.strlen);
             return false;
         }
 
@@ -166,10 +397,6 @@ static bool save_expr(HC_FILE fptr, node_expr* expr, node_expr* value){
                 gen_save_global(fptr, data, var->str, var->strlen);
             else if(var->location == VAR_ARG)
                 gen_save_arg(fptr, data, var->stack_ptr);
-            else{
-                print_context_expr("Not implemented yet", expr);
-                return false;
-            }
         }else if(var->type.data == DATA_FLOAT){
             if(!generate_float_expr(fptr, value))
                 return false;
@@ -179,20 +406,36 @@ static bool save_expr(HC_FILE fptr, node_expr* expr, node_expr* value){
                 gen_save_global_float(fptr, var->str, var->strlen);
             else if(var->location == VAR_ARG)
                 gen_save_arg_float(fptr, var->stack_ptr);
-            else{
-                print_context_expr("Not implemented yet", expr);
-                return false;
+        }else if(var->type.data == DATA_STRUCT || var->type.data == DATA_UNION){
+            reg_t* var_ptr = alloc_reg(GET_MASK_REG(target_address_size, allowed_copy_regs), false);
+            if(var->location == VAR_STACK)
+                gen_load_stack_ptr(fptr, var_ptr, stack_sz - var->stack_ptr);
+            else if(var->location == VAR_GLOBAL)
+                gen_load_global_ptr(fptr, var_ptr, var->str, var->strlen);
+            else if(var->location == VAR_ARG)
+                gen_load_arg_ptr(fptr, var_ptr, var->stack_ptr);
+            if(var->type.data == DATA_STRUCT){
+                struct_t* stru = get_struct_tk(var->type.repr);
+                if(!save_struct(fptr, stru, var_ptr, value))
+                    return false;
+            }else{
+                union_t* unio = get_union_tk(var->type.repr);
+                if(!save_union(fptr, unio, var_ptr, value))
+                    return false;
             }
+            (void) free_reg(var_ptr);
+            return true;
         }
         return true;
     }else if(expr->type == tk_deref){
+        // * operator (dereference)
         type_t ptr_type = typeof_expr(expr->unary_op.lhs);
         if(ptr_type.ptr_depth == 0){
             print_context_expr("Expected a pointer to dereference", expr->unary_op.lhs);
             print_type("Type ", ptr_type, " is not a pointer.");
             return false;
         }
-        reg_t* ptr = generate_expr(fptr, expr->unary_op.lhs, ptr_type, NULL);
+        reg_t* ptr = generate_expr(fptr, expr->unary_op.lhs, ptr_type, GET_MASK_REG(target_address_size, allowed_copy_regs));
         if(--ptr_type.ptr_depth || ptr_type.data == DATA_INT){
             reg_t* data = EXPR_ONCE(value, ptr_type, NULL);
             gen_save_ptr(fptr, data, ptr);
@@ -200,62 +443,295 @@ static bool save_expr(HC_FILE fptr, node_expr* expr, node_expr* value){
             if(!generate_float_expr(fptr, value))
                 return false;
             gen_save_ptr_float(fptr, ptr);
+        }else if(ptr_type.data == DATA_STRUCT){
+            struct_t* stru = get_struct_tk(ptr_type.repr);
+            if(!save_struct(fptr, stru, ptr, value))
+                return false;
+        }else if(ptr_type.data == DATA_UNION){
+            union_t* unio = get_union_tk(ptr_type.repr);
+            if(!save_union(fptr, unio, ptr, value))
+                return false;
         }
         (void) free_reg(ptr);
         return true;
     }else if(expr->type == tk_open_bracket){
+        // Array element
         type_t ptr_type = typeof_expr(expr->bin_op.lhs);
         if(ptr_type.ptr_depth == 0){
             print_context_expr("Expected a pointer to dereference", expr->bin_op.lhs);
             print_type("Type ", ptr_type, " is not a pointer.");
             return false;
         }
+        // Generate the pointer and index expressions
         reg_t* ptr = generate_expr(fptr, expr->bin_op.lhs, ptr_type, NULL);
-        reg_t* idx = generate_expr(fptr, expr->bin_op.rhs, (type_t){8, GET_DUMMY_TYPE(uint64), false, DATA_INT, 8, 0}, NULL);
+        reg_t* idx = generate_expr(fptr, expr->bin_op.rhs, (type_t){target_address_size, GET_DUMMY_TYPE(uint64), false, DATA_INT, target_address_size, 0}, NULL);
         if(--ptr_type.ptr_depth) ptr_type.size = target_address_size;
         if(ptr_type.ptr_depth || ptr_type.data == DATA_INT){
+            // Save the int expression into the array element
             reg_t* data = EXPR_ONCE(value, ptr_type, NULL);
             gen_save_idx(fptr, data, ptr, idx, ptr_type.size);
         }else if(ptr_type.data == DATA_FLOAT){
+            // Save the float expression into the array element
             if(!generate_float_expr(fptr, value))
                 return false;
             gen_save_idx_float(fptr, ptr, idx, ptr_type.size);
+        }else if(ptr_type.data == DATA_STRUCT || ptr_type.data == DATA_UNION){
+            (void) free_reg(ptr);
+            reg_t* tmp = alloc_reg(GET_MASK_REG(target_address_size, allowed_copy_regs), false);
+            gen_load_idx_ptr(fptr, tmp, ptr, idx, ptr_type.size);
+            (void) free_reg(idx);
+            if(ptr_type.data == DATA_STRUCT){
+                struct_t* stru = get_struct_tk(ptr_type.repr);
+                if(!save_struct(fptr, stru, tmp, value))
+                    return false;
+            }else{
+                union_t* unio = get_union_tk(ptr_type.repr);
+                if(!save_union(fptr, unio, tmp, value))
+                    return false;
+            }
+            (void) free_reg(tmp);
+            return true;
         }
         (void) free_reg(ptr);
         (void) free_reg(idx);
         return true;
+    }else if(expr->type == tk_dot){
+        // Member / attribute / union assignment
+        type_t obj_type = typeof_expr(expr->access.obj);
+        if(obj_type.ptr_depth > 1 || (obj_type.data != DATA_STRUCT && obj_type.data != DATA_UNION)){
+            print_context_expr("Expected structure / class / union", expr->access.obj);
+            return false;
+        }
+        if(obj_type.data == DATA_STRUCT){
+            struct_t* stru = get_struct_tk(obj_type.repr);
+            var_t* member = get_member(stru, expr->access.member->str, expr->access.member->strlen);
+            if(member->location == VAR_ARRAY){
+                print_context_expr("Cannot give value to an array member", expr);
+                return false;
+            }
+            if(obj_type.ptr_depth || expr->access.obj->type == tk_deref || expr->access.obj->type == tk_open_bracket || expr->access.obj->type == tk_dot){
+                reg_t* ptr;
+                if(obj_type.ptr_depth)
+                    ptr = generate_expr(fptr, expr->access.obj, obj_type, NULL);
+                else if(expr->access.obj->type == tk_deref){
+                    obj_type.ptr_depth++;
+                    ptr = generate_expr(fptr, expr->access.obj->unary_op.lhs, obj_type, NULL);
+                }else if(expr->access.obj->type == tk_open_bracket){
+                    ptr = alloc_reg(GET_MASK_REG(target_address_size, allowed_copy_regs), false);
+                    obj_type.ptr_depth++;
+                    reg_t* arr = generate_expr(fptr, expr->access.obj->bin_op.lhs, obj_type, NULL);
+                    reg_t* idx = generate_expr(fptr, expr->access.obj->bin_op.rhs, (type_t){8, GET_DUMMY_TYPE(uint64), false, DATA_INT, 8, 0}, NULL);
+                    gen_load_idx_ptr(fptr, ptr, arr, idx, obj_type.size);
+                    (void) free_reg(arr);
+                    (void) free_reg(idx);
+                }else if(expr->access.obj->type == tk_dot){
+                    ptr = alloc_reg(GET_MASK_REG(target_address_size, allowed_copy_regs), false);
+                    if(!get_expr_address(fptr, ptr, expr->access.obj))
+                        return false;
+                }
+                if(member->type.ptr_depth || member->type.data == DATA_INT){
+                    reg_t* tmp = EXPR_ONCE(value, member->type, NULL);
+                    gen_save_offset(fptr, tmp, ptr, member->stack_ptr);
+                }else if(member->type.data == DATA_FLOAT){
+                    if(!generate_float_expr(fptr, value))
+                        return false;
+                    gen_save_offset_float(fptr, ptr, member->stack_ptr);
+                }else if(member->type.data == DATA_STRUCT){
+                    struct_t* stru = get_struct_tk(member->type.repr);
+                    gen_load_offset_ptr(fptr, ptr, ptr, member->stack_ptr);
+                    if(!save_struct(fptr, stru, ptr, value))
+                        return false;
+                }else if(member->type.data == DATA_UNION){
+                    union_t* unio = get_union_tk(member->type.repr);
+                    gen_load_offset_ptr(fptr, ptr, ptr, member->stack_ptr);
+                    if(!save_union(fptr, unio, ptr, value))
+                        return false;
+                }
+                (void) free_reg(ptr);
+                return true;
+            }else if(expr->access.obj->type == tk_identifier){
+                var_t* var = get_var(expr->access.obj->term.str, expr->access.obj->term.strlen);
+                if(member->type.ptr_depth || member->type.data == DATA_INT){
+                    reg_t* tmp = EXPR_ONCE(value, member->type, NULL);
+                    if(var->location == VAR_STACK || var->location == VAR_ARRAY)
+                        gen_save_stack(fptr, tmp, stack_sz - var->stack_ptr + member->stack_ptr);
+                    else if(var->location == VAR_GLOBAL || var->location == VAR_GLOBAL_ARR)
+                        gen_save_global_offset(fptr, tmp, var->str, var->strlen, member->stack_ptr);
+                    else if(var->location == VAR_ARG)
+                        gen_save_arg(fptr, tmp, var->stack_ptr + member->stack_ptr);
+                }else if(member->type.data == DATA_FLOAT){
+                    if(!generate_float_expr(fptr, value))
+                        return false;
+                    if(var->location == VAR_STACK || var->location == VAR_ARRAY)
+                        gen_save_stack_float(fptr, stack_sz - var->stack_ptr + member->stack_ptr);
+                    else if(var->location == VAR_GLOBAL || var->location == VAR_GLOBAL_ARR)
+                        gen_save_global_offset_float(fptr, var->str, var->strlen, member->stack_ptr);
+                    else if(var->location == VAR_ARG)
+                        gen_save_arg_float(fptr, var->stack_ptr + member->stack_ptr);
+                }else if(member->type.data == DATA_STRUCT || member->type.data == DATA_UNION){
+                    reg_t* tmp = alloc_reg(GET_MASK_REG(target_address_size, allowed_copy_regs), false);
+                    if(var->location == VAR_STACK || var->location == VAR_ARRAY)
+                        gen_load_stack_ptr(fptr, tmp, stack_sz - var->stack_ptr + member->stack_ptr);
+                    else if(var->location == VAR_GLOBAL || var->location == VAR_GLOBAL_ARR)
+                        gen_load_global_offset_ptr(fptr, tmp, var->str, var->strlen, member->stack_ptr);
+                    else if(var->location == VAR_ARG)
+                        gen_load_arg_ptr(fptr, tmp, var->stack_ptr + member->stack_ptr);
+                    if(member->type.data == DATA_STRUCT){
+                        struct_t* stru = get_struct_tk(member->type.repr);
+                        if(!save_struct(fptr, stru, tmp, value))
+                            return false;
+                    }else{
+                        union_t* unio = get_union_tk(member->type.repr);
+                        if(!save_union(fptr, unio, tmp, value))
+                            return false;
+                    }
+                    (void) free_reg(tmp);
+                }
+                return true;
+            }
+            return false;
+        }else if(obj_type.data == DATA_UNION){
+            union_t* unio = get_union_tk(obj_type.repr);
+            node_stmt* member = get_union_member(unio, expr->access.member->str, expr->access.member->strlen);
+            if(!member){
+                print_context("Unknown member", expr->access.member);
+                return false;
+            }
+            if(member->type == tk_arr_decl){
+                print_context("Cannot give value to array member", expr->access.member);
+                return false;
+            }
+            type_t member_type = type_from_tk(member->var_decl.var_type);
+            if(obj_type.ptr_depth || expr->access.obj->type == tk_deref || expr->access.obj->type == tk_open_bracket || expr->access.obj->type == tk_dot){
+                reg_t* ptr;
+                if(obj_type.ptr_depth)
+                    ptr = generate_expr(fptr, expr->access.obj, obj_type, NULL);
+                else if(expr->access.obj->type == tk_deref){
+                    obj_type.ptr_depth++;
+                    ptr = generate_expr(fptr, expr->access.obj->unary_op.lhs, obj_type, NULL);
+                }else if(expr->access.obj->type == tk_open_bracket){
+                    ptr = alloc_reg(GET_MASK_REG(target_address_size, allowed_copy_regs), false);
+                    obj_type.ptr_depth++;
+                    reg_t* arr = generate_expr(fptr, expr->access.obj->bin_op.lhs, obj_type, NULL);
+                    reg_t* idx = generate_expr(fptr, expr->access.obj->bin_op.rhs, (type_t){8, GET_DUMMY_TYPE(uint64), false, DATA_INT, 8, 0}, NULL);
+                    gen_load_idx_ptr(fptr, ptr, arr, idx, obj_type.size);
+                    (void) free_reg(arr);
+                    (void) free_reg(idx);
+                }else if(expr->access.obj->type == tk_dot){
+                    ptr = alloc_reg(GET_MASK_REG(target_address_size, allowed_copy_regs), false);
+                    if(!get_expr_address(fptr, ptr, expr->access.obj))
+                        return false;
+                }
+                if(member_type.ptr_depth || member_type.data == DATA_INT){
+                    reg_t* tmp = EXPR_ONCE(value, member_type, NULL);
+                    gen_save_ptr(fptr, tmp, ptr);
+                }else if(member_type.data == DATA_FLOAT){
+                    if(!generate_float_expr(fptr, value))
+                        return false;
+                    gen_save_ptr_float(fptr, ptr);
+                }else if(member_type.data == DATA_STRUCT){
+                    struct_t* stru = get_struct_tk(member_type.repr);
+                    if(!save_struct(fptr, stru, ptr, value))
+                        return false;
+                }else if(member_type.data == DATA_UNION){
+                    union_t* unio = get_union_tk(member_type.repr);
+                    if(!save_union(fptr, unio, ptr, value))
+                        return false;
+                }
+                (void) free_reg(ptr);
+                return true;
+            }else if(expr->access.obj->type == tk_identifier){
+                var_t* var = get_var(expr->access.obj->term.str, expr->access.obj->term.strlen);
+                if(member_type.ptr_depth || member_type.data == DATA_INT){
+                    reg_t* tmp = EXPR_ONCE(value, member_type, NULL);
+                    if(var->location == VAR_STACK || var->location == VAR_ARRAY)
+                        gen_save_stack(fptr, tmp, stack_sz - var->stack_ptr);
+                    else if(var->location == VAR_GLOBAL || var->location == VAR_GLOBAL_ARR)
+                        gen_save_global(fptr, tmp, var->str, var->strlen);
+                    else if(var->location == VAR_ARG)
+                        gen_save_arg(fptr, tmp, var->stack_ptr);
+                }else if(member_type.data == DATA_FLOAT){
+                    if(!generate_float_expr(fptr, value))
+                        return false;
+                    if(var->location == VAR_STACK || var->location == VAR_ARRAY)
+                        gen_save_stack_float(fptr, stack_sz - var->stack_ptr);
+                    else if(var->location == VAR_GLOBAL || var->location == VAR_GLOBAL_ARR)
+                        gen_save_global_float(fptr, var->str, var->strlen);
+                    else if(var->location == VAR_ARG)
+                        gen_save_arg_float(fptr, var->stack_ptr);
+                }else if(member_type.data == DATA_STRUCT || member_type.data == DATA_UNION){
+                    reg_t* tmp = alloc_reg(GET_MASK_REG(target_address_size, allowed_copy_regs), false);
+                    if(var->location == VAR_STACK || var->location == VAR_ARRAY)
+                        gen_load_stack_ptr(fptr, tmp, stack_sz - var->stack_ptr);
+                    else if(var->location == VAR_GLOBAL || var->location == VAR_GLOBAL_ARR)
+                        gen_load_global_ptr(fptr, tmp, var->str, var->strlen);
+                    else if(var->location == VAR_ARG)
+                        gen_load_arg_ptr(fptr, tmp, var->stack_ptr);
+                    if(member_type.data == DATA_STRUCT){
+                        struct_t* stru = get_struct_tk(member_type.repr);
+                        if(!save_struct(fptr, stru, tmp, value))
+                            return false;
+                    }else{
+                        union_t* unio = get_union_tk(member_type.repr);
+                        if(!save_union(fptr, unio, tmp, value))
+                            return false;
+                    }
+                    (void) free_reg(tmp);
+                }
+                return true;
+            }
+            return false;
+        }
     }
     print_context_expr("Unable to save to expr", expr);
     return false;
 }
 
 extern void compiler_quit(void);
-static void fail_gen_expr(HC_FILE fptr){
-    HC_ERR("\nGENERATION FAILED!");
+
+static void gen_free(HC_FILE fptr){
     vector_destroy(vars);
     vector_destroy(funcs);
+    for(size_t i = 0; i < vector_size(structs); i++){
+        struct_t* stru = vector_at(structs, i);
+        vector_destroy(stru->members);
+        vector_destroy(stru->funcs);
+    }
+    vector_destroy(structs);
+    vector_destroy(unions);
     HC_FCLOSE(fptr);
+}
+
+static void fail_gen_expr(HC_FILE fptr){
+    HC_ERR("\nGENERATION FAILED!");
+    gen_free(fptr);
     compiler_quit();
     HC_FAIL();
 }
 
-size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func){
+size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_t* struct_ptr){
     reg_t* masked_regs[MAX_REGS];
 
     // Get the function
-    func_t* func = get_func(expr->func.identifier->str, expr->func.identifier->strlen);
+    if(expr->func.func->type != tk_identifier){
+        print_context_expr("Is not a callable function", expr);
+        fail_gen_expr(fptr);
+    }
+    func_t* func = get_func(expr->func.func->term.str, expr->func.func->term.strlen);
     if(!func){
-        print_context_expr("Unknown function", expr);
+        print_context_expr("Unknown function", expr->func.func);
         fail_gen_expr(fptr);
     }
 
     // The amount of bytes allocated on the stack
-    size_t func_call_sz = (func->type.ptr_depth) ? target_address_size : func->type.size;
+    size_t func_call_sz = (func->type.ptr_depth || func->type.data == DATA_STRUCT || func->type.data == DATA_UNION) ? target_address_size : func->type.size;
 
     // Get the occupied registers to save on the stack
     // (because a function can affect registers)
     int n = get_mask_occup_regs(ALL_REGS, true, registers, masked_regs);
     for(int i = 0; i < n; i++){
+        if(struct_ptr && masked_regs[i]->name == struct_ptr->name)
+            continue;
         func_call_sz = ALIGN(func_call_sz, masked_regs[i]->size);
         func_call_sz += masked_regs[i]->size;
     }
@@ -285,16 +761,27 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func){
         gen_alloc_stack(fptr, func_call_sz);
     stack_sz += func_call_sz;
 
+    if(!func->type.ptr_depth && (func->type.data == DATA_STRUCT || func->type.data == DATA_UNION)){
+        if(struct_ptr) gen_save_stack(fptr, free_reg(struct_ptr), 0);
+        else{
+            reg_t* tmp = GET_FREE_REG(target_address_size);
+            gen_set_reg(fptr, tmp, "0", 1);
+            gen_save_stack(fptr, tmp, 0);
+        }
+    }
+
     // Save each occupied register on the stack
     size_t arg_ptr = 0;
     for(int i = 0; i < n; i++){
+        if(struct_ptr && masked_regs[i]->name == struct_ptr->name)
+            continue;
         arg_ptr = ALIGN(arg_ptr, masked_regs[i]->size);
         arg_ptr += masked_regs[i]->size;
         gen_save_stack(fptr, masked_regs[i], func_call_sz - arg_ptr);
     }
 
     // Generate each argument
-    arg_ptr = (func->type.ptr_depth) ? target_address_size : func->type.size;
+    arg_ptr = (func->type.ptr_depth || func->type.data == DATA_STRUCT || func->type.data == DATA_UNION) ? target_address_size : func->type.size;
     arg_expr = expr->func.args;
     for(node_var_decl* arg = &func->args->var_decl; arg; arg = &arg->next->var_decl){
         node_expr* next_arg = NULL;
@@ -307,7 +794,7 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func){
                 reg_t* tmp = alloc_reg(GET_FREE_REG(8), false);
                 gen_set_reg(fptr, tmp, buff, snprintf(buff, 255, "%lu", varg_count));
                 gen_save_stack(fptr, tmp, arg_ptr);
-                free_reg(tmp);
+                (void) free_reg(tmp);
                 arg_ptr += 8;
             }
 
@@ -338,7 +825,7 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func){
             if(arg_expr)
                 next_arg = arg_expr->next;
             if(!arg->expr){
-                print_context("In function call here", expr->func.identifier);
+                print_context_expr("In function call here", expr);
                 print_context("Missing argument and no default value", arg->identifier);
                 fail_gen_expr(fptr);
             }
@@ -366,6 +853,19 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func){
             if(!generate_float_expr(fptr, arg_expr))
                 fail_gen_expr(fptr);
             gen_save_stack_float(fptr, arg_ptr);
+        }else if(expr_type.data == DATA_STRUCT || expr_type.data == DATA_UNION){
+            reg_t* tmp = alloc_reg(GET_MASK_REG(target_address_size, allowed_copy_regs), false);
+            gen_load_stack_ptr(fptr, tmp, arg_ptr);
+            if(expr_type.data == DATA_STRUCT){
+                struct_t* stru = get_struct_tk(expr_type.repr);
+                if(!save_struct(fptr, stru, tmp, arg_expr))
+                    return false;
+            }else{
+                union_t* unio = get_union_tk(expr_type.repr);
+                if(!save_union(fptr, unio, tmp, arg_expr))
+                    return false;
+            }
+            (void) free_reg(tmp);
         }else{
             print_context_expr("Argument data type not implemented", arg_expr);
             fail_gen_expr(fptr);
@@ -387,6 +887,7 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func){
     arg_ptr = 0;
     n = get_mask_occup_regs(ALL_REGS, true, registers, masked_regs);
     for(int i = 0; i < n; i++){
+        if(struct_ptr && masked_regs[i]->name == struct_ptr->name) continue;
         arg_ptr = ALIGN(arg_ptr, masked_regs[i]->size);
         arg_ptr += masked_regs[i]->size;
         gen_load_stack(fptr, masked_regs[i], func_call_sz - arg_ptr);
@@ -400,15 +901,17 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func){
 #define SIGNED_OP2(sign, n) ((sign) ? GET_ALLOWED_REGS2(s##n) : GET_ALLOWED_REGS2(n))
 #define SIGNED_AFFECTED(sign, n) ((sign) ? GET_AFFECTED_REGS(s##n) : GET_AFFECTED_REGS(n))
 reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* prefered){
-    if(!target_type.data || !target_type.size){
+    if(!target_type.data || !SIZEOF_T(target_type)){
         print_context_expr("Invalid target type", expr);
         print_type("Type ", target_type, (!target_type.data) ? " is invalid!" : " has a size of 0 bytes!");
         fail_gen_expr(fptr);
     }
 
     size_t sz = target_type.ptr_depth ? target_address_size : target_type.size;
-    bool sign = target_type.ptr_depth ? false : target_type.sign;
     type_t expr_type = typeof_expr(expr);
+    bool sign = target_type.ptr_depth ? false : target_type.sign;
+    if(sign && !SIGNOF_T(expr_type))
+        sign = false;
     if(prefered && !is_reg_free(prefered)) prefered = NULL;
 
     if(!expr_type.ptr_depth && expr_type.data == DATA_FLOAT){
@@ -426,6 +929,9 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
             gen_float_to_int(fptr, tmp);
             return tmp;
         }
+    }else if(!expr_type.ptr_depth && (expr_type.data == DATA_STRUCT || expr_type.data == DATA_UNION)){
+        print_context_expr("Expression cannot be evaluated as an integer", expr);
+        fail_gen_expr(fptr);
     }
 
     // Buffer
@@ -480,10 +986,6 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
                 gen_loadx_global(fptr, tmp, var->str, var->strlen, var_type.size, sign);
             else if(var->location == VAR_ARG)
                 gen_loadx_arg(fptr, tmp, var->stack_ptr, var_type.size, sign);
-            else{
-                print_context_expr("Not implemented yet", expr);
-                fail_gen_expr(fptr);
-            }
         }else{
             if(var->location == VAR_STACK)
                 gen_load_stack(fptr, tmp, stack_sz - var->stack_ptr);
@@ -499,10 +1001,6 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
                 gen_load_stack_ptr(fptr, tmp, stack_sz - var->stack_ptr);
             else if(var->location == VAR_GLOBAL_ARR)
                 gen_load_global_ptr(fptr, tmp, var->str, var->strlen);
-            else{
-                print_context_expr("Not implemented yet", expr);
-                fail_gen_expr(fptr);
-            }
         }
         return tmp;
     }
@@ -735,39 +1233,9 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
             fail_gen_expr(fptr);
         }
         reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(target_address_size), sign);
-        if(expr->unary_op.lhs->type == tk_identifier){
-            var_t* var = get_var(expr->unary_op.lhs->term.str, expr->unary_op.lhs->term.strlen);
-            if(!var){
-                print_context_expr("Unknown identifier", expr->unary_op.lhs);
-                fail_gen_expr(fptr);
-            }
-            if(var->location == VAR_STACK)
-                gen_load_stack_ptr(fptr, tmp, stack_sz - var->stack_ptr);
-            else if(var->location == VAR_GLOBAL)
-                gen_load_global_ptr(fptr, tmp, var->str, var->strlen);
-            else if(var->location == VAR_ARG)
-                gen_load_arg_ptr(fptr, tmp, var->stack_ptr);
-            else if(var->location == VAR_ARRAY || var->location == VAR_GLOBAL_ARR){
-                print_context_expr("Cannot get address to an array, use intermediate pointer variable instead", expr);
-                fail_gen_expr(fptr);
-            }else{
-                print_context_expr("Not implemented yet", expr);
-                fail_gen_expr(fptr);
-            }
-            return tmp;
-        }else if(expr->unary_op.lhs->type == tk_open_bracket){
-            type_t ptr_type = typeof_expr(expr->unary_op.lhs);
-            ptr_type.ptr_depth++;
-            reg_t* ptr = generate_expr(fptr, expr->unary_op.lhs->bin_op.lhs, ptr_type, NULL);
-            reg_t* idx = generate_expr(fptr, expr->unary_op.lhs->bin_op.rhs, (type_t){8, GET_DUMMY_TYPE(uint64), false, DATA_INT, 8, 0}, NULL);
-            gen_load_idx_ptr(fptr, tmp, ptr, idx, ptr_type.size);
-            (void) free_reg(ptr);
-            (void) free_reg(idx);
-            return tmp;
-        }else{
-            print_context_expr("Unable to get address of expression", expr->unary_op.lhs);
+        if(!get_expr_address(fptr, tmp, expr->unary_op.lhs))
             fail_gen_expr(fptr);
-        }
+        return tmp;
     }
     case tk_deref:{
         type_t ptr_type = typeof_expr(expr->unary_op.lhs);
@@ -809,6 +1277,153 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
         (void) free_reg(idx);
         return elem;
     }
+    case tk_dot:{
+        type_t obj_type = typeof_expr(expr->access.obj);
+        if(obj_type.ptr_depth > 1 || (obj_type.data != DATA_STRUCT && obj_type.data != DATA_UNION)){
+            print_context_expr("Expected structure / class / union", expr->access.obj);
+            fail_gen_expr(fptr);
+        }
+        if(obj_type.data == DATA_STRUCT){
+            struct_t* stru = get_struct_tk(obj_type.repr);
+            var_t* member = get_member(stru, expr->access.member->str, expr->access.member->strlen);
+            if(!member)
+                fail_gen_expr(fptr);
+            if(member->location == VAR_ARRAY && sz != target_address_size){
+                print_context_expr("Cannot store address (array pointer) in smaller type", expr);
+                fail_gen_expr(fptr);
+            }
+            reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(sz), sign);
+            if(obj_type.ptr_depth || expr->access.obj->type == tk_deref || expr->access.obj->type == tk_open_bracket || expr->access.obj->type == tk_dot){
+                reg_t* ptr;
+                if(obj_type.ptr_depth)
+                    ptr = generate_expr(fptr, expr->access.obj, obj_type, NULL);
+                else if(expr->access.obj->type == tk_deref){
+                    obj_type.ptr_depth++;
+                    ptr = generate_expr(fptr, expr->access.obj->unary_op.lhs, obj_type, NULL);
+                }else if(expr->access.obj->type == tk_open_bracket){
+                    ptr = alloc_reg(GET_FREE_REG(target_address_size), false);
+                    obj_type.ptr_depth++;
+                    reg_t* arr = generate_expr(fptr, expr->access.obj->bin_op.lhs, obj_type, NULL);
+                    reg_t* idx = generate_expr(fptr, expr->access.obj->bin_op.rhs, (type_t){8, GET_DUMMY_TYPE(uint64), false, DATA_INT, 8, 0}, NULL);
+                    gen_load_idx_ptr(fptr, ptr, arr, idx, obj_type.size);
+                    (void) free_reg(arr);
+                    (void) free_reg(idx);
+                }else if(expr->access.obj->type == tk_dot){
+                    ptr = alloc_reg(GET_FREE_REG(target_address_size), false);
+                    if(!get_expr_address(fptr, ptr, expr->access.obj))
+                        fail_gen_expr(fptr);
+                }
+                if(SIZEOF_T(member->type) < sz)
+                    gen_loadx_offset(fptr, tmp, ptr, member->stack_ptr, SIZEOF_T(member->type), sign);
+                else if(member->location == VAR_ARRAY)
+                    gen_load_offset_ptr(fptr, tmp, ptr, member->stack_ptr);
+                else
+                    gen_load_offset(fptr, tmp, ptr, member->stack_ptr);
+                (void) free_reg(ptr);
+                return tmp;
+            }else if(expr->access.obj->type == tk_identifier){
+                var_t* var = get_var(expr->access.obj->term.str, expr->access.obj->term.strlen);
+                if(SIZEOF_T(member->type) < sz){
+                    if(var->location == VAR_STACK || var->location == VAR_ARRAY)
+                        gen_loadx_stack(fptr, tmp, stack_sz - var->stack_ptr + member->stack_ptr, SIZEOF_T(member->type), sign);
+                    else if(var->location == VAR_GLOBAL || var->location == VAR_GLOBAL_ARR)
+                        gen_loadx_global_offset(fptr, tmp, var->str, var->strlen, member->stack_ptr, SIZEOF_T(member->type), sign);
+                    else if(var->location == VAR_ARG)
+                        gen_loadx_arg(fptr, tmp, var->stack_ptr + member->stack_ptr, SIZEOF_T(member->type), sign);
+                }else if(member->location == VAR_ARRAY){
+                    if(var->location == VAR_STACK || var->location == VAR_ARRAY)
+                        gen_load_stack_ptr(fptr, tmp, stack_sz - var->stack_ptr + member->stack_ptr);
+                    else if(var->location == VAR_GLOBAL || var->location == VAR_GLOBAL_ARR)
+                        gen_load_global_offset_ptr(fptr, tmp, var->str, var->strlen, member->stack_ptr);
+                    else if(var->location == VAR_ARG)
+                        gen_load_arg_ptr(fptr, tmp, var->stack_ptr + member->stack_ptr);
+                }else{
+                    if(var->location == VAR_STACK || var->location == VAR_ARRAY)
+                        gen_load_stack(fptr, tmp, stack_sz - var->stack_ptr + member->stack_ptr);
+                    else if(var->location == VAR_GLOBAL || var->location == VAR_GLOBAL_ARR)
+                        gen_load_global_offset(fptr, tmp, var->str, var->strlen, member->stack_ptr);
+                    else if(var->location == VAR_ARG)
+                        gen_load_arg(fptr, tmp, var->stack_ptr + member->stack_ptr);
+                }
+                return tmp;
+            }else{
+                print_context_expr("Not implemented yet", expr);
+                fail_gen_expr(fptr);
+            }
+        }else if(obj_type.data == DATA_UNION){
+            union_t* unio = get_union_tk(obj_type.repr);
+            node_stmt* member = get_union_member(unio, expr->access.member->str, expr->access.member->strlen);
+            if(!member)
+                fail_gen_expr(fptr);
+            type_t member_type;
+            if(member->type == tk_var_decl) member_type = type_from_tk(member->var_decl.var_type);
+            else if(sz != target_address_size){
+                print_context_expr("Cannot store address (array pointer) in smaller type", expr);
+                fail_gen_expr(fptr);
+            }else{
+                member_type = type_from_tk(member->arr_decl.elem_type);
+                member_type.repr++;
+            }
+            reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(sz), sign);
+            if(obj_type.ptr_depth || expr->access.obj->type == tk_deref || expr->access.obj->type == tk_open_bracket || expr->access.obj->type == tk_dot){
+                reg_t* ptr;
+                if(obj_type.ptr_depth)
+                    ptr = generate_expr(fptr, expr->access.obj, obj_type, NULL);
+                else if(expr->access.obj->type == tk_deref){
+                    obj_type.ptr_depth++;
+                    ptr = generate_expr(fptr, expr->access.obj->unary_op.lhs, obj_type, NULL);
+                }else if(expr->access.obj->type == tk_open_bracket){
+                    ptr = alloc_reg(GET_FREE_REG(target_address_size), false);
+                    obj_type.ptr_depth++;
+                    reg_t* arr = generate_expr(fptr, expr->access.obj->bin_op.lhs, obj_type, NULL);
+                    reg_t* idx = generate_expr(fptr, expr->access.obj->bin_op.rhs, (type_t){8, GET_DUMMY_TYPE(uint64), false, DATA_INT, 8, 0}, NULL);
+                    gen_load_idx_ptr(fptr, ptr, arr, idx, obj_type.size);
+                    (void) free_reg(arr);
+                    (void) free_reg(idx);
+                }else if(expr->access.obj->type == tk_dot){
+                    ptr = alloc_reg(GET_FREE_REG(target_address_size), false);
+                    if(!get_expr_address(fptr, ptr, expr->access.obj))
+                        fail_gen_expr(fptr);
+                }
+                if(SIZEOF_T(member_type) < sz)
+                    gen_loadx_ptr(fptr, tmp, ptr, SIZEOF_T(member_type), sign);
+                else if(member->type == tk_arr_decl)
+                    gen_move_reg(fptr, ptr, tmp);
+                else
+                    gen_load_ptr(fptr, tmp, ptr);
+                (void) free_reg(ptr);
+                return tmp;
+            }else if(expr->access.obj->type == tk_identifier){
+                var_t* var = get_var(expr->access.obj->term.str, expr->access.obj->term.strlen);
+                if(SIZEOF_T(member_type) < sz){
+                    if(var->location == VAR_STACK || var->location == VAR_ARRAY)
+                        gen_loadx_stack(fptr, tmp, stack_sz - var->stack_ptr, SIZEOF_T(member_type), sign);
+                    else if(var->location == VAR_GLOBAL || var->location == VAR_GLOBAL_ARR)
+                        gen_loadx_global(fptr, tmp, var->str, var->strlen, SIZEOF_T(member_type), sign);
+                    else if(var->location == VAR_ARG)
+                        gen_loadx_arg(fptr, tmp, var->stack_ptr, SIZEOF_T(member_type), sign);
+                }else if(member->type == tk_arr_decl){
+                    if(var->location == VAR_STACK || var->location == VAR_ARRAY)
+                        gen_load_stack_ptr(fptr, tmp, stack_sz - var->stack_ptr);
+                    else if(var->location == VAR_GLOBAL || var->location == VAR_GLOBAL_ARR)
+                        gen_load_global_ptr(fptr, tmp, var->str, var->strlen);
+                    else if(var->location == VAR_ARG)
+                        gen_load_arg_ptr(fptr, tmp, var->stack_ptr);
+                }else{
+                    if(var->location == VAR_STACK || var->location == VAR_ARRAY)
+                        gen_load_stack(fptr, tmp, stack_sz - var->stack_ptr);
+                    else if(var->location == VAR_GLOBAL || var->location == VAR_GLOBAL_ARR)
+                        gen_load_global(fptr, tmp, var->str, var->strlen);
+                    else if(var->location == VAR_ARG)
+                        gen_load_arg(fptr, tmp, var->stack_ptr);
+                }
+                return tmp;
+            }else{
+                print_context_expr("Not implemented yet", expr);
+                fail_gen_expr(fptr);
+            }
+        }
+    }
     case tk_type_cast:{
         type_t cast_type = type_from_tk(expr->type_cast.lhs->start);
         size_t cast_size = SIZEOF_T(cast_type);
@@ -837,7 +1452,7 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
     }
     case tk_func_call:{
         func_t* func = NULL;
-        size_t func_call_sz = generate_func_call(fptr, expr, &func);
+        size_t func_call_sz = generate_func_call(fptr, expr, &func, NULL);
 
         // Get the return value
         size_t return_sz = SIZEOF_T(func->type);
@@ -851,6 +1466,27 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
         if(func_call_sz)
             gen_dealloc_stack(fptr, func_call_sz);
         stack_sz -= func_call_sz;
+        return tmp;
+    }
+    case tk_sizeof:{
+        type_t value_type = INVALID_TYPE;
+        if(expr->unary_op.lhs->type == tk_int8)
+            value_type = type_from_tk(expr->unary_op.lhs->type_expr.start);
+        else if(expr->unary_op.lhs->type == tk_identifier){
+            struct_t* stru = get_struct(expr->unary_op.lhs->term.str, expr->unary_op.lhs->term.strlen);
+            if(stru)
+                value_type = (type_t){stru->size, .data = DATA_STRUCT, .ptr_depth = 0};
+            union_t* unio = get_union(expr->unary_op.lhs->term.str, expr->unary_op.lhs->term.strlen);
+            if(unio)
+                value_type = (type_t){unio->size, .data = DATA_UNION, .ptr_depth = 0};
+        }
+        if(!value_type.data)
+            value_type = typeof_expr(expr->unary_op.lhs);
+        if(!value_type.data)
+            fail_gen_expr(fptr);
+        reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(sz), sign);
+        char buffer[128];
+        gen_set_reg(fptr, tmp, buffer, snprintf(buffer, 127, "%lu", SIZEOF_T(value_type)));
         return tmp;
     }
     // NOT WORTH IT AT THE MOMENT
@@ -928,6 +1564,7 @@ bool generate_float_expr(HC_FILE fptr, node_expr* expr){
     case tk_sub:
     case tk_mult:
     case tk_div:
+    case tk_mod:
         if(!generate_float_expr(fptr, expr->bin_op.lhs) || !generate_float_expr(fptr, expr->bin_op.rhs))
             return false;
         if(expr->type == tk_add)
@@ -936,6 +1573,8 @@ bool generate_float_expr(HC_FILE fptr, node_expr* expr){
             gen_sub_floats(fptr);
         else if(expr->type == tk_mult)
             gen_mul_floats(fptr);
+        else if(expr->type == tk_mod)
+            gen_mod_floats(fptr);
         else
             gen_div_floats(fptr);
         break;
@@ -958,7 +1597,7 @@ bool generate_float_expr(HC_FILE fptr, node_expr* expr){
         return generate_float_expr(fptr, expr->type_cast.rhs);
     case tk_func_call:{
         func_t* func = NULL;
-        size_t func_call_sz = generate_func_call(fptr, expr, &func);
+        size_t func_call_sz = generate_func_call(fptr, expr, &func, NULL);
 
         gen_load_stack_float(fptr, 0);
 
@@ -966,8 +1605,94 @@ bool generate_float_expr(HC_FILE fptr, node_expr* expr){
             gen_dealloc_stack(fptr, func_call_sz);
         stack_sz -= func_call_sz;
         break;
+    }case tk_dot:{
+        type_t obj_type = typeof_expr(expr->access.obj);
+        if(obj_type.ptr_depth > 1 || (obj_type.data != DATA_STRUCT && obj_type.data != DATA_UNION)){
+            print_context_expr("Expected structure / class / union", expr->access.obj);
+            fail_gen_expr(fptr);
+        }
+        if(obj_type.data == DATA_STRUCT){
+            struct_t* stru = get_struct_tk(obj_type.repr);
+            var_t* member = get_member(stru, expr->access.member->str, expr->access.member->strlen);
+            if(obj_type.ptr_depth || expr->access.obj->type == tk_deref || expr->access.obj->type == tk_open_bracket || expr->access.obj->type == tk_dot){
+                reg_t* ptr;
+                if(obj_type.ptr_depth)
+                    ptr = generate_expr(fptr, expr->access.obj, obj_type, NULL);
+                else if(expr->access.obj->type == tk_deref){
+                    obj_type.ptr_depth++;
+                    ptr = generate_expr(fptr, expr->access.obj->unary_op.lhs, obj_type, NULL);
+                }else if(expr->access.obj->type == tk_open_bracket){
+                    ptr = alloc_reg(GET_FREE_REG(target_address_size), false);
+                    obj_type.ptr_depth++;
+                    reg_t* arr = generate_expr(fptr, expr->access.obj->bin_op.lhs, obj_type, NULL);
+                    reg_t* idx = generate_expr(fptr, expr->access.obj->bin_op.rhs, (type_t){8, GET_DUMMY_TYPE(uint64), false, DATA_INT, 8, 0}, NULL);
+                    gen_load_idx_ptr(fptr, ptr, arr, idx, obj_type.size);
+                    (void) free_reg(arr);
+                    (void) free_reg(idx);
+                }else if(expr->access.obj->type == tk_dot){
+                    ptr = alloc_reg(GET_FREE_REG(target_address_size), false);
+                    if(!get_expr_address(fptr, ptr, expr->access.obj))
+                        return false;
+                }
+                gen_load_offset_float(fptr, ptr, member->stack_ptr);
+                (void) free_reg(ptr);
+            }else if(expr->access.obj->type == tk_identifier){
+                var_t* var = get_var(expr->access.obj->term.str, expr->access.obj->term.strlen);
+                if(var->location == VAR_STACK)
+                    gen_load_stack_float(fptr, stack_sz - var->stack_ptr + member->stack_ptr);
+                else if(var->location == VAR_GLOBAL)
+                    gen_load_global_offset_float(fptr, var->str, var->strlen, member->stack_ptr);
+                else if(var->location == VAR_ARG)
+                    gen_load_arg_float(fptr, var->stack_ptr + member->stack_ptr);
+            }else{
+                print_context_expr("Not implemented yet", expr);
+                return false;
+            }
+            return true;
+        }else if(obj_type.data == DATA_UNION){
+            union_t* unio = get_union_tk(obj_type.repr);
+            node_stmt* member = get_union_member(unio, expr->access.member->str, expr->access.member->strlen);
+            type_t member_type;
+            member_type = type_from_tk(member->var_decl.var_type);
+            if(obj_type.ptr_depth || expr->access.obj->type == tk_deref || expr->access.obj->type == tk_open_bracket || expr->access.obj->type == tk_dot){
+                reg_t* ptr;
+                if(obj_type.ptr_depth)
+                    ptr = generate_expr(fptr, expr->access.obj, obj_type, NULL);
+                else if(expr->access.obj->type == tk_deref){
+                    obj_type.ptr_depth++;
+                    ptr = generate_expr(fptr, expr->access.obj->unary_op.lhs, obj_type, NULL);
+                }else if(expr->access.obj->type == tk_open_bracket){
+                    ptr = alloc_reg(GET_FREE_REG(target_address_size), false);
+                    obj_type.ptr_depth++;
+                    reg_t* arr = generate_expr(fptr, expr->access.obj->bin_op.lhs, obj_type, NULL);
+                    reg_t* idx = generate_expr(fptr, expr->access.obj->bin_op.rhs, (type_t){8, GET_DUMMY_TYPE(uint64), false, DATA_INT, 8, 0}, NULL);
+                    gen_load_idx_ptr(fptr, ptr, arr, idx, obj_type.size);
+                    (void) free_reg(arr);
+                    (void) free_reg(idx);
+                }else if(expr->access.obj->type == tk_dot){
+                    ptr = alloc_reg(GET_FREE_REG(target_address_size), false);
+                    if(!get_expr_address(fptr, ptr, expr->access.obj))
+                        return false;
+                }
+                gen_load_ptr_float(fptr, ptr);
+                (void) free_reg(ptr);
+                return true;
+            }else if(expr->access.obj->type == tk_identifier){
+                var_t* var = get_var(expr->access.obj->term.str, expr->access.obj->term.strlen);
+                if(var->location == VAR_STACK || var->location == VAR_ARRAY)
+                    gen_load_stack_float(fptr, stack_sz - var->stack_ptr);
+                else if(var->location == VAR_GLOBAL || var->location == VAR_GLOBAL_ARR)
+                    gen_load_global_float(fptr, var->str, var->strlen);
+                else if(var->location == VAR_ARG)
+                    gen_load_arg_float(fptr, var->stack_ptr);
+                return true;
+            }else{
+                print_context_expr("Not implemented yet", expr);
+                return false;
+            }
+        }
     }default:
-        print_context_expr("Unkwown / float operation", expr);
+        print_context_expr("Unknown / float operation", expr);
         return false;
     }
     return true;
@@ -986,6 +1711,9 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
         HC_ERR("Cannot do more than declaring functions, variables, arrays or data structures outside a function!");
         return false;
     }
+
+    if(!stmt || stmt == (node_stmt*)(~0))
+        return true;
 
     switch(stmt->type){
     case tk_func_decl:{
@@ -1061,9 +1789,14 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
         scope_t func_scope = gen_init_scope(fptr, stmt->func_decl.stmts);
 
         // @return variable in the function scope
-        arg_ptr += SIZEOF_T(func.type);
-        var_t return_var = {"@return", 7, 0,
-                            VAR_ARG, func.type};
+        arg_ptr += (func.type.ptr_depth || func.type.data == DATA_STRUCT || func.type.data == DATA_UNION) ? target_address_size : func.type.size;
+        var_t return_var;
+        if(func.type.ptr_depth || func.type.data == DATA_STRUCT || func.type.data == DATA_UNION){
+            func.type.ptr_depth++;
+            return_var = (var_t){"@return", 7, 0, VAR_ARG, func.type};
+            func.type.ptr_depth--;
+        }else
+            return_var = (var_t){"@return", 7, 0, VAR_ARG, func.type};
         vector_append(vars, &return_var);
 
         // Add arguments as variables
@@ -1081,7 +1814,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
                     vector_append(vars, &argc);
                     arg_ptr += 8;
                 }
-                var_t arg_var = {"@varg_start", 11, arg_ptr, VAR_ARG, (type_t){8, GET_DUMMY_TYPE(uint64), false, DATA_INT, 8, 0}};
+                var_t arg_var = {"@varg_start", 11, arg_ptr, VAR_ARG, (type_t){8, GET_DUMMY_TYPE(int64), true, DATA_INT, 8, 0}};
                 vector_append(vars, &arg_var);
                 break;
             }
@@ -1140,14 +1873,8 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
         gen_cond_jump(fptr, tk_cmp_eq, other_label, false);
 
         // Go through the if's scope if its condition is true
-        scope_t scope = gen_init_scope(fptr, stmt->if_stmt.stmts);
-        for(node_stmt* ptr = stmt->if_stmt.stmts; ptr; ptr = ptr->next){
-            if(!generate_stmt(fptr, ptr, fn_type, parent))
-                return false;
-        }
-
-        // Quit the scope and jump to the end
-        gen_quit_scope(fptr, scope);
+        if(!generate_stmt(fptr, stmt->if_stmt.stmts, fn_type, parent))
+            return false;
         gen_jump(fptr, end_label);
 
         // The "other" label is a label that precedes the next statement
@@ -1182,27 +1909,15 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
                 gen_cond_jump(fptr, tk_cmp_eq, other_label, false);
 
                 // Go through the else if's scopes
-                scope_t else_if_scope = gen_init_scope(fptr, stmt->if_stmt.stmts);
-                for(node_stmt* ptr = stmt->if_stmt.stmts; ptr; ptr = ptr->next){
-                    if(!generate_stmt(fptr, ptr, fn_type, parent))
-                        return false;
-                }
-
-                // Quit the scope
-                gen_quit_scope(fptr, else_if_scope);
+                if(!generate_stmt(fptr, stmt->if_stmt.stmts, fn_type, parent))
+                    return false;
                 gen_jump(fptr, end_label);
 
                 gen_label(fptr, other_label);
             }else{
                 // Just go through the else's scope
                 parent.next_label = 0;
-                scope_t else_scope = gen_init_scope(fptr, stmt->scope.stmts);
-                parent.stack_sz = stack_sz;
-                for(node_stmt* ptr = stmt->scope.stmts; ptr; ptr = ptr->next){
-                    if(!generate_stmt(fptr, ptr, fn_type, parent))
-                        return false;
-                }
-                gen_quit_scope(fptr, else_scope);
+                generate_stmt(fptr, stmt->scope.stmts, fn_type, parent);
                 // The else ends the chain
                 break;
             }
@@ -1432,8 +2147,19 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
                     if(!generate_float_expr(fptr, stmt->var_decl.expr))
                         return false;
                     gen_save_stack_float(fptr, stack_sz - var_ptr);
-                }else{
-                    print_context_expr("Not implemented yet", stmt->var_decl.expr);
+                }else if(var_type.data == DATA_STRUCT || var_type.data == DATA_UNION){
+                    reg_t* ptr = alloc_reg(GET_MASK_REG(target_address_size, allowed_copy_regs), false);
+                    gen_load_stack_ptr(fptr, ptr, stack_sz - var_ptr);
+                    if(var_type.data == DATA_STRUCT){
+                        struct_t* stru = get_struct_tk(var_type.repr);
+                        if(!save_struct(fptr, stru, ptr, stmt->var_decl.expr))
+                            return false;
+                    }else{
+                        union_t* unio = get_union_tk(var_type.repr);
+                        if(!save_union(fptr, unio, ptr, stmt->var_decl.expr))
+                            return false;
+                    }
+                    (void) free_reg(ptr);
                 }
             }
 
@@ -1484,7 +2210,11 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
         }
 
         // Get the number of elements in the array
-        size_t elem_count = eval_int_lit(stmt->arr_decl.elem_count);
+        uint64_t elem_count;
+        if(!eval_uint_expr(stmt->arr_decl.elem_count, &elem_count)){
+            print_context_expr("Expected constant expression", stmt->arr_decl.elem_count);
+            return false;
+        }
 
         // Get the size of the array and adjust the pointer depth of the var's type
         size_t elem_size = SIZEOF_T(elem_type), elem_align = ALIGNOF_T(elem_type);
@@ -1502,7 +2232,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             stack_ptr += arr_size;
             size_t var_ptr = stack_ptr;
 
-            // Register the variable in the variable vector
+            // Register the array in the variable vector
             var_t new_var = {stmt->arr_decl.identifier->str, stmt->arr_decl.identifier->strlen, var_ptr, VAR_ARRAY, elem_type};
             vector_append(vars, &new_var);
         }else{
@@ -1517,14 +2247,21 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
         const char* str = stmt->struct_decl.identifier->str;
         size_t strlen = stmt->struct_decl.identifier->strlen;
 
+        if(get_union(str, strlen)){
+            print_context_ex("Union type already declared with the same name", str, strlen);
+            union_t* unio = get_union(str, strlen);
+            print_context_ex("Last declaration here", unio->str, unio->strlen);
+            return false;
+        }
+
         struct_t* last_def = get_struct(str, strlen);
         if(stmt->type == tk_struct && last_def && last_def->size){
-            print_context_ex("Struct already defined", str, strlen);
+            print_context_ex("Already defined", str, strlen);
             print_context_ex("Last definition here", last_def->str, last_def->strlen);
             return false;
         }
 
-        struct_t new_struct = {str, strlen, 0, 1, {NEW_VECTOR(var_t)}, {NEW_VECTOR(func_t)}, NULL};
+        struct_t new_struct = {str, strlen, 0, 0, {NEW_VECTOR(var_t)}, {NEW_VECTOR(func_t)}, NULL};
         for(node_stmt* ptr = stmt->struct_decl.members; ptr; ptr = ptr->next){
             // Scalar members
             if(ptr->type == tk_var_decl){
@@ -1572,14 +2309,18 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             else if(ptr->type == tk_arr_decl){
                 type_t elem_type = type_from_tk(ptr->arr_decl.elem_type);
                 size_t elem_sz = SIZEOF_T(elem_type), elem_align = ALIGNOF_T(elem_type);
-                size_t elem_count = eval_int_lit(ptr->arr_decl.elem_count);
+                uint64_t elem_count;
+                if(!eval_uint_expr(ptr->arr_decl.elem_count, &elem_count)){
+                    print_context_expr("Expected constant expression", ptr->arr_decl.elem_count);
+                    return false;
+                }
 
                 if(!elem_type.data){
                     print_context("Invalid array member type!", ptr->arr_decl.identifier);
                     return false;
                 }
 
-                if(!elem_sz){
+                if(!elem_sz || elem_count <= 0){
                     print_context("Array member holds empty (0 bytes big) type.", ptr->arr_decl.identifier);
                     return false;
                 }
@@ -1599,11 +2340,85 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             }
         }
 
+        if(new_struct.align)
+            new_struct.size = ALIGN(new_struct.size, new_struct.align);
+
         // Add / replace definition
         if(!last_def)
             vector_append(structs, &new_struct);
         else
             *last_def = new_struct;
+        return true;
+    }case tk_union:{
+        const char* str = stmt->struct_decl.identifier->str;
+        size_t strlen = stmt->struct_decl.identifier->strlen;
+
+        if(get_struct(str, strlen)){
+            print_context_ex("Structure type already declared with the same name", str, strlen);
+            struct_t* stru = get_struct(str, strlen);
+            print_context_ex("Last declaration here", stru->str, stru->strlen);
+            return false;
+        }
+
+        union_t* last_def = get_union(str, strlen);
+        if(last_def && last_def->size){
+            print_context_ex("Already defined", str, strlen);
+            print_context_ex("Last definition here", last_def->str, last_def->strlen);
+            return false;
+        }
+
+        union_t unio = {str, strlen, 0, 0, stmt->struct_decl.members};
+        for(node_stmt* ptr = stmt->struct_decl.members; ptr; ptr = ptr->next){
+            if(ptr->type == tk_var_decl){
+                type_t var_type = type_from_tk(ptr->var_decl.var_type);
+                size_t size = SIZEOF_T(var_type), align = ALIGNOF_T(var_type);
+
+                if(!var_type.data){
+                    print_context("Invalid array member type!", ptr->arr_decl.identifier);
+                    return false;
+                }
+
+                if(!size){
+                    print_context("Array member holds empty (0 bytes big) type.", ptr->arr_decl.identifier);
+                    return false;
+                }
+
+                unio.size = MAX(unio.size, size);
+                unio.align = MAX(unio.align, align);
+            }else if(ptr->type == tk_arr_decl){
+                type_t elem_type = type_from_tk(ptr->arr_decl.elem_type);
+                size_t size = SIZEOF_T(elem_type), align = ALIGNOF_T(elem_type);
+                uint64_t elem_count;
+                if(!eval_uint_expr(ptr->arr_decl.elem_count, &elem_count)){
+                    print_context_expr("Expected constant expression", ptr->arr_decl.elem_count);
+                    return false;
+                }
+
+                if(!elem_type.data){
+                    print_context("Invalid array member type!", ptr->arr_decl.identifier);
+                    return false;
+                }
+
+                if(!size || elem_count <= 0){
+                    print_context("Array member holds empty (0 bytes big) type.", ptr->arr_decl.identifier);
+                    return false;
+                }
+
+                unio.size = MAX(unio.size, size * elem_count);
+                unio.align = MAX(unio.align, align);
+            }else{
+                print_context_ex("Can only have member declarations in a union declaration", str, strlen);
+                return false;
+            }
+        }
+
+        if(unio.align)
+            unio.size = ALIGN(unio.size, unio.align);
+
+        if(!last_def)
+            vector_append(unions, &unio);
+        else
+            *last_def = unio;
         return true;
     }
     case tk_assign:
@@ -1619,9 +2434,15 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
     case tk_expr_stmt:{
         // Just generate the expression with the target of a 64 bit int or a type we know
         type_t type = typeof_expr(stmt->expr.expr);
-        if(!type.data || !SIZEOF_T(type))
+        if(!type.data)
             type = (type_t){8, GET_DUMMY_TYPE(int64), true, DATA_INT, 8, 0};
-        if(type.ptr_depth || type.data == DATA_INT)
+        if(stmt->expr.expr->type == tk_func_call){
+            func_t* func = NULL;
+            size_t func_call_sz = generate_func_call(fptr, stmt->expr.expr, &func, NULL);
+            if(func_call_sz)
+                gen_dealloc_stack(fptr, func_call_sz);
+            stack_sz -= func_call_sz;
+        }else if(type.ptr_depth || type.data == DATA_INT)
             EXPR_ONCE(stmt->expr.expr, type, NULL);
         else if(type.data == DATA_FLOAT){
             if(!generate_float_expr(fptr, stmt->expr.expr))
@@ -1724,13 +2545,28 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
     }
     case tk_return:
         // Return value if possible
-        if((fn_type.ptr_depth) ? true : fn_type.size && stmt->ret.expr){
+        if(SIZEOF_T(fn_type) && stmt->ret.expr){
             if(fn_type.ptr_depth || fn_type.data == DATA_INT)
-                gen_save_return(fptr, EXPR_ONCE(stmt->ret.expr, fn_type, NULL));
+                gen_save_arg(fptr, EXPR_ONCE(stmt->ret.expr, fn_type, NULL), 0);
             else if(fn_type.data == DATA_FLOAT){
                 if(!generate_float_expr(fptr, stmt->ret.expr))
                     return false;
                 gen_save_arg_float(fptr, 0);
+            }else if(fn_type.data == DATA_STRUCT || fn_type.data == DATA_UNION){
+                reg_t* ptr = alloc_reg(GET_MASK_REG(target_address_size, allowed_copy_regs), false);
+                gen_load_arg(fptr, ptr, 0);
+                gen_cmpz_reg(fptr, ptr);
+                gen_cond_jump(fptr, tk_cmp_eq, 0, false);
+                if(fn_type.data == DATA_STRUCT){
+                    struct_t* stru = get_struct_tk(fn_type.repr);
+                    if(!save_struct(fptr, stru, ptr, stmt->ret.expr))
+                        return false;
+                }else if(fn_type.data == DATA_UNION){
+                    union_t* unio = get_union_tk(fn_type.repr);
+                    if(!save_union(fptr, unio, ptr, stmt->ret.expr))
+                        return false;
+                }
+                (void) free_reg(ptr);
             }
         }else if(stmt->ret.expr){
             print_context_expr("Unexpected return value, function returns nothing", stmt->ret.expr);
@@ -1745,12 +2581,6 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
     return false;
 }
 
-static void generate_quit(HC_FILE fptr){
-    HC_FCLOSE(fptr);
-    vector_destroy(vars);
-    vector_destroy(funcs);
-}
-
 bool generate(const char* output_file, node_stmt* AST, arena_t* arena, bool library){
     HC_FILE fptr = HC_FOPEN_WRITE(output_file);
 
@@ -1762,7 +2592,7 @@ bool generate(const char* output_file, node_stmt* AST, arena_t* arena, bool libr
     // Go through each statement and generate it
     for(; AST; AST = AST->next){
         if(!generate_stmt(fptr, AST, INVALID_TYPE, (scope_info){0,0,0,0,0,arena})){
-            generate_quit(fptr);
+            gen_free(fptr);
             return false;
         }
     }
@@ -1782,7 +2612,7 @@ bool generate(const char* output_file, node_stmt* AST, arena_t* arena, bool libr
     node_term* global_val = global_var_values;
     for(size_t i = 0; i < vector_size(vars); i++){
         var_t* var = vector_at(vars, i);
-        if(var->location == VAR_GLOBAL){
+        if(var->location == VAR_GLOBAL && (var->type.ptr_depth || var->type.data == DATA_INT || var->type.data == DATA_FLOAT)){
             if(var->stack_ptr){
                 if(global_val->type != tk_str_lit)
                     gen_declare_global(fptr,
@@ -1792,7 +2622,7 @@ bool generate(const char* output_file, node_stmt* AST, arena_t* arena, bool libr
                 else{
                     if(var->type.ptr_depth == 0 && var->type.size != target_address_size){
                         print_context_expr("Cannot assign non-pointer variable to a string literal", (node_expr*) global_val);
-                        generate_quit(fptr);
+                        gen_free(fptr);
                         return false;
                     }
                     char buffer[128];
@@ -1806,11 +2636,11 @@ bool generate(const char* output_file, node_stmt* AST, arena_t* arena, bool libr
                 global_val = &global_val->next->term;
             }else
                 gen_declare_global(fptr, var->str, var->strlen, var->type.ptr_depth ? target_address_size : var->type.size, "0", 1);
-        }else if(var->location == VAR_GLOBAL_ARR)
-            gen_declare_global_arr(fptr, var->str, var->strlen, var->stack_ptr);
+        }else if(var->location == VAR_GLOBAL_ARR || var->type.data == DATA_STRUCT || var->type.data == DATA_UNION)
+            gen_declare_global_arr(fptr, var->str, var->strlen, (var->location == VAR_GLOBAL_ARR) ? var->stack_ptr : var->type.size);
         else{
             print_context_ex("Not supposed to be left out at the end of program (bug)", var->str, var->strlen);
-            generate_quit(fptr);
+            gen_free(fptr);
             return false;
         }
     }
@@ -1824,6 +2654,6 @@ bool generate(const char* output_file, node_stmt* AST, arena_t* arena, bool libr
     for(node_term* float_lit = float_literals; float_lit; float_lit = &float_lit->next->term, i++)
         gen_declare_float(fptr, i, float_lit->str, float_lit->strlen);
 
-    generate_quit(fptr);
+    gen_free(fptr);
     return true;
 }

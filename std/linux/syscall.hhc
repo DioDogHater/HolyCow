@@ -1,0 +1,3 @@
+int syscall1(int rax, int rdi);
+int syscall2(int rax, int rdi, int rsi);
+int syscall3(int rax, int rdi, int rsi, int rdx);

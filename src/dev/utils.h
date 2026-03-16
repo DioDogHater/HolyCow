@@ -8,6 +8,7 @@
 #define ABS(x) (((x) < 0) ? -(x) : (x))
 #define CLAMP(x,a,b) (MIN(MAX(x,a),b))
 #define ALIGN(x,a) (((x)+(a)-1) / (a) * (a))
+#define IS_POW2(x) (((x) & (x - 1)) == 0)
 
 #define KB 1024
 #define MB 1048576

@@ -1,3 +1,5 @@
+#include "syscall.hhc"
+
 /*
  * Types
  */
@@ -52,12 +54,43 @@
 #define	AF_UNIX		1		/* local to host */
 #define	AF_INET		2		/* internetwork: UDP, TCP, etc. */
 
+struct sockaddr {
+    int16   sa_family;          /* address family;  AF_xxx */
+    char    sa_data[14];        /* protocol specific address */
+}
+
+struct sockaddr_un{
+    int16   sun_family = AF_UNIX;
+    char    sun_PATH[108];                /* path name */
+}
+
+struct sockaddr_in {
+    int16   sin_family = AF_INET;
+    uint16  sin_port;                     /* 16-bit port number */
+    uint32  sin_addr;
+    char    sin_zero[8];                  /* unused */
+}
+
 int socket(int domain, int type, int protocol){
-    @asm(rax, rdi, rsi, rdx,
-    "mov rax, 41
-    mov rdi, %0
-    mov rsi, %1
-    mov rdx, %2
-    syscall
-    mov [rbp+16], rax", domain, type, protocol);
+    return syscall3(41, domain, type, protocol);
+}
+
+int connect(int fd, sockaddr* uservaddr, int addrlen){
+    return syscall3(42, fd, (uint)uservaddr, addrlen);
+}
+
+int accept(int fd, sockaddr* upeer_sockaddr, int* upeer_addrlen){
+    return syscall3(43, fd, (uint)upeer_sockaddr, (uint)upeer_addrlen);
+}
+
+int bind(int fd, sockaddr* umyaddr, int addrlen){
+    return syscall3(49, fd, (uint)umyaddr, addrlen);
+}
+
+int listen(int fd, int backlog){
+    return syscall2(50, fd, backlog);
+}
+
+int close(int fd){
+    return syscall1(3, fd);
 }

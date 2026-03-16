@@ -1,4 +1,4 @@
-#include "std/stdlib.hhc"
+#include "../std/stdlib.hhc"
 
 // You can have default arguments
 // A comma in the middle of args = default argument
@@ -28,11 +28,11 @@ void print_numbers(...count){
     repeat(count){
         print("%c %i", c, *vargs);
 
-        // Careful! In HolyCow, pointers are like ints.
+        // Careful! In HolyCow, pointers are treated like regular ints.
         // Ints handled with pointers are not scaled
         // by the size of the pointer's contents!
-        // Not like C, where (int*)ptr + 5 is actually:
-        // (int*)ptr + 5 * sizeof(int) = (int*)ptr + 80
+        // Do not do something like ptr++ if ptr's type
+        // is something other than uint8*, int8* or char*
         vargs += 8;
         c = ',';
     }
@@ -43,6 +43,29 @@ int main(uint argc, char** argv){
     println("Hello world!");
 
     // This is a demo of all format specifiers available
+    // To find out more, check out /std/stdlib.hhc
+
+    // %A lets you align the cursor to be n characters after
+    // the start of the line
+    // Use %*A to replace spaces with another char
+    println("%A5 chars from start%A30 chars", 5, 30);
+
+    // %[ ... %L / %R lets you align text left / right for a certain space
+    // Aligning left fills the gap after the text
+    // Aligning right moves the text and fills the hole with spaces
+    // Use %*L / %*R to replace spaces with another char
+    println("[%[Aligned left%L]", 20);
+    println("[%[Aligned right%R]", 20);
+
+    // %[ ... %C lets you center text
+    // Use %*C to replace spaces with another char
+    println("[%[Centered%C]", 20);
+
+    // %[ ... %T / %*T lets you truncate text
+    // It basically lets you cut the text if it's too long to a certain length
+    // %T cuts at the end, but %*T cuts at the start
+    println("%[This is way too long and I want it short%T", 20);
+    println("%[This is way too long and I want it short%*T", 20);
 
     // Print a null terminated string
     println("string:            \"%s\"", "HolyCow!");
@@ -62,16 +85,22 @@ int main(uint argc, char** argv){
     println("signed int:         %i", -647);
     println("unsigned int:       %u", 102532);
 
+    // Print an unsigned int of length n with zeros to fill space
+    // %04 -> length of 4 chars, %09 -> length of 9 chars, etc.
+    println("n length uint:      %04", 25);
+
     // Print an unsigned int in hexadecimal form
     println("uint (hex):         %x", 0xBEEF);
 
     // Print a boolean
-    println("bool                %b", true);
+    println("bool:               %b", true);
 
     // Print a fixed point number
     fixed x = string_to_fixed("-16.2126");
-    println("fixed point number: %F", x);
+    println("fixed point:        %F", x);
 
     // Print a floating point number
-    println("float number:       %f", -16.2126);
+    // Use %*f to choose how many digits to print
+    println("float:              %f", -16.2126);
+    println("float (n digits):   %*f", 6, -16.212635);
 }

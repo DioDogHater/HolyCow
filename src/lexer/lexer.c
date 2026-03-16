@@ -82,6 +82,30 @@ bool consume_tk_type(token_t** tokens, tk_type type){
     return false;
 }
 
+size_t relative_path(const char* path, size_t len, const char* src, char* dest){
+    size_t slashes_to_skip = 0, offset = 0;
+    for(; *path == '.'; path += 2, len -= 2){
+        if(*(path+1) == '.')
+            slashes_to_skip++, path++, len--;
+    }
+    ssize_t i = strlen(src) - 1;
+    for(; i > 0 && slashes_to_skip; i--)
+        if(src[i] == '/') slashes_to_skip--;
+    for(; i > 0 && src[i] != '/'; i--);
+
+    for(size_t j = 0; j < slashes_to_skip; j++, offset += 3)
+        memcpy(dest + offset, "../", 3);
+
+    if(!slashes_to_skip && i){
+        memcpy(dest + offset, src, i + 1);
+        offset += i + 1;
+    }
+
+    memcpy(dest + offset, path, len);
+    //HC_PRINT("%.*s (%lu) + %.*s = %s\n", (int)(i + 1), src, slashes_to_skip, (int)len, path, dest);
+    return offset + len;
+}
+
 static file_t included_files = NEW_FILE(NULL);
 token_t* tokenize(file_t* src, arena_t* arena, token_t* token_start){
     if(!src || !src->data || !arena)
@@ -144,6 +168,9 @@ token_t* tokenize(file_t* src, arena_t* arena, token_t* token_start){
             }else if(*start == '0' && *str == 'b'){
                 str++;
                 while(*str && (*str == '0' || *str == '1')) str++;
+            }else if(*start == '0' && *str == 'o'){
+                str++;
+                while(*str && (*str >= '0' && *str <= '7')) str++;
             }else{
                 while(*str && isdigit(*str)) str++;
                 if(*str == '.'){
@@ -287,7 +314,7 @@ token_t* tokenize(file_t* src, arena_t* arena, token_t* token_start){
                 tk.strlen = str - start;
 
                 // #include "PATH"
-                if(tk.strlen == 8 && strncmp(start, "#include ", 9) == 0){
+                if(tk.strlen == 8 && strncmp(start, "#include", 8) == 0){
                     tk.type = tk_invalid;
                     while(*str && *str != '\n' && isspace(*str)) str++;
                     if(*str++ != '"'){
@@ -301,25 +328,29 @@ token_t* tokenize(file_t* src, arena_t* arena, token_t* token_start){
                         return NULL;
                     }
 
-                    // First we check if the file is already included
-                    // (to avoid duplicates)
+                    // Adapt include path to be relative
+                    char buffer[1024] = {0};
+                    size_t path_len = relative_path(path_start, str - path_start, (const char*)src->file_name, buffer);
+
+                    // Check if file is included more than once
+                    // if yes, ignore this time
                     file_t* last_file = &included_files;
                     bool already_included = false;
                     for(; last_file->next && !already_included; last_file = last_file->next)
-                        if(strncmp(path_start, (const char*)last_file->next->file_name, str - path_start) == 0)
+                        if(strlen((const char*)last_file->next->file_name) != path_len &&
+                            strncmp((const char*)last_file->next->file_name, buffer, path_len) == 0)
                             already_included = true;
 
                     if(already_included){
-                        HC_PRINT("Already included!\n");
                         str++;
                         continue;
                     }
 
-                    // Allocate the file and read it
+                    // Allocate the file, append it to the linked list and read it
                     last_file->next = ARENA_ALLOC(arena, file_t);
-                    *last_file->next = NEW_FILE((uint8_t*) arena_alloc(arena, str - path_start + 1));
-                    memcpy(last_file->next->file_name, path_start, str - path_start);
-                    last_file->next->file_name[str - path_start] = '\0';
+                    *last_file->next = NEW_FILE((uint8_t*) arena_alloc(arena, path_len + 1));
+                    memcpy(last_file->next->file_name, buffer, path_len);
+                    last_file->next->file_name[path_len] = '\0';
 
                     if(!file_read(last_file->next)){
                         tk.strlen = str - start + 1;
@@ -337,7 +368,7 @@ token_t* tokenize(file_t* src, arena_t* arena, token_t* token_start){
                     // Skip the last double quote
                     str++;
                     continue;
-                }else if(tk.strlen == 7 && strncmp(start, "#define ", 8) == 0){
+                }else if(tk.strlen == 7 && strncmp(start, "#define", 7) == 0){
                     while(*str && *str != '\n' && isspace(*str)) str++;
                     if(*str == '\n' || !(isalpha(*str) || *str == '_')){
                         print_context("Expected valid macro name", &tk);

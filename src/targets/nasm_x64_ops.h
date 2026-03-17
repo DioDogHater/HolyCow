@@ -10,11 +10,7 @@ static const char* x64_sz_names[9] = {"Unkown", "BYTE", "WORD", "Unknown", "DWOR
 void gen_alloc_stack(HC_FILE fptr, size_t size){ HC_FPRINTF(fptr, "\tsub rsp, %lu\n", size); }
 void gen_dealloc_stack(HC_FILE fptr, size_t size){ HC_FPRINTF(fptr, "\tadd rsp, %lu\n", size); }
 void gen_start_func(HC_FILE fptr, const char* func_name, size_t strlen, bool priv){
-    if(!priv)
-        HC_FPRINTF(fptr, "\nglobal %.*s:function", (int)strlen, func_name);
-    else
-        HC_FPRINTF(fptr, "\nstatic %.*s:function", (int)strlen, func_name);
-    HC_FPRINTF(fptr, "\n%.*s:\n\tpush rbp\n\tmov rbp, rsp\n", (int)strlen, func_name);
+    HC_FPRINTF(fptr, "\n%s %.*s:function\n%.*s:\n\tpush rbp\n\tmov rbp, rsp\n", priv?"static":"global", (int)strlen, func_name, (int)strlen, func_name);
 }
 void gen_return_func(HC_FILE fptr){ HC_FPRINTF(fptr, "\tleave\n\tret\n"); }
 void gen_push_stack(HC_FILE fptr, reg_t* op){
@@ -66,7 +62,7 @@ x64_LOCATION_PTR(name, args, fmt,##__VA_ARGS__) \
 x64_LOCATION_SV(name, args, fmt,##__VA_ARGS__)
 
 // Str
-void gen_load_str(HC_FILE fptr, reg_t* op, size_t id){ x64_LOAD("STR%lu", id); }
+void gen_load_str_lit(HC_FILE fptr, reg_t* op, size_t id){ x64_LOAD("STR%lu", id); }
 
 // Global)
 #define x64_GLOBAL_ARGS x64_ARGS(const char* str, size_t strlen)
@@ -342,14 +338,18 @@ void gen_cond_set(HC_FILE fptr, tk_type cmp, reg_t* reg, bool sign){
     }
 }
 
-void gen_declare_extern(HC_FILE fptr, const char* str, size_t strlen){ HC_FPRINTF(fptr, "extern %.*s\n", (int)strlen, str); }
-void gen_declare_global(HC_FILE fptr, const char* str, size_t strlen, size_t size, const char* value, size_t value_len){
-    const char* declaration_sizes[9] = {"Unknown","db","dw","Unknown","dd","Unknown","Unknown","Unknown","dq"};
-    HC_FPRINTF(fptr, "%.*s:\n%s %.*s\n", (int)strlen, str, declaration_sizes[size], (int)value_len, value);
+void gen_declare_extern(HC_FILE fptr, const char* str, size_t strlen, const char* category){ HC_FPRINTF(fptr, "extern %.*s:%s\n", (int)strlen, str, category); }
+
+static const char* x64_decl[9] = {"Unknown","db","dw","Unknown","dd","Unknown","Unknown","Unknown","dq"};
+void gen_start_global_decl(HC_FILE fptr, const char* str, size_t strlen, bool priv){
+    HC_FPRINTF(fptr, "%s %.*s:data\n%.*s:\n", priv?"static":"global", (int)strlen, str, (int)strlen, str);
 }
-void gen_declare_global_arr(HC_FILE fptr, const char* str, size_t strlen, size_t size){ HC_FPRINTF(fptr, "%.*s:\ntimes %lu db 0\n", (int)strlen, str, size); }
-void gen_declare_str(HC_FILE fptr, size_t id, const char* str, size_t strlen){
-    HC_FPRINTF(fptr, "STR%lu:\ndb ", id);
+void gen_declare_int(HC_FILE fptr, int64_t val, size_t sz){
+    HC_FPRINTF(fptr, "%s %lu\n", x64_decl[sz], val);
+}
+size_t gen_declare_str(HC_FILE fptr, const char* str, size_t strlen){
+    size_t len = 1;
+    HC_FPRINTF(fptr, "db ");
     for(; strlen; str++, strlen--){
         if((*str == '\\' && *(str+1) == 'n') || *str == '\n'){
             HC_FPRINTF(fptr, "\",10,\"");
@@ -366,15 +366,38 @@ void gen_declare_str(HC_FILE fptr, size_t id, const char* str, size_t strlen){
             str += 2, strlen -= 2;
         }else if(*str == '\\' && *(str+1) == '\n'){
             str++, strlen--;
+            continue;
         }else if(*str == '\\'){
             HC_FPRINTF(fptr, "\",%d,\"", (int)*(str+1));
             str++, strlen--;
         }else
             HC_FPRINTF(fptr,"%c",*str);
+        len++;
     }
     HC_FPRINTF(fptr, ",0\n");
+    return len;
 }
-void gen_declare_float(HC_FILE fptr, size_t id, const char* str, size_t strlen){
+void gen_declare_str_lit_ptr(HC_FILE fptr, size_t id){
+    HC_FPRINTF(fptr, "dq STR%lu\n", id);
+}
+void gen_declare_global_ptr(HC_FILE fptr, const char* str, size_t strlen){
+    HC_FPRINTF(fptr, "dq %.*s\n", (int)strlen, str);
+}
+void gen_declare_float(HC_FILE fptr, double val){
+    HC_FPRINTF(fptr, "dq %.10F\n", val);
+}
+void gen_declare_mem(HC_FILE fptr, size_t size){
+    HC_FPRINTF(fptr, "times %lu db 0\n", size);
+}
+void gen_declare_align(HC_FILE fptr, const char* str, size_t strlen, size_t sz){
+    HC_FPRINTF(fptr, "times %lu - ($-%.*s) db 0\n", sz, (int)strlen, str);
+}
+
+void gen_declare_str_lit(HC_FILE fptr, size_t id, const char* str, size_t strlen){
+    HC_FPRINTF(fptr, "STR%lu:\n", id);
+    gen_declare_str(fptr, str, strlen);
+}
+void gen_declare_float_lit(HC_FILE fptr, size_t id, const char* str, size_t strlen){
     HC_FPRINTF(fptr, "FP%lu:\ndq %.*s\n", id, (int)strlen, str);
 }
 
@@ -415,7 +438,7 @@ void gen_add_floats(HC_FILE fptr){ HC_FPRINTF(fptr, "\tfaddp\n"); }
 void gen_sub_floats(HC_FILE fptr){ HC_FPRINTF(fptr, "\tfsubp\n"); }
 void gen_mul_floats(HC_FILE fptr){ HC_FPRINTF(fptr, "\tfmulp\n"); }
 void gen_div_floats(HC_FILE fptr){ HC_FPRINTF(fptr, "\tfdivp\n"); }
-void gen_mod_floats(HC_FILE fptr){ HC_FPRINTF(fptr, "\tfprem\nfstp st0\n"); }
+void gen_mod_floats(HC_FILE fptr){ HC_FPRINTF(fptr, "\tfprem\n\tfstp st0\n"); }
 void gen_cmpz_float(HC_FILE fptr){ HC_FPRINTF(fptr, "\tfldz\n\tfcomip\n\tfstp st0\n"); }
 void gen_cmp_floats(HC_FILE fptr){ HC_FPRINTF(fptr, "\tfcomip\n\tfstp st0\n"); }
 void gen_cmp_approx_floats(HC_FILE fptr){

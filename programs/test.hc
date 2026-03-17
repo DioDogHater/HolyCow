@@ -1,6 +1,6 @@
 #include "../std/stdlib.hhc"
 
-const float FP_PRECISION = 0.001;
+float FP_PRECISION = 0.0001;
 
 // Prints a frame around lines of text (with a title)
 void frame(char* title = "", ...count){
@@ -13,7 +13,7 @@ void frame(char* title = "", ...count){
     // Measure each string's length
     uint i = 0;
     repeat(count){
-        uint len = strlen((char*)vargs[i]);
+        uint len = strlen(vargs[i]);
         if(len > max_len){ max_len = len; }
         ++i;
     }
@@ -97,7 +97,7 @@ int main(uint argc, char** argv){
 
     frame("Foo tierlist", "1. Foo", "2. Bar", "3. Foo-bar");
 
-    test a = test{5, 6, test2{"Hello world!", "Foo bar"}};
+    test a = test{, 6, test2{"Hello world!", "Foo bar"}};
     print_test(a);
     print_test(get_test());
 

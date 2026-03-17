@@ -71,7 +71,7 @@ extern void gen_inc_reg(HC_FILE, reg_t*);
 extern void gen_dec_reg(HC_FILE, reg_t*);
 
 // String literal IO
-extern void gen_load_str(HC_FILE, reg_t*, size_t);
+extern void gen_load_str_lit(HC_FILE, reg_t*, size_t);
 
 // Global IO
 extern void gen_load_global(HC_FILE, reg_t*, const char*, size_t);
@@ -159,11 +159,18 @@ extern void gen_cond_jump(HC_FILE, tk_type, size_t, bool);
 extern void gen_cond_set(HC_FILE, tk_type, reg_t*, bool);
 
 // Declaration tools
-extern void gen_declare_extern(HC_FILE, const char*, size_t);
-extern void gen_declare_global(HC_FILE, const char*, size_t, size_t, const char*, size_t);
-extern void gen_declare_global_arr(HC_FILE, const char*, size_t, size_t);
-extern void gen_declare_str(HC_FILE, size_t, const char*, size_t);
-extern void gen_declare_float(HC_FILE, size_t, const char*, size_t);
+extern void gen_declare_extern(HC_FILE, const char*, size_t, const char* category);
+extern void gen_start_global_decl(HC_FILE, const char*, size_t, bool);
+extern void gen_declare_int(HC_FILE, int64_t, size_t);
+extern size_t gen_declare_str(HC_FILE, const char*, size_t);
+extern void gen_declare_str_lit_ptr(HC_FILE, size_t);
+extern void gen_declare_global_ptr(HC_FILE, const char*, size_t);
+extern void gen_declare_float(HC_FILE, double);
+extern void gen_declare_mem(HC_FILE, size_t);
+extern void gen_declare_align(HC_FILE, const char*, size_t, size_t);
+
+extern void gen_declare_str_lit(HC_FILE, size_t, const char*, size_t);
+extern void gen_declare_float_lit(HC_FILE, size_t, const char*, size_t);
 
 // Floating point operations
 extern void gen_pop_float(HC_FILE);

@@ -21,9 +21,14 @@ enum{
     tk_float,
     tk_string,
     tk_bool,
-    tk_flag,
     tk_void,
-    tk_const,
+    tk_public,
+    tk_private,
+    tk_protected,
+    tk_static,
+    tk_extern,
+    tk_peek,
+    tk_cfunc,
     tk_constexpr,
 
     // Values

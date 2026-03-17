@@ -1,6 +1,13 @@
 #include "../stdlib.hhc"
 #include "syscall.hhc"
 
+// struct FILE {
+//     uint fd;
+//     uint size;
+//     char* data;
+//     uint cursor;
+// }
+
 int absi(int x){
     if(x < 0){ return -x; }
     return x;
@@ -14,8 +21,8 @@ float absf(float x){
 void random(uint8* data, uint size){
     @asm(rax, rdi, rsi, rdx,
     "mov rax, 318
-    mov rdi, %0
-    mov rsi, %1
+    mov rdi, @0
+    mov rsi, @1
     xor rdx, rdx
     syscall", data, size);
 }
@@ -50,10 +57,10 @@ char to_upper(char c){
 
 void set_rounding(uint8 mode){
     uint16 fcw;
-    @asm("fstcw [%0]", &fcw);
+    @asm("fstcw [@0]", &fcw);
     fcw = fcw & 0xF3FF;
     fcw = fcw | (mode << 8);
-    @asm("fldcw [%0]", &fcw);
+    @asm("fldcw [@0]", &fcw);
 }
 
 float sqrt(float x){
@@ -196,9 +203,9 @@ fixed mod_fixed(fixed a, fixed b){
 // Sets bytes to a certain 8 bit value
 void memset(uint8* mem, uint8 data, uint mem_size){
     @asm(al,rcx,rdi,
-    "mov rdi, %0
-    mov al, %1
-    mov rcx, %2
+    "mov rdi, @0
+    mov al, @1
+    mov rcx, @2
     cld
     rep stosb", mem, data, mem_size);
 }
@@ -206,9 +213,9 @@ void memset(uint8* mem, uint8 data, uint mem_size){
 // Copies bytes from src to dest
 void memcpy(uint8* dest, uint8* src, uint mem_size){
     @asm(rcx, rsi, rdi,
-    "mov rdi, %0
-    mov rsi, %1
-    mov rcx, %2
+    "mov rdi, @0
+    mov rsi, @1
+    mov rcx, @2
     cld
     rep movsb", dest, src, mem_size);
 }
@@ -220,9 +227,9 @@ void memmove(uint8* dest, uint8* src, uint mem_size){
         src += mem_size - 1;
     }else{ @asm("cld"); }
     @asm(rcx, rsi, rdi,
-    "mov rdi, %0
-    mov rsi, %1
-    mov rcx, %2
+    "mov rdi, @0
+    mov rsi, @1
+    mov rcx, @2
     rep movsb", dest, src, mem_size);
 }
 
@@ -230,13 +237,13 @@ void memmove(uint8* dest, uint8* src, uint mem_size){
 uint strlen(char* str){
     @asm(rdi, al, rcx,
     "xor al, al
-    mov rdi, %0
+    mov rdi, @0
     mov rcx, ~0
     cld
     repne scasb
     not rcx
     dec rcx
-    mov [%1], rcx", str, &@return);
+    mov [@1], rcx", str, &@return);
 }
 
 int strfind(char* str, char c, uint len, bool reverse){
@@ -254,13 +261,13 @@ int strfind(char* str, char c, uint len, bool reverse){
 
     // Find the character inside the string
     @asm(rdi, al, rcx,
-    "mov al, %0
-    mov rdi, %1
-    mov rcx, %2
+    "mov al, @0
+    mov rdi, @1
+    mov rcx, @2
     repne scasb
-    sub %2, rcx
-    dec %2
-    mov [rbp+16], %2",
+    sub @2, rcx
+    dec @2
+    mov [rbp+16], @2",
     c, str, len + 1);
 
     if(@return == len){ return -1; }
@@ -281,13 +288,13 @@ int strdfind(char* str, char c, uint len, bool reverse){
 
     // Find the character inside the string
     @asm(rdi, al, rcx,
-    "mov al, %0
-    mov rdi, %1
-    mov rcx, %2
+    "mov al, @0
+    mov rdi, @1
+    mov rcx, @2
     repe scasb
-    sub %2, rcx
-    dec %2
-    mov [rbp+16], %2",
+    sub @2, rcx
+    dec @2
+    mov [rbp+16], @2",
     c, str, len + 1);
 
     if(@return == len){ return -1; }
@@ -306,9 +313,9 @@ char* strcpy(char* dest, char* src, uint len = -1){
 int8 strcmp(char* s1, char* s2, uint len = -1){
     if(len == -1){ len = strlen(s1); }
     @asm(rsi, rdi, rcx,
-    "mov rsi, %0
-    mov rdi, %1
-    mov rcx, %2
+    "mov rsi, @0
+    mov rdi, @1
+    mov rcx, @2
     repe cmpsb
     dec rsi
     dec rdi
@@ -499,7 +506,7 @@ void print_format(char* fmt, uint* argv){
             char buffer[64];
             ++fmt;
             if(*(fmt+1) < '2' || *(fmt+1) > '9'){
-                print_str("\nExpected in to be in the range [2, 9] in format specifier %0n\n");
+                print_str("\nExpected in to be in the range [2, 9] in format specifier @0n\n");
                 exit(1);
             }
             uint n_len = *(fmt+1) - '0';
@@ -647,27 +654,27 @@ int string_to_int(char* str, uint len){
 // Syscalls
 int syscall1(int rax, int rdi){
     @asm(rax, rdi, rsi, rdx,
-         "mov rax, %0
-         mov rdi, %1
+         "mov rax, @0
+         mov rdi, @1
          syscall
          mov [rbp+16], rax", rax, rdi);
 }
 
 int syscall2(int rax, int rdi, int rsi){
     @asm(rax, rdi, rsi, rdx,
-         "mov rax, %0
-         mov rdi, %1
-         mov rsi, %2
+         "mov rax, @0
+         mov rdi, @1
+         mov rsi, @2
          syscall
          mov [rbp+16], rax", rax, rdi, rsi);
 }
 
 int syscall3(int rax, int rdi, int rsi, int rdx){
     @asm(rax, rdi, rsi, rdx,
-         "mov rax, %0
-         mov rdi, %1
-         mov rsi, %2
-         mov rdx, %3
+         "mov rax, @0
+         mov rdi, @1
+         mov rsi, @2
+         mov rdx, @3
          syscall
          mov [rbp+16], rax", rax, rdi, rsi, rdx);
 }

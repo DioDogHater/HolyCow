@@ -125,7 +125,7 @@ frame:
 	jmp .L8
 	.L10:
 	sub rsp, 32
-	mov rbx, STR3
+	mov rbx, STR0
 	mov [rsp+0], rbx
 	mov rbx, [rsp+48]
 	mov [rsp+8], rbx
@@ -149,9 +149,9 @@ get_test:
 	mov [rbx+8], rcx
 	mov rbx, [rbp+16]
 	lea rbx, [rbx+16]
-	mov rcx, STR4
+	mov rcx, STR3
 	mov [rbx+0], rcx
-	mov rcx, STR5
+	mov rcx, STR4
 	mov [rbx+8], rcx
 	.L0:
 	leave
@@ -162,7 +162,7 @@ print_test:
 	push rbp
 	mov rbp, rsp
 	sub rsp, 48
-	mov rbx, STR6
+	mov rbx, STR5
 	mov [rsp+0], rbx
 	mov rbx, [rbp+16]
 	mov [rsp+8], rbx
@@ -194,7 +194,7 @@ print_msg:
 	test bl, bl
 	je .L1
 	sub rsp, 32
-	mov rbx, STR7
+	mov rbx, STR6
 	mov [rsp+0], rbx
 	mov rcx, [rbp+16]
 	mov rbx, [rcx+0]
@@ -215,7 +215,7 @@ print_msg:
 	test bl, bl
 	je .L3
 	sub rsp, 32
-	mov rbx, STR8
+	mov rbx, STR7
 	mov [rsp+0], rbx
 	mov rcx, [rbp+16]
 	mov rbx, [rcx+0]
@@ -236,7 +236,7 @@ print_msg:
 	test bl, bl
 	je .L4
 	sub rsp, 32
-	mov rbx, STR9
+	mov rbx, STR8
 	mov [rsp+0], rbx
 	mov rcx, [rbp+16]
 	mov rbx, [rcx+0]
@@ -250,7 +250,7 @@ print_msg:
 	jmp .L2
 	.L4:
 	sub rsp, 32
-	mov rbx, STR10
+	mov rbx, STR9
 	mov [rsp+0], rbx
 	mov rcx, [rbp+16]
 	mov rbx, [rcx+0]
@@ -286,7 +286,7 @@ main:
 	test bl, bl
 	je .L1
 	sub rsp, 48
-	mov rbx, STR11
+	mov rbx, STR10
 	mov [rsp+0], rbx
 	mov rbx, 10
 	mov [rsp+8], rbx
@@ -304,27 +304,27 @@ main:
 	.L1:
 	.L2:
 	sub rsp, 48
-	mov rbx, STR12
+	mov rbx, STR11
 	mov [rsp+0], rbx
 	mov rbx, 3
 	mov [rsp+8], rbx
-	mov rbx, STR13
+	mov rbx, STR12
 	mov [rsp+16], rbx
-	mov rbx, STR14
+	mov rbx, STR13
 	mov [rsp+24], rbx
-	mov rbx, STR15
+	mov rbx, STR14
 	mov [rsp+32], rbx
 	call frame
 	add rsp, 48
 	lea rbx, [rsp+16]
-	mov rcx, 5
+	mov rcx, 0
 	mov [rbx+0], rcx
 	mov rcx, 6
 	mov [rbx+8], rcx
 	lea r8, [rbx+16]
-	mov rcx, STR16
+	mov rcx, STR15
 	mov [r8+0], rcx
-	mov rcx, STR17
+	mov rcx, STR16
 	mov [r8+8], rcx
 	sub rsp, 32
 	lea rbx, [rsp+0]
@@ -347,7 +347,7 @@ main:
 	mov rcx, 0
 	mov [rbx+0], rcx
 	lea r8, [rbx+8]
-	mov rcx, STR18
+	mov rcx, STR15
 	mov [r8], rcx
 	sub rsp, 16
 	lea rbx, [rsp+16]
@@ -357,68 +357,69 @@ main:
 	.L0:
 	leave
 	ret
-extern absi
-extern absf
-extern random
-extern randint
-extern is_alpha
-extern is_num
-extern is_alnum
-extern to_lower
-extern to_upper
-extern set_rounding
-extern sqrt
-extern pow
-extern log
-extern sin
-extern cos
-extern tan
-extern atan2
-extern round
-extern floor
-extern ceil
-extern trunc
-extern int_to_fixed
-extern fraction_to_fixed
-extern string_to_fixed
-extern fixed_to_int
-extern mul_fixed
-extern div_fixed
-extern mod_fixed
-extern memset
-extern memcpy
-extern memmove
-extern strlen
-extern strfind
-extern strdfind
-extern strcpy
-extern strcmp
-extern strequal
-extern flush_stdout
-extern print_str
-extern print_char
-extern print_decimal
-extern print_udecimal
-extern print_hex
-extern print_fixed
-extern print_float
-extern print_format
-extern print
-extern println
-extern error
-extern input
-extern input_char
-extern int_to_string
-extern uint_to_string
-extern string_to_int
-extern read
-extern write
-extern exit
+extern absi:function
+extern absf:function
+extern random:function
+extern randint:function
+extern is_alpha:function
+extern is_num:function
+extern is_alnum:function
+extern to_lower:function
+extern to_upper:function
+extern set_rounding:function
+extern sqrt:function
+extern pow:function
+extern log:function
+extern sin:function
+extern cos:function
+extern tan:function
+extern atan2:function
+extern round:function
+extern floor:function
+extern ceil:function
+extern trunc:function
+extern int_to_fixed:function
+extern fraction_to_fixed:function
+extern string_to_fixed:function
+extern fixed_to_int:function
+extern mul_fixed:function
+extern div_fixed:function
+extern mod_fixed:function
+extern memset:function
+extern memcpy:function
+extern memmove:function
+extern strlen:function
+extern strfind:function
+extern strdfind:function
+extern strcpy:function
+extern strcmp:function
+extern strequal:function
+extern flush_stdout:function
+extern print_str:function
+extern print_char:function
+extern print_decimal:function
+extern print_udecimal:function
+extern print_hex:function
+extern print_fixed:function
+extern print_float:function
+extern print_format:function
+extern print:function
+extern println:function
+extern error:function
+extern input:function
+extern input_char:function
+extern int_to_string:function
+extern uint_to_string:function
+extern string_to_int:function
+extern read:function
+extern write:function
+extern exit:function
 
 
 section .data
+global FP_PRECISION:data
 FP_PRECISION:
-dq 0.001
+dq 0.0001000000
 
 
 section .rodata
@@ -429,37 +430,33 @@ db "+%[ %s %*C+",0
 STR2:
 db "|%[ %s%L|",0
 STR3:
-db "+%*c+",0
-STR4:
 db "Diddy",0
-STR5:
+STR4:
 db "Blud",0
-STR6:
+STR5:
 db "test{%i, %i, test2{",34,"%s",34,", ",34,"%s",34,"}}",0
-STR7:
+STR6:
 db "msg{%u, ",34,"%s",34,"}",0
-STR8:
+STR7:
 db "msg{%u, %i}",0
-STR9:
+STR8:
 db "msg{%u, %f}",0
-STR10:
+STR9:
 db "msg{%u, %b}",0
-STR11:
+STR10:
 db "%*f ~= %*f ± %f",0
-STR12:
+STR11:
 db "Foo tierlist",0
-STR13:
+STR12:
 db "1. Foo",0
-STR14:
+STR13:
 db "2. Bar",0
-STR15:
+STR14:
 db "3. Foo-bar",0
+STR15:
+db "Hello world!",0
 STR16:
-db "Hello world!",0
-STR17:
 db "Foo bar",0
-STR18:
-db "Hello world!",0
 FP0:
 dq 3.14159265359
 FP1:

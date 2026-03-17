@@ -4,6 +4,7 @@
 #include "../generator/target_requirements.h"
 #include "nasm_x64_regs.h"
 #include "nasm_x64_ops.h"
+#include "systemV_abi.h"
 
 const char* target_architecture = "x64 Linux";
 const size_t target_address_size = 8; // bytes

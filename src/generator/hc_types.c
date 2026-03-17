@@ -14,16 +14,16 @@ token_t dummy_types[] = {
     DUMMY_TYPE(float),
     DUMMY_TYPE(string),
     DUMMY_TYPE(bool),
-    DUMMY_TYPE(flag),
     DUMMY_TYPE(void)
 };
 
 void print_type(const char* before, type_t type, const char* after){
     HC_PRINT("%s", before);
     if(type.data && type.repr){
+        token_t* repr = type.repr;
+        while(repr->next && repr->type >= tk_public && repr->type <= tk_peek)
+            repr = repr->next;
         HC_PRINT(BOLD "%.*s", (int)type.repr->strlen, type.repr->str);
-        if(type.repr->type == tk_const)
-            HC_PRINT(" %.*s", (int)type.repr->next->strlen, type.repr->next->str);
         if(type.ptr_depth < 0) type.ptr_depth = 0;
         for(size_t i = 0; i < type.ptr_depth; i++)
             HC_PRINT("*");
@@ -39,16 +39,15 @@ bool signof_type(token_t* tk){
         return 0;
 
     switch(tk->type){
-        case tk_flag:
         case tk_void:
         case tk_bool:
-        case tk_float:
         case tk_identifier:
             return false;
         case tk_int8:
         case tk_int16:
         case tk_int32:
         case tk_int64:
+        case tk_float:
             return true;
         case tk_uint8:
         case tk_uint16:
@@ -67,7 +66,6 @@ size_t sizeof_type(token_t* tk){
         return 0;
 
     switch(tk->type){
-        case tk_flag:
         case tk_void:
             return 0;
         case tk_int8:
@@ -92,7 +90,7 @@ size_t sizeof_type(token_t* tk){
 
 type_t type_from_tk(token_t* tk){
     type_t t;
-    if(tk->type == tk_const)
+    while(tk->next && tk->type >= tk_public && tk->type <= tk_peek)
         tk = tk->next;
     t.repr = tk, t.ptr_depth = 0;
     if(tk->type != tk_identifier){
@@ -123,6 +121,40 @@ type_t type_from_tk(token_t* tk){
     for(token_t* ptr = tk->next; ptr && ptr->type == tk_mult; ptr = ptr->next)
         t.ptr_depth++;
     return t;
+}
+
+size_t flags_from_tk(token_t* tk){
+    size_t a = FLAG_NONE;
+    while(tk->next && tk->type >= tk_public && tk->type <= tk_cfunc){
+        if(tk->type != tk_public){
+            if(a & (1 << (tk->type - tk_private)))
+                print_context("Modifier is repeated, only needed once", tk);
+            a |= 1 << (tk->type - tk_private);
+        }
+        tk = tk->next;
+    }
+
+    if((a & FLAG_PRIVATE) && (a & FLAG_PROTECT)){
+        a -= FLAG_PROTECT;
+        print_context("Cannot be private and protected, defaults to private", tk);
+    }
+
+    if((a & FLAG_PEEK) && !(a & FLAG_PRIVATE) && !(a & FLAG_PROTECT)){
+        a -= FLAG_PEEK;
+        print_context("Cannot be peakable if it isn't private or protected", tk);
+    }
+
+    if((a & FLAG_CFUNC) && (a & FLAG_EXTERN)){
+        a -= FLAG_EXTERN;
+        print_context("cfunc modifier assumes it is an external function", tk);
+    }
+
+    if(((a & FLAG_PRIVATE) || (a & FLAG_PROTECT) || (a & FLAG_STATIC) || (a & FLAG_PEEK)) && (a & FLAG_EXTERN)){
+        a &= ~(FLAG_PRIVATE | FLAG_PROTECT | FLAG_STATIC);
+        print_context("extern can only be used by itself", tk);
+    }
+
+    return a;
 }
 
 type_t typeof_expr(node_expr* expr){

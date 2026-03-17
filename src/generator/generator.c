@@ -21,7 +21,7 @@ size_t str_literal_count = 0;
 node_term* float_literals = NULL;
 size_t float_literal_count = 0;
 
-static node_term* global_var_values = NULL;
+static node_expr* global_var_values = NULL;
 
 // Find a named thing in a vector
 void* find_named_thing(vector_t* vec, const char* str, size_t strlen){
@@ -141,12 +141,15 @@ size_t append_string_literal(node_term* str_lit){
     if(str_literal_count == 0){
         str_literals = str_lit;
     }else{
-        for(; ptr->next; ptr = &ptr->next->term);
+        if(ptr->strlen == str_lit->strlen && strncmp(ptr->str, str_lit->str, ptr->strlen) == 0)
+            return 0;
+        for(size_t i = 1; ptr->next; ptr = &ptr->next->term, i++)
+            if(ptr->next->term.strlen == str_lit->strlen && strncmp(ptr->next->term.str, str_lit->str, str_lit->strlen) == 0)
+                return i;
         ptr->next = (node_expr*) str_lit;
     }
     return str_literal_count++;
 }
-
 
 // Append a float literal to the linked list of float literals
 // Returns the id (index) of the float
@@ -156,7 +159,11 @@ size_t append_float_literal(node_term* float_lit){
     if(float_literal_count == 0){
         float_literals = float_lit;
     }else{
-        for(; ptr->next; ptr = &ptr->next->term);
+        if(ptr->strlen == float_lit->strlen && strncmp(ptr->str, float_lit->str, ptr->strlen) == 0)
+            return 0;
+        for(size_t i = 1; ptr->next; ptr = &ptr->next->term, i++)
+            if(ptr->next->term.strlen == float_lit->strlen && strncmp(ptr->next->term.str, float_lit->str, float_lit->strlen) == 0)
+                return i;
         ptr->next = (node_expr*) float_lit;
     }
     return float_literal_count++;
@@ -702,7 +709,7 @@ static void gen_free(HC_FILE fptr){
     HC_FCLOSE(fptr);
 }
 
-static void fail_gen_expr(HC_FILE fptr){
+void fail_gen_expr(HC_FILE fptr){
     HC_ERR("\nGENERATION FAILED!");
     gen_free(fptr);
     compiler_quit();
@@ -967,7 +974,7 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
             fail_gen_expr(fptr);
         }
         reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(sz), sign);
-        gen_load_str(fptr, tmp, append_string_literal(&expr->term));
+        gen_load_str_lit(fptr, tmp, append_string_literal(&expr->term));
         return tmp;
     }case tk_identifier:{
         var_t* var = get_var(expr->term.str, expr->term.strlen);
@@ -1730,18 +1737,23 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             stmt->func_decl.identifier->str,
             stmt->func_decl.identifier->strlen,
             stmt->func_decl.args,
-            stmt->func_decl.stmts,
+            flags_from_tk(stmt->func_decl.func_type),
             type_from_tk(stmt->func_decl.func_type)
         };
+        if(stmt->func_decl.stmts)
+            func.flags |= FLAG_FDEF;
 
         if(last_def){
-            if(func.stmts && last_def->stmts){
+            if(stmt->func_decl.stmts && (last_def->flags & FLAG_FDEF)){
                 print_context_ex("Redefining function here", func.str, func.strlen);
                 print_context_ex("First defined here", last_def->str, last_def->strlen);
                 return false;
             }
-            bool same = (func.type.size == last_def->type.size && func.type.sign == last_def->type.sign &&
-                        func.type.ptr_depth == last_def->type.ptr_depth && func.type.data == last_def->type.data);
+            bool same = ((func.flags & ~FLAG_FDEF) == (last_def->flags & ~FLAG_FDEF) &&
+                        func.type.size == last_def->type.size &&
+                        func.type.sign == last_def->type.sign &&
+                        func.type.ptr_depth == last_def->type.ptr_depth &&
+                        func.type.data == last_def->type.data);
             node_var_decl* last_arg = &last_def->args->var_decl;
             for(node_var_decl* arg = &func.args->var_decl; same && arg; arg = &arg->next->var_decl, last_arg = &last_arg->next->var_decl){
                 if((arg->type == tk_var_args) != (last_arg->type == tk_var_args)){
@@ -1766,15 +1778,20 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
                 print_context_ex("Previously defined here", last_def->str, last_def->strlen);
                 return false;
             }
-            if(func.stmts && !last_def->stmts)
+            if(stmt->func_decl.stmts && !(last_def->flags & FLAG_FDEF))
                 *last_def = func;
         }else
             vector_append(funcs, &func);
 
+        if(stmt->func_decl.stmts && (func.flags & FLAG_EXTERN)){
+            print_context("Cannot define an external function", stmt->func_decl.func_type);
+            return false;
+        }
+
         if(!stmt->func_decl.stmts)
             return true;
         else if(stmt->func_decl.stmts == (node_stmt*)(~0)){
-            gen_start_func(fptr, stmt->func_decl.identifier->str, stmt->func_decl.identifier->strlen, false);
+            gen_start_func(fptr, stmt->func_decl.identifier->str, stmt->func_decl.identifier->strlen, func.flags & FLAG_PRIVATE);
             gen_return_func(fptr);
             return true;
         }
@@ -1782,7 +1799,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
         // Setup the function
         stack_sz = stack_ptr = 0;
         label_count = 1;
-        gen_start_func(fptr, stmt->func_decl.identifier->str, stmt->func_decl.identifier->strlen, false);
+        gen_start_func(fptr, stmt->func_decl.identifier->str, stmt->func_decl.identifier->strlen, func.flags & FLAG_PRIVATE);
 
         // Setup the function scope
         size_t arg_ptr = 0;
@@ -1793,10 +1810,10 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
         var_t return_var;
         if(func.type.ptr_depth || func.type.data == DATA_STRUCT || func.type.data == DATA_UNION){
             func.type.ptr_depth++;
-            return_var = (var_t){"@return", 7, 0, VAR_ARG, func.type};
+            return_var = (var_t){"@return", 7, 0, VAR_ARG, FLAG_NONE, func.type};
             func.type.ptr_depth--;
         }else
-            return_var = (var_t){"@return", 7, 0, VAR_ARG, func.type};
+            return_var = (var_t){"@return", 7, 0, VAR_ARG, FLAG_NONE, func.type};
         vector_append(vars, &return_var);
 
         // Add arguments as variables
@@ -1806,7 +1823,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
                 arg_ptr = ALIGN(arg_ptr, 8);
                 if(((node_expr_stmt*)arg)->expr){
                     node_term vargc = ((node_expr_stmt*)arg)->expr->term;
-                    var_t argc = {vargc.str, vargc.strlen, arg_ptr, VAR_ARG, (type_t){8, GET_DUMMY_TYPE(uint64), false, DATA_INT, 8, 0}};
+                    var_t argc = (var_t){vargc.str, vargc.strlen, arg_ptr, VAR_ARG, 0, (type_t){8, GET_DUMMY_TYPE(uint64), false, DATA_INT, 8, 0}};
                     if(get_var(vargc.str, vargc.strlen)){
                         print_context_ex("Another argument has the same name", vargc.str, vargc.strlen);
                         return false;
@@ -1814,7 +1831,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
                     vector_append(vars, &argc);
                     arg_ptr += 8;
                 }
-                var_t arg_var = {"@varg_start", 11, arg_ptr, VAR_ARG, (type_t){8, GET_DUMMY_TYPE(int64), true, DATA_INT, 8, 0}};
+                var_t arg_var = (var_t){"@varg_start", 11, arg_ptr, VAR_ARG, FLAG_NONE, (type_t){8, GET_DUMMY_TYPE(int64), true, DATA_INT, 8, 0}};
                 vector_append(vars, &arg_var);
                 break;
             }
@@ -1824,7 +1841,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             // Register argument as variable in function scope
             size_t arg_align = ALIGNOF_T(arg_type);
             arg_ptr = ALIGN(arg_ptr, arg_align);
-            var_t arg_var = {arg->identifier->str, arg->identifier->strlen, arg_ptr, VAR_ARG, arg_type};
+            var_t arg_var = (var_t){arg->identifier->str, arg->identifier->strlen, arg_ptr, VAR_ARG, FLAG_NONE, arg_type};
             arg_ptr += SIZEOF_T(arg_type);
             if(get_var(arg->identifier->str, arg->identifier->strlen)){
                 print_context("Another argument has the same name", arg->identifier);
@@ -2126,6 +2143,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             return false;
         }
 
+        size_t var_flags = flags_from_tk(stmt->var_decl.var_type);
         size_t var_sz = SIZEOF_T(var_type), var_align = ALIGNOF_T(var_type);
         if(!var_sz){
             print_context("Variable type is 0 bytes big!", stmt->var_decl.var_type);
@@ -2163,33 +2181,39 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
                 }
             }
 
-            // Register the variable in the variable vector
-            var_t new_var = {stmt->var_decl.identifier->str, stmt->var_decl.identifier->strlen, var_ptr, VAR_STACK, var_type};
-            vector_append(vars, &new_var);
-        }else{
-            // Global variables
-            if(stmt->var_decl.expr && (
-               stmt->var_decl.expr->type == tk_int_lit ||
-               stmt->var_decl.expr->type == tk_char_lit ||
-               stmt->var_decl.expr->type == tk_str_lit ||
-               stmt->var_decl.expr->type == tk_bool_lit ||
-               stmt->var_decl.expr->type == tk_float_lit
-            )){
-                node_term* last_lit = global_var_values;
-                stmt->var_decl.expr->term.next = NULL;
-                if(!last_lit)
-                    global_var_values = &stmt->var_decl.expr->term;
-                else{
-                    for(; last_lit->next; last_lit = &last_lit->next->term);
-                    last_lit->next = stmt->var_decl.expr;
-                }
-            }else if(stmt->var_decl.expr){
-                print_context_expr("Non constant value assigned to global variable (initialise it in a function)", stmt->var_decl.expr);
+            if(var_flags != FLAG_NONE){
+                print_context("Incompatible modifier(s)", stmt->var_decl.var_type);
                 return false;
             }
 
             // Register the variable in the variable vector
-            var_t new_var = {stmt->var_decl.identifier->str, stmt->var_decl.identifier->strlen, (stmt->var_decl.expr != 0), VAR_GLOBAL, var_type};
+            var_t new_var = (var_t){stmt->var_decl.identifier->str, stmt->var_decl.identifier->strlen, var_ptr, VAR_STACK, var_flags, var_type};
+            vector_append(vars, &new_var);
+        }else{
+            // Global variables
+            if(stmt->var_decl.expr){
+                node_expr* last_val = global_var_values;
+                stmt->var_decl.expr->term.next = NULL;
+                if(!last_val)
+                    global_var_values = stmt->var_decl.expr;
+                else{
+                    for(; last_val->next; last_val = last_val->next);
+                    last_val->next = stmt->var_decl.expr;
+                }
+            }
+
+            if(var_flags != FLAG_NONE && var_flags != FLAG_EXTERN && var_flags != FLAG_PRIVATE){
+                print_context("Incompatible modifier(s)", stmt->var_decl.var_type);
+                return false;
+            }
+
+            if(var_flags == FLAG_EXTERN && stmt->var_decl.expr){
+                print_context_expr("Cannot give a value to external variable", stmt->var_decl.expr);
+                return false;
+            }
+
+            // Register the variable in the variable vector
+            var_t new_var = (var_t){stmt->var_decl.identifier->str, stmt->var_decl.identifier->strlen, (stmt->var_decl.expr != 0), VAR_GLOBAL, var_flags, var_type};
             vector_append(vars, &new_var);
         }
         return true;
@@ -2209,10 +2233,17 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             return false;
         }
 
+        size_t arr_flags = flags_from_tk(stmt->arr_decl.elem_type);
+
         // Get the number of elements in the array
-        uint64_t elem_count;
-        if(!eval_uint_expr(stmt->arr_decl.elem_count, &elem_count)){
+        int64_t elem_count;
+        if(!eval_int_expr(stmt->arr_decl.elem_count, &elem_count)){
             print_context_expr("Expected constant expression", stmt->arr_decl.elem_count);
+            return false;
+        }
+
+        if(elem_count <= 0){
+            print_context_expr("Element count of array must be positive (it is <= 0)", stmt->arr_decl.elem_count);
             return false;
         }
 
@@ -2232,18 +2263,32 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             stack_ptr += arr_size;
             size_t var_ptr = stack_ptr;
 
+            if(arr_flags != FLAG_NONE){
+                print_context("Incompatible modifier(s)", stmt->arr_decl.elem_type);
+                return false;
+            }
+
             // Register the array in the variable vector
-            var_t new_var = {stmt->arr_decl.identifier->str, stmt->arr_decl.identifier->strlen, var_ptr, VAR_ARRAY, elem_type};
+            var_t new_var = (var_t){stmt->arr_decl.identifier->str, stmt->arr_decl.identifier->strlen, var_ptr, VAR_ARRAY, arr_flags, elem_type};
             vector_append(vars, &new_var);
         }else{
+            if(arr_flags != FLAG_NONE && arr_flags != FLAG_EXTERN && arr_flags != FLAG_PRIVATE){
+                print_context("Incompatible modifier(s)", stmt->arr_decl.elem_type);
+                return false;
+            }
             // Global array
-            var_t new_var = {stmt->arr_decl.identifier->str, stmt->arr_decl.identifier->strlen, arr_size, VAR_GLOBAL_ARR, elem_type};
+            var_t new_var = (var_t){stmt->arr_decl.identifier->str, stmt->arr_decl.identifier->strlen, arr_size, VAR_GLOBAL_ARR, arr_flags, elem_type};
             vector_append(vars, &new_var);
         }
         return true;
     }
     case tk_struct:
     case tk_class:{
+        if(fn_type.data){
+            print_context("Cannot declare struct / class type in function", stmt->struct_decl.identifier);
+            return false;
+        }
+
         const char* str = stmt->struct_decl.identifier->str;
         size_t strlen = stmt->struct_decl.identifier->strlen;
 
@@ -2266,23 +2311,29 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             // Scalar members
             if(ptr->type == tk_var_decl){
                 type_t var_type = type_from_tk(ptr->var_decl.var_type);
+                size_t var_flags = flags_from_tk(ptr->var_decl.var_type);
                 size_t var_sz = SIZEOF_T(var_type), var_align = ALIGNOF_T(var_type);
 
                 if(!var_type.data){
-                    print_context("Invalid member type!", ptr->var_decl.identifier);
+                    print_context("Invalid structure member type!", ptr->var_decl.identifier);
                     return false;
                 }
 
                 // We don't want an empty type (0 byte big type)
                 if(!var_sz){
-                    print_context("Member type is 0 bytes big!", ptr->var_decl.var_type);
+                    print_context("Structure member type is 0 bytes big!", ptr->var_decl.var_type);
+                    return false;
+                }
+
+                if(stmt->type == tk_struct && var_flags){
+                    print_context("Cannot give modifiers to structure members", ptr->var_decl.var_type);
                     return false;
                 }
 
                 // Calculate the struct's size with alignment
                 new_struct.size = ALIGN(new_struct.size, var_align);
                 new_struct.align = MAX(new_struct.align, var_align);
-                var_t member_var = {ptr->var_decl.identifier->str, ptr->var_decl.identifier->strlen, new_struct.size, VAR_STACK, var_type};
+                var_t member_var = (var_t){ptr->var_decl.identifier->str, ptr->var_decl.identifier->strlen, new_struct.size, VAR_STACK, var_flags, var_type};
                 new_struct.size += var_sz;
 
                 // Append the member
@@ -2308,9 +2359,10 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             }// Array members
             else if(ptr->type == tk_arr_decl){
                 type_t elem_type = type_from_tk(ptr->arr_decl.elem_type);
+                size_t arr_flags = flags_from_tk(ptr->arr_decl.elem_type);
                 size_t elem_sz = SIZEOF_T(elem_type), elem_align = ALIGNOF_T(elem_type);
-                uint64_t elem_count;
-                if(!eval_uint_expr(ptr->arr_decl.elem_count, &elem_count)){
+                int64_t elem_count;
+                if(!eval_int_expr(ptr->arr_decl.elem_count, &elem_count)){
                     print_context_expr("Expected constant expression", ptr->arr_decl.elem_count);
                     return false;
                 }
@@ -2320,8 +2372,18 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
                     return false;
                 }
 
-                if(!elem_sz || elem_count <= 0){
-                    print_context("Array member holds empty (0 bytes big) type.", ptr->arr_decl.identifier);
+                if(!elem_sz){
+                    print_context("Array member elements are 0 bytes big!", ptr->arr_decl.identifier);
+                    return false;
+                }
+
+                if(elem_count < 0){
+                    print_context_expr("Array member's element count is negative!", ptr->arr_decl.elem_count);
+                    return false;
+                }
+
+                if(stmt->type == tk_struct && arr_flags){
+                    print_context("Cannot give modifiers to structure members", ptr->arr_decl.elem_type);
                     return false;
                 }
 
@@ -2329,7 +2391,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
                 new_struct.size = ALIGN(new_struct.size, elem_align);
                 new_struct.align = MAX(new_struct.align, elem_align);
                 elem_type.ptr_depth++;
-                var_t member_arr = (var_t){ptr->arr_decl.identifier->str, ptr->arr_decl.identifier->strlen, new_struct.size, VAR_ARRAY, elem_type};
+                var_t member_arr = (var_t){ptr->arr_decl.identifier->str, ptr->arr_decl.identifier->strlen, new_struct.size, VAR_ARRAY, arr_flags, elem_type};
                 new_struct.size += elem_sz * elem_count;
 
                 // Append array to members
@@ -2350,11 +2412,16 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             *last_def = new_struct;
         return true;
     }case tk_union:{
+        if(fn_type.data){
+            print_context("Cannot declare union type in function", stmt->struct_decl.identifier);
+            return false;
+        }
+
         const char* str = stmt->struct_decl.identifier->str;
         size_t strlen = stmt->struct_decl.identifier->strlen;
 
         if(get_struct(str, strlen)){
-            print_context_ex("Structure type already declared with the same name", str, strlen);
+            print_context_ex("Structure / class type already declared with the same name", str, strlen);
             struct_t* stru = get_struct(str, strlen);
             print_context_ex("Last declaration here", stru->str, stru->strlen);
             return false;
@@ -2374,12 +2441,17 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
                 size_t size = SIZEOF_T(var_type), align = ALIGNOF_T(var_type);
 
                 if(!var_type.data){
-                    print_context("Invalid array member type!", ptr->arr_decl.identifier);
+                    print_context("Invalid union member type!", ptr->arr_decl.identifier);
                     return false;
                 }
 
                 if(!size){
-                    print_context("Array member holds empty (0 bytes big) type.", ptr->arr_decl.identifier);
+                    print_context("Union member holds empty (0 bytes big) type!", ptr->arr_decl.identifier);
+                    return false;
+                }
+
+                if(flags_from_tk(ptr->var_decl.var_type)){
+                    print_context("Cannot give modifiers to union members", ptr->var_decl.var_type);
                     return false;
                 }
 
@@ -2388,8 +2460,8 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             }else if(ptr->type == tk_arr_decl){
                 type_t elem_type = type_from_tk(ptr->arr_decl.elem_type);
                 size_t size = SIZEOF_T(elem_type), align = ALIGNOF_T(elem_type);
-                uint64_t elem_count;
-                if(!eval_uint_expr(ptr->arr_decl.elem_count, &elem_count)){
+                int64_t elem_count;
+                if(!eval_int_expr(ptr->arr_decl.elem_count, &elem_count)){
                     print_context_expr("Expected constant expression", ptr->arr_decl.elem_count);
                     return false;
                 }
@@ -2399,8 +2471,18 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
                     return false;
                 }
 
-                if(!size || elem_count <= 0){
-                    print_context("Array member holds empty (0 bytes big) type.", ptr->arr_decl.identifier);
+                if(!size){
+                    print_context("Array member elements are 0 bytes big!", ptr->arr_decl.identifier);
+                    return false;
+                }
+
+                if(elem_count < 0){
+                    print_context_expr("Array member's element count is negative!", ptr->arr_decl.elem_count);
+                    return false;
+                }
+
+                if(flags_from_tk(ptr->var_decl.var_type)){
+                    print_context("Cannot give modifiers to union members", ptr->var_decl.var_type);
                     return false;
                 }
 
@@ -2524,7 +2606,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             }else if(*str == '\\' && *(str+1) == 't'){
                 HC_FPRINTF(fptr, "\t");
                 str++, strlen--;
-            }else if(*str == '%' && *(str+1) >= '0' && *(str+1) <= '9'){
+            }else if(*str == '@' && *(str+1) >= '0' && *(str+1) <= '9'){
                 int i = *(++str) - '0';
                 strlen--;
                 if(i >= tmp_count){
@@ -2581,6 +2663,133 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
     return false;
 }
 
+static bool generate_constant(HC_FILE fptr, type_t target_type, node_expr* expr){
+    if((expr->type == tk_str_lit || expr->type == tk_getaddr) && !target_type.ptr_depth){
+        print_context_expr("Cannot assign pointer value to non-pointer type", expr);
+        print_type("Type ", target_type, " is not a pointer type!");
+        return false;
+    }
+    if(expr->type == tk_str_lit)
+        gen_declare_str_lit_ptr(fptr, append_string_literal(&expr->term));
+    else if(expr->type == tk_getaddr){
+        if(expr->unary_op.lhs->type != tk_identifier){
+            print_context_expr("Expression is not constant", expr);
+            return false;
+        }
+        var_t* var = get_var(expr->term.str, expr->term.strlen);
+        if(!var){
+            print_context_ex("Unknown identifier", expr->term.str, expr->term.strlen);
+            return false;
+        }
+        if(var->location != VAR_GLOBAL){
+            print_context_ex("Expected global variable known at compile time", var->str, var->strlen);
+            return false;
+        }
+        gen_declare_global_ptr(fptr, var->str, var->strlen);
+    }else if(expr->type == tk_identifier){
+        var_t* var = get_var(expr->term.str, expr->term.strlen);
+        if(!var){
+            print_context_ex("Unknown identifier", expr->term.str, expr->term.strlen);
+            return false;
+        }
+        if(var->location != VAR_GLOBAL_ARR){
+            print_context_ex("Expected global array known at compile time", var->str, var->strlen);
+            HC_WARN("Cannot assign a global variable's value to a global variable during initialisation.");
+            return false;
+        }
+        gen_declare_global_ptr(fptr, var->str, var->strlen);
+    }else if(target_type.ptr_depth || target_type.data == DATA_INT){
+        size_t sz = SIZEOF_T(target_type);
+        bool sign = SIGNOF_T(target_type);
+        if(sign){
+            int64_t val;
+            if(!eval_int_expr(expr, &val)){
+                print_context_expr("Expression is not constant", expr);
+                return false;
+            }
+            gen_declare_int(fptr, val, sz);
+        }else{
+            uint64_t val;
+            if(!eval_uint_expr(expr, &val)){
+                print_context_expr("Expression is not constant", expr);
+                return false;
+            }
+            gen_declare_int(fptr, val, sz);
+        }
+    }else if(target_type.data == DATA_FLOAT){
+        double val;
+        if(!eval_float_expr(expr, &val)){
+            print_context_expr("Expression is not constant", expr);
+            return false;
+        }
+        gen_declare_float(fptr, val);
+    }else if(target_type.data == DATA_STRUCT){
+        if(expr->type != tk_struct){
+            print_context_expr("Expected structure construction", expr);
+            return false;
+        }
+        struct_t* stru = get_struct_tk(target_type.repr);
+        if(get_struct_tk(expr->construct.struc) != stru){
+            print_context("Incompatible structure type", expr->construct.struc);
+            return false;
+        }
+        node_expr* args = expr->construct.elems;
+        node_expr* default_args = stru->default_values;
+        size_t i = 0;
+        for(; default_args; i++){
+            var_t* member = vector_at(stru->members, i);
+            node_expr* arg_expr = args;
+
+            if(member->location == VAR_ARRAY){
+                if(i + 1 < vector_size(stru->members)){
+                    var_t* next_member = vector_at(stru->members, i+1);
+                    gen_declare_mem(fptr, next_member->stack_ptr - member->stack_ptr);
+                }else
+                    gen_declare_mem(fptr, stru->size - member->stack_ptr);
+                continue;
+            }
+
+            if(!args || args->type == tk_nothing){
+                if(default_args->type == tk_nothing){
+                    gen_declare_mem(fptr, SIZEOF_T(member->type));
+                    default_args = default_args->next;
+                    continue;
+                }
+                arg_expr = default_args;
+            }
+
+            if(args)
+                args = args->next;
+
+            if(!generate_constant(fptr, member->type, arg_expr))
+                return false;
+
+            default_args = default_args->next;
+            if(args && !default_args){
+                print_context_expr("Too many initialisation values provided", args);
+                return false;
+            }
+        }
+    }else if(target_type.data == DATA_UNION){
+        if(expr->type != tk_union){
+            print_context_expr("Expected union construction", expr);
+            return false;
+        }
+        union_t* unio = get_union_tk(target_type.repr);
+        if(get_union_tk(expr->uconstruct.unio) != unio){
+            print_context("Incompatible union type", expr->uconstruct.unio);
+            return false;
+        }
+        node_stmt* member = get_union_member(unio, expr->uconstruct.member->str, expr->uconstruct.member->strlen);
+        if(!member || member->type != tk_var_decl){
+            print_context("Expected valid scalar member", expr->uconstruct.member);
+            return false;
+        }
+        return generate_constant(fptr, type_from_tk(member->var_decl.var_type), expr->uconstruct.elem);
+    }
+    return true;
+}
+
 bool generate(const char* output_file, node_stmt* AST, arena_t* arena, bool library){
     HC_FILE fptr = HC_FOPEN_WRITE(output_file);
 
@@ -2601,58 +2810,47 @@ bool generate(const char* output_file, node_stmt* AST, arena_t* arena, bool libr
     // to set them as extern for the linking stage
     for(size_t i = 0; i < vector_size(funcs); i++){
         func_t* func = vector_at(funcs, i);
-        if(func->stmts) continue;
-        gen_declare_extern(fptr, func->str, func->strlen);
+        if(func->flags & FLAG_FDEF) continue;
+        gen_declare_extern(fptr, func->str, func->strlen, "function");
     }
 
     // Go through all global variables and add them in the .data section
-    // Absolutely disgusting code, will clean up later
-    // TODO clean up this mess
     HC_FPRINTF(fptr, "\n\n%s", target_data_section);
-    node_term* global_val = global_var_values;
+    node_expr* global_val = global_var_values;
     for(size_t i = 0; i < vector_size(vars); i++){
         var_t* var = vector_at(vars, i);
-        if(var->location == VAR_GLOBAL && (var->type.ptr_depth || var->type.data == DATA_INT || var->type.data == DATA_FLOAT)){
-            if(var->stack_ptr){
-                if(global_val->type != tk_str_lit)
-                    gen_declare_global(fptr,
-                        var->str, var->strlen,
-                        var->type.ptr_depth ? target_address_size : var->type.size,
-                        global_val->str, global_val->strlen);
-                else{
-                    if(var->type.ptr_depth == 0 && var->type.size != target_address_size){
-                        print_context_expr("Cannot assign non-pointer variable to a string literal", (node_expr*) global_val);
-                        gen_free(fptr);
-                        return false;
-                    }
-                    char buffer[128];
-                    gen_declare_global(
-                        fptr, var->str, var->strlen,
-                        target_address_size, buffer,
-                        // Returns the length of buffer   Returns the string literals id
-                        snprintf(buffer, 127, "STR%lu", append_string_literal(global_val))
-                    );
-                }
-                global_val = &global_val->next->term;
-            }else
-                gen_declare_global(fptr, var->str, var->strlen, var->type.ptr_depth ? target_address_size : var->type.size, "0", 1);
-        }else if(var->location == VAR_GLOBAL_ARR || var->type.data == DATA_STRUCT || var->type.data == DATA_UNION)
-            gen_declare_global_arr(fptr, var->str, var->strlen, (var->location == VAR_GLOBAL_ARR) ? var->stack_ptr : var->type.size);
-        else{
-            print_context_ex("Not supposed to be left out at the end of program (bug)", var->str, var->strlen);
+        if(var->location != VAR_GLOBAL && var->location != VAR_GLOBAL_ARR){
+            print_context_ex("BUG : Non-global variable is left at the end of program", var->str, var->strlen);
             gen_free(fptr);
             return false;
         }
+        if(var->flags & FLAG_EXTERN){
+            if(var->location == VAR_GLOBAL && var->stack_ptr){
+                print_context_ex("Cannot give value to external global variable", var->str, var->strlen);
+                return false;
+            }
+            gen_declare_extern(fptr, var->str, var->strlen, "data");
+            continue;
+        }
+        gen_start_global_decl(fptr, var->str, var->strlen, var->flags & FLAG_PRIVATE);
+        if(var->location == VAR_GLOBAL_ARR)
+            gen_declare_mem(fptr, var->stack_ptr);
+        else if(var->stack_ptr){
+            if(!generate_constant(fptr, var->type, global_val))
+                return false;
+            global_val = global_val->next;
+        }else
+            gen_declare_mem(fptr, SIZEOF_T(var->type));
     }
 
     // Generate the read only data section for string literals
     HC_FPRINTF(fptr, "\n\n%s", target_rodata_section);
     size_t i = 0;
     for(node_term* str_lit = str_literals; str_lit; str_lit = &str_lit->next->term, i++)
-        gen_declare_str(fptr, i, str_lit->str, str_lit->strlen);
+        gen_declare_str_lit(fptr, i, str_lit->str, str_lit->strlen);
     i = 0;
     for(node_term* float_lit = float_literals; float_lit; float_lit = &float_lit->next->term, i++)
-        gen_declare_float(fptr, i, float_lit->str, float_lit->strlen);
+        gen_declare_float_lit(fptr, i, float_lit->str, float_lit->strlen);
 
     gen_free(fptr);
     return true;

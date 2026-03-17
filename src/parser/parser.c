@@ -169,14 +169,7 @@ node_expr* parse_term(token_t** tokens, arena_t* arena){
         return NULL;
 
     // If it's a built-in type
-    if((token->type >= tk_int8 && token->type <= tk_const)){
-        if(token->type == tk_const && peek_token(tokens) &&
-           ((peek_token(tokens)->type >= tk_int8 && peek_token(tokens)->type < tk_const) || peek_token(tokens)->type == tk_identifier)){
-            token = consume_token(tokens);
-        }else if(token->type == tk_const){
-            print_context("Type expected after const", token);
-            return NULL;
-        }
+    if((token->type >= tk_int8 && token->type < tk_public)){
         // Consume * after type for pointer
         while(consume_tk_type(tokens, tk_mult));
         expr = (node_expr*) ARENA_ALLOC(arena, node_type);
@@ -208,7 +201,7 @@ node_expr* parse_term(token_t** tokens, arena_t* arena){
         break;
     case tk_identifier:
         if(consume_tk_type(tokens, tk_open_braces)){
-            // Struct / class manual construction
+            // Struct / class manual construction (identifier{...})
             expr = (node_expr*) ARENA_ALLOC(arena, node_construct);
             expr->construct = (node_construct){tk_struct, NULL, token, NULL};
             node_expr* args = parse_args(tokens, arena, tk_close_braces);
@@ -221,7 +214,7 @@ node_expr* parse_term(token_t** tokens, arena_t* arena){
                 return NULL;
             }
         }else if(peek_tk_type(tokens, tk_dot) && peek_tk_type(&(*tokens)->next, tk_identifier) && peek_tk_type(&(*tokens)->next->next, tk_open_braces)){
-            // Union construction
+            // Union construction (identifier.identifier{...})
             consume_token(tokens);
             token_t* member = consume_token(tokens);
             consume_token(tokens);
@@ -301,8 +294,8 @@ node_expr* parse_term(token_t** tokens, arena_t* arena){
             return NULL;
         }
         (void) consume_tk_type(tokens, tk_comma);
-        node_expr* elem_count = parse_term(tokens, arena);
-        if(!elem_count || elem_count->type != tk_int_lit){
+        node_expr* elem_count = parse_expr(tokens, 0, arena);
+        if(!elem_count){
             print_context("Expected number of elements to allocate", token);
             return NULL;
         }
@@ -409,17 +402,12 @@ node_stmt* parse_stmt(token_t** tokens, arena_t* arena, bool sc_necessary){
 
     // Variable / array / function declaration
     // Starts with a type and an identifier must follow
-    if((token->type >= tk_int8 && token->type <= tk_constexpr) ||
+    if((token->type >= tk_int8 && token->type < tk_constexpr) ||
        (token->type == tk_identifier && (peek_tk_type(&token, tk_identifier) || peek_tk_type(&token, tk_mult)))){
+        while(peek_token(tokens)->type >= tk_public && peek_token(tokens)->type <= tk_peek)
+            (void) consume_token(tokens);
+
         (void) consume_token(tokens); // Consume the first token
-        // If it's a composed type, we need to consume the type after
-        if((token->type == tk_const /*|| token->type == tk_constexpr*/) && peek_token(tokens) &&
-            (peek_token(tokens)->type == tk_identifier || (peek_token(tokens)->type >= tk_int8 && peek_token(tokens)->type < tk_const)))
-                (void) consume_token(tokens);
-        else if(token->type == tk_const /*|| token->type == tk_constexpr*/){
-            print_context("Expected type after const / constexpr", token);
-            return NULL;
-        }
 
         // If it's a pointer, we need to consume the *
         while(consume_tk_type(tokens, tk_mult));
@@ -676,7 +664,7 @@ node_stmt* parse_stmt(token_t** tokens, arena_t* arena, bool sc_necessary){
             return NULL;
         }
 
-        // Masked regs for usage in this format @asm(0, 1, 2, 3, ..., "code...")
+        // Pass in used registers first like this: @asm(reg1, reg2, reg3, ...)
         node_expr *mask_root = NULL, *head = NULL;
         while(!peek_tk_type(tokens, tk_str_lit)){
             node_expr* new_head = parse_term(tokens, arena);
@@ -690,14 +678,18 @@ node_stmt* parse_stmt(token_t** tokens, arena_t* arena, bool sc_necessary){
             if(!consume_tk_type(tokens, tk_comma)) break;
         }
 
-        // Code in a string literal
+        // Code in a string literal must follow used registers
         node_expr* code = parse_term(tokens, arena);
         if(!code || code->type != tk_str_lit){
             print_context("Expected assembly code as string literal", *tokens);
             return NULL;
         }
 
-        // Variable arguments (to use in the assembly code as variables %0 to %9)
+        // Variable arguments (to use in the assembly code as variables @0 to @9)
+        // Each argument is evaluated and stored in a general purpose register.
+        // That means that only integer values and pointers can be passed.
+        // The identifiers @0 to @9 will get replaced by the name of the register holding
+        // the corresponding argument's value.
         node_expr* vargs_root = NULL; head = NULL;
         if(consume_tk_type(tokens, tk_comma))
           while(!peek_tk_type(tokens, tk_close_parent)){

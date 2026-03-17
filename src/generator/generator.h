@@ -9,6 +9,7 @@
 #include "../parser/parser.h"
 
 #include "target_requirements.h"
+
 #include "regs.h"
 #include "hc_types.h"
 #include "evaluator.h"
@@ -41,7 +42,8 @@ typedef struct{
     const char* str;
     size_t strlen;
     int stack_ptr;
-    int location;
+    short location;
+    short flags;
     type_t type;
 } var_t;
 extern vector_t vars[1];
@@ -54,7 +56,7 @@ typedef struct{
     const char* str;
     size_t strlen;
     node_stmt* args;
-    node_stmt* stmts;
+    size_t flags;
     type_t type;
 } func_t;
 extern vector_t funcs[1];
@@ -124,9 +126,13 @@ bool save_expr(HC_FILE, node_expr*, node_expr*);
 bool get_expr_address(HC_FILE, reg_t*, node_expr*);
 size_t generate_func_call(HC_FILE, node_expr*, func_t**, reg_t*);
 
+// Provided by target
+extern size_t generate_cfunc_call(HC_FILE, node_expr*, func_t*, reg_t*);
+
 // Generate an integer expression.
 // Returns the register where the value is stored.
 // Last arg is the prefered register or NULL if it can be any of them.
+void fail_gen_expr(HC_FILE);
 #define EXPR_ONCE(expr, type, reg) free_reg(generate_expr(fptr, (expr), (type), (reg)))
 reg_t* generate_expr(HC_FILE, node_expr*, type_t, reg_t*);
 

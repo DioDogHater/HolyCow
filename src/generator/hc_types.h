@@ -13,6 +13,27 @@ enum data_types{
     DATA_UNION,     // Unions are easier than structs
 };
 
+// Enumeration of all possible flags on variables / functions
+enum{
+    FLAG_NONE     = 0x00,
+    FLAG_PRIVATE  = 0x01,
+    FLAG_PROTECT  = 0x02,
+    FLAG_STATIC   = 0x04,
+    FLAG_EXTERN   = 0x08,
+
+    // When an attribute is private / protected
+    // it is possible to give public reading access of
+    // said attribute, using the "peek" modifier.
+    // Faster than having to make getters for every attribute.
+    FLAG_PEEK     = 0x10,
+
+    // External C function
+    FLAG_CFUNC    = 0x20,
+
+    // If a function is defined, this flag will be set
+    FLAG_FDEF     = 0x40
+};
+
 typedef struct{
     size_t size;      // Size in bytes of a value of said type
     token_t* repr;    // Representation (tokens used to represent the type) (optional)
@@ -38,6 +59,9 @@ void print_type(const char* before, type_t type, const char* after);
 
 // Interpret some tokens as a type
 type_t type_from_tk(token_t* tk);
+
+// Get the flags of a type
+size_t flags_from_tk(token_t* tk);
 
 // Get the sign of a type
 bool signof_type(token_t* tk);

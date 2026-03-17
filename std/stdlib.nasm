@@ -292,7 +292,7 @@ sin:
 	fld QWORD [rbp+24]
 	fld QWORD [FP0]
 	fprem
-fstp st0
+	fstp st0
 	fstp QWORD [rbp+24]
 	fld QWORD [rbp+24]
     fsin
@@ -306,9 +306,9 @@ cos:
 	push rbp
 	mov rbp, rsp
 	fld QWORD [rbp+24]
-	fld QWORD [FP1]
+	fld QWORD [FP0]
 	fprem
-fstp st0
+	fstp st0
 	fstp QWORD [rbp+24]
 	fld QWORD [rbp+24]
     fcos
@@ -322,9 +322,9 @@ tan:
 	push rbp
 	mov rbp, rsp
 	fld QWORD [rbp+24]
-	fld QWORD [FP2]
+	fld QWORD [FP0]
 	fprem
-fstp st0
+	fstp st0
 	fstp QWORD [rbp+24]
 	fld QWORD [rbp+24]
     fptan
@@ -1332,7 +1332,7 @@ print_float:
 	push rbp
 	mov rbp, rsp
 	sub rsp, 160
-	fld QWORD [FP3]
+	fld QWORD [FP1]
 	fld QWORD [rbp+16]
 	fcomip
 	fstp st0
@@ -1375,7 +1375,7 @@ print_float:
 	fsubp
 	sub rsp, 32
 	mov [rsp+24], rbx
-	fld QWORD [FP4]
+	fld QWORD [FP2]
 	fstp QWORD [rsp+8]
 	mov rcx, [rbp+24]
 	push rcx
@@ -2536,7 +2536,7 @@ print_format:
 	jmp .L6
 	.L32:
 	sub rsp, 16
-	mov rbx, STR11
+	mov rbx, STR10
 	mov [rsp+0], rbx
 	mov rbx, 18446744073709551615
 	mov [rsp+8], rbx
@@ -2674,7 +2674,7 @@ input:
 	test bl, bl
 	je .L1
 	sub rsp, 16
-	mov rbx, STR12
+	mov rbx, STR11
 	mov [rsp+0], rbx
 	mov rbx, [rsp+24]
 	mov [rsp+8], rbx
@@ -2722,7 +2722,7 @@ input_char:
 	test bl, bl
 	je .L1
 	sub rsp, 16
-	mov rbx, STR13
+	mov rbx, STR12
 	mov [rsp+0], rbx
 	mov rbx, [rsp+16]
 	mov [rsp+8], rbx
@@ -3160,12 +3160,14 @@ exit:
 	.L0:
 	leave
 	ret
-extern main
+extern main:function
 
 
 section .data
+global stdout_buff:data
 stdout_buff:
 times 2048 db 0
+global stdout_cursor:data
 stdout_cursor:
 dq 0
 
@@ -3188,24 +3190,18 @@ db "true ",0
 STR7:
 db "false",0
 STR8:
-db "",10,"Expected in to be in the range [2, 9] in format specifier %0n",10,"",0
+db "",10,"Expected in to be in the range [2, 9] in format specifier @0n",10,"",0
 STR9:
 db "",10,"Expected %[ before %*T to enclose text to truncate",10,"",0
 STR10:
 db "",10,"Unexpected format specifier %",0
 STR11:
-db "",10,"Unexpected format specifier %",0
-STR12:
 db "input() error: %i",0
-STR13:
+STR12:
 db "input_char() error: %i",0
 FP0:
 dq 6.28318530718
 FP1:
-dq 6.28318530718
-FP2:
-dq 6.28318530718
-FP3:
 dq 0.0
-FP4:
+FP2:
 dq 10.0

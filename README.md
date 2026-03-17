@@ -33,8 +33,7 @@ This the end goal of how my language will look like.
 - uint32, int32
 - uint64 or uint, int64 or int
 - float (64 bit floating point number)
-- flag (a flag is a boolean that occupies a single bit)
-- bool (boolean as a single byte, but (bool)54 == (bool)100)
+- bool (boolean as a single byte, 1 = true, 0 = false)
 - string, built-in string type with extra features.
 - pointer (type*), same as C syntax
 */
@@ -74,8 +73,8 @@ void hello_world(string msg = "Default"){
     try{
         scan("%i",&value);
     }except{
-        // fail() is a println() + exit()
-        fail("Invalid integer value.");
+        // error() is a println() + exit(EXIT_FAILURE)
+        error("Invalid integer value.");
     }
     
     // If statements
@@ -101,14 +100,9 @@ void hello_world(string msg = "Default"){
     }
     
     // While loop
-    flag condition = true;
-    flag other_flag = false;
+    bool condition = true;
     while(condition){
-        if(!other_flag){
-            other_flag = true;
-            continue;
-        }
-        break;
+        condition = not condition;
     }
     
     // For loop
@@ -134,45 +128,55 @@ void hello_world(string msg = "Default"){
 }
 
 /*
-* Classes ressemble C++ classes
-* No polymorphism, but inheritance is possible
-* Function overloading works
-* No security (public, private)
-* Basic operator overloading
+- No constructors, but same can be achieved with static methods.
+  No destructors, but same can be achieved with a method.
+
+- Polymorphism achieved using virtual methods and method overloading.
+
+- Encapsulation implemented, but every attribute is public by default.
+  Attributes can be made "peekable" (readable) publicly, while still being private / protected for writing.
+
+- Basic operator overloading by using special names for methods:
+  For example, to overload addition (+), create a method __add__.
 */
+
 class Animal{
-    string name;
-    int age;
+    private @peek string name;
+    private @peek int age;
     
-    static Animal new(string _name, int _age){
-        // You can construct a class like a struct
-        return Animal{_name, _age};
+    static Animal new(string name, int age){
+        // You can construct a class like a struct.
+        // Only flaw in this encapsulation design is that you can build
+        // a class without a constructor, so without security checks.
+        return Animal{name, age};
     }
-    string to_string(){
-        // "this" is a pointer to the class calling the method
+    
+    virtual string to_string(){
+        // "this" is a pointer to the object calling the method
         return format("%s : %d yo", this.name, this.age);
     }
 }
 
-// Child class
-class Pet from Animal{
-    int owner_count;
+// Child class of Animal
+class Pet : Animal{
+    uint owner_count;
     string* owners;
     
     /*
     * Variable arguments
-    * Allocate on the stack if possible (otherwise error will appear)
-    * Stack allocation is possible for max 1024KB
-    * (only in a scope with compile time constants)
-    * vargs.size is a compile time constant in this case
+    * Allocate extra stack memory for class
     */
-    static Pet new(string _name, int _age, ...vargs) : @stack(sizeof(string) * vargs.size) {
-        super(_name, _age);
-        owners = @stack;
-        for(int i = 0; i < vargs.size; i++)
-            owners[i] = vargs.get(i, const char*);
+    static Pet new(string name, int age, ...count) : @stack_alloc(sizeof(string) * count) {
+        this.name = name;
+        this.age = age;
+        this.owner_count = count;
+        this.owners = @stack_alloc;
+        char** vargs = VARGS;
+        for(int i = 0; i < count; i++)
+            owners[i] = vargs[i];
     }
-    string to_string(){
+    
+    virtual string to_string(){
         return super() + format(", %d owners", this.name, this.age);
     }
 }

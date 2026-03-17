@@ -212,7 +212,7 @@ sleep:
 	fld QWORD [rbp+16]
 	fld QWORD [FP0]
 	fprem
-fstp st0
+	fstp st0
 	fld QWORD [FP1]
 	fmulp
 	sub rsp, 8
@@ -330,7 +330,7 @@ time:
 	push rbx
 	fild QWORD [rsp]
 	add rsp, 8
-	fld QWORD [FP2]
+	fld QWORD [FP1]
 	fdivp
 	faddp
 	fstp QWORD [rbp+16]
@@ -930,7 +930,7 @@ main:
 	add rsp, 16
 	fstp QWORD [rsp+24]
 	fld QWORD [rsp+24]
-	fld QWORD [FP3]
+	fld QWORD [FP2]
 	fsubp
 	fstp QWORD [rsp+16]
 	mov bl, 0
@@ -1104,7 +1104,7 @@ main:
 	.L16:
 	.L17:
 	sub rsp, 16
-	fld QWORD [FP4]
+	fld QWORD [FP3]
 	fstp QWORD [rsp+0]
 	call sleep
 	add rsp, 16
@@ -1137,7 +1137,7 @@ main:
 	call tcsetattr
 	add rsp, 32
 	sub rsp, 16
-	fld QWORD [FP5]
+	fld QWORD [FP4]
 	fstp QWORD [rsp+0]
 	call sleep
 	add rsp, 16
@@ -1181,75 +1181,79 @@ main:
 	.L0:
 	leave
 	ret
-extern absi
-extern absf
-extern random
-extern randint
-extern is_alpha
-extern is_num
-extern is_alnum
-extern to_lower
-extern to_upper
-extern set_rounding
-extern sqrt
-extern pow
-extern log
-extern sin
-extern cos
-extern tan
-extern atan2
-extern round
-extern floor
-extern ceil
-extern trunc
-extern int_to_fixed
-extern fraction_to_fixed
-extern string_to_fixed
-extern fixed_to_int
-extern mul_fixed
-extern div_fixed
-extern mod_fixed
-extern memset
-extern memcpy
-extern memmove
-extern strlen
-extern strfind
-extern strdfind
-extern strcpy
-extern strcmp
-extern strequal
-extern flush_stdout
-extern print_str
-extern print_char
-extern print_decimal
-extern print_udecimal
-extern print_hex
-extern print_fixed
-extern print_float
-extern print_format
-extern print
-extern println
-extern error
-extern input
-extern input_char
-extern int_to_string
-extern uint_to_string
-extern string_to_int
-extern read
-extern write
-extern exit
-extern syscall1
-extern syscall2
-extern syscall3
+extern absi:function
+extern absf:function
+extern random:function
+extern randint:function
+extern is_alpha:function
+extern is_num:function
+extern is_alnum:function
+extern to_lower:function
+extern to_upper:function
+extern set_rounding:function
+extern sqrt:function
+extern pow:function
+extern log:function
+extern sin:function
+extern cos:function
+extern tan:function
+extern atan2:function
+extern round:function
+extern floor:function
+extern ceil:function
+extern trunc:function
+extern int_to_fixed:function
+extern fraction_to_fixed:function
+extern string_to_fixed:function
+extern fixed_to_int:function
+extern mul_fixed:function
+extern div_fixed:function
+extern mod_fixed:function
+extern memset:function
+extern memcpy:function
+extern memmove:function
+extern strlen:function
+extern strfind:function
+extern strdfind:function
+extern strcpy:function
+extern strcmp:function
+extern strequal:function
+extern flush_stdout:function
+extern print_str:function
+extern print_char:function
+extern print_decimal:function
+extern print_udecimal:function
+extern print_hex:function
+extern print_fixed:function
+extern print_float:function
+extern print_format:function
+extern print:function
+extern println:function
+extern error:function
+extern input:function
+extern input_char:function
+extern int_to_string:function
+extern uint_to_string:function
+extern string_to_int:function
+extern read:function
+extern write:function
+extern exit:function
+extern syscall1:function
+extern syscall2:function
+extern syscall3:function
 
 
 section .data
+global snake:data
 snake:
 times 4096 db 0
+global last_direction:data
 last_direction:
 times 8 db 0
+global snake_length:data
 snake_length:
-dq 0
+times 8 db 0
+global food:data
 food:
 times 8 db 0
 
@@ -1270,10 +1274,8 @@ dq 1.0
 FP1:
 dq 1000000000.0
 FP2:
-dq 1000000000.0
-FP3:
 dq 0.1
-FP4:
+FP3:
 dq 0.075
-FP5:
+FP4:
 dq 0.25

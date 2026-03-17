@@ -1,6 +1,12 @@
 // Prototype declaration of the main entry point
 int main(uint argc, char** argv);
 
+// OS specific
+// struct FILE;
+// extern FILE* stdin;
+// extern FILE* stdout;
+// extern FILE* stderr;
+
 // ================ Macros ====================
 // Invalid pointer, null pointer
 #define NULL (void*) 0

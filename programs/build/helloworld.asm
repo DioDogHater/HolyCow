@@ -51,7 +51,7 @@ print_numbers:
 	sub rsp, 16
 	lea rbx, [rbp+24]
 	mov [rsp+8], rbx
-	mov bl, 62
+	mov bl, 0x3e
 	mov [rsp+7], bl
 	mov rbx, [rbp+16]
 	.L1:
@@ -70,17 +70,17 @@ print_numbers:
 	mov rbx, [rsp+24]
 	add rsp, 32
 	mov rcx, [rsp+8]
-	mov rsi, 8
+	mov rsi, 0x8
 	add rcx, rsi
 	mov [rsp+8], rcx
-	mov cl, 44
+	mov cl, 0x2c
 	mov [rsp+7], cl
 	.L2:
 	dec rbx
 	jmp .L1
 	.L3:
 	sub rsp, 16
-	mov bl, 10
+	mov bl, 0xa
 	mov [rsp+0], bl
 	call print_char
 	add rsp, 16
@@ -101,44 +101,44 @@ main:
 	sub rsp, 32
 	mov rbx, STR2
 	mov [rsp+0], rbx
-	mov rbx, 5
+	mov rbx, 0x5
 	mov [rsp+8], rbx
-	mov rbx, 30
+	mov rbx, 0x1e
 	mov [rsp+16], rbx
 	call println
 	add rsp, 32
 	sub rsp, 16
 	mov rbx, STR3
 	mov [rsp+0], rbx
-	mov rbx, 20
+	mov rbx, 0x14
 	mov [rsp+8], rbx
 	call println
 	add rsp, 16
 	sub rsp, 16
 	mov rbx, STR4
 	mov [rsp+0], rbx
-	mov rbx, 20
+	mov rbx, 0x14
 	mov [rsp+8], rbx
 	call println
 	add rsp, 16
 	sub rsp, 16
 	mov rbx, STR5
 	mov [rsp+0], rbx
-	mov rbx, 20
+	mov rbx, 0x14
 	mov [rsp+8], rbx
 	call println
 	add rsp, 16
 	sub rsp, 16
 	mov rbx, STR6
 	mov [rsp+0], rbx
-	mov rbx, 20
+	mov rbx, 0x14
 	mov [rsp+8], rbx
 	call println
 	add rsp, 16
 	sub rsp, 16
 	mov rbx, STR7
 	mov [rsp+0], rbx
-	mov rbx, 20
+	mov rbx, 0x14
 	mov [rsp+8], rbx
 	call println
 	add rsp, 16
@@ -152,7 +152,7 @@ main:
 	sub rsp, 32
 	mov rbx, STR10
 	mov [rsp+0], rbx
-	mov rbx, 5
+	mov rbx, 0x5
 	mov [rsp+8], rbx
 	mov rbx, STR11
 	mov [rsp+16], rbx
@@ -161,58 +161,58 @@ main:
 	sub rsp, 16
 	mov rbx, STR12
 	mov [rsp+0], rbx
-	mov rbx, 64
+	mov rbx, 0x40
 	mov [rsp+8], rbx
 	call println
 	add rsp, 16
 	sub rsp, 32
 	mov rbx, STR13
 	mov [rsp+0], rbx
-	mov rbx, 5
+	mov rbx, 0x5
 	mov [rsp+8], rbx
-	mov rbx, 42
+	mov rbx, 0x2a
 	mov [rsp+16], rbx
 	call println
 	add rsp, 32
 	sub rsp, 16
 	mov rbx, STR14
 	mov [rsp+0], rbx
-	mov rbx, -647
+	mov rbx, 0xfffffffffffffd79
 	mov [rsp+8], rbx
 	call println
 	add rsp, 16
 	sub rsp, 16
 	mov rbx, STR15
 	mov [rsp+0], rbx
-	mov rbx, 102532
+	mov rbx, 0x19084
 	mov [rsp+8], rbx
 	call println
 	add rsp, 16
 	sub rsp, 16
 	mov rbx, STR16
 	mov [rsp+0], rbx
-	mov rbx, 25
+	mov rbx, 0x19
 	mov [rsp+8], rbx
 	call println
 	add rsp, 16
 	sub rsp, 16
 	mov rbx, STR17
 	mov [rsp+0], rbx
-	mov rbx, 48879
+	mov rbx, 0xbeef
 	mov [rsp+8], rbx
 	call println
 	add rsp, 16
 	sub rsp, 16
 	mov rbx, STR18
 	mov [rsp+0], rbx
-	mov rbx, 1
+	mov rbx, 0x1
 	mov [rsp+8], rbx
 	call println
 	add rsp, 16
 	sub rsp, 32
 	mov rbx, STR19
 	mov [rsp+8], rbx
-	mov rbx, 18446744073709551615
+	mov rbx, 0xffffffffffffffff
 	mov [rsp+16], rbx
 	call string_to_fixed
 	mov ebx, [rsp+0]
@@ -228,84 +228,92 @@ main:
 	sub rsp, 16
 	mov rbx, STR21
 	mov [rsp+0], rbx
-	fld QWORD [FP0]
-	fchs
+	mov DWORD [__FP_TMP], 0xc181b368
+	fld DWORD [__FP_TMP]
 	fstp QWORD [rsp+8]
 	call println
 	add rsp, 16
 	sub rsp, 32
 	mov rbx, STR22
 	mov [rsp+0], rbx
-	mov rbx, 6
+	mov rbx, 0x6
 	mov [rsp+8], rbx
-	fld QWORD [FP1]
-	fchs
+	mov DWORD [__FP_TMP], 0xc181b37a
+	fld DWORD [__FP_TMP]
 	fstp QWORD [rsp+16]
 	call println
 	add rsp, 32
 	.L0:
 	leave
 	ret
-extern absi:function
-extern absf:function
-extern random:function
-extern randint:function
-extern is_alpha:function
-extern is_num:function
-extern is_alnum:function
-extern to_lower:function
-extern to_upper:function
-extern set_rounding:function
-extern sqrt:function
-extern pow:function
-extern log:function
-extern sin:function
-extern cos:function
-extern tan:function
-extern atan2:function
-extern round:function
-extern floor:function
-extern ceil:function
-extern trunc:function
+
+
 extern int_to_fixed:function
+extern log:function
 extern fraction_to_fixed:function
-extern string_to_fixed:function
-extern fixed_to_int:function
-extern mul_fixed:function
-extern div_fixed:function
-extern mod_fixed:function
-extern memset:function
-extern memcpy:function
-extern memmove:function
-extern strlen:function
-extern strfind:function
-extern strdfind:function
-extern strcpy:function
-extern strcmp:function
-extern strequal:function
-extern flush_stdout:function
-extern print_str:function
+extern sin:function
 extern print_char:function
-extern print_decimal:function
-extern print_udecimal:function
-extern print_hex:function
-extern print_fixed:function
-extern print_float:function
-extern print_format:function
+extern trunc:function
 extern print:function
-extern println:function
-extern error:function
-extern input:function
-extern input_char:function
-extern int_to_string:function
-extern uint_to_string:function
-extern string_to_int:function
-extern read:function
-extern write:function
+extern set_rounding:function
+extern div_fixed:function
+extern pow:function
+extern memmove:function
+extern mul_fixed:function
+extern random:function
+extern is_num:function
+extern memset:function
 extern exit:function
+extern read:function
+extern tan:function
+extern int_to_string:function
+extern string_to_int:function
+extern string_to_fixed:function
+extern write:function
+extern print_format:function
+extern strcmp:function
+extern strfind:function
+extern absf:function
+extern fixed_to_int:function
+extern print_fixed:function
+extern absi:function
+extern floor:function
+extern uint_to_string:function
+extern strdfind:function
+extern flush_stdout:function
+extern to_lower:function
+extern memcpy:function
+extern input_char:function
+extern strequal:function
+extern strlen:function
+extern ceil:function
+extern print_str:function
+extern to_upper:function
+extern print_udecimal:function
+extern input:function
+extern print_decimal:function
+extern is_alpha:function
+extern cos:function
+extern strcpy:function
+extern print_double:function
+extern mod_fixed:function
+extern println:function
+extern round:function
+extern sqrt:function
+extern error:function
+extern randint:function
+extern print_hex:function
+extern atan2:function
+extern is_alnum:function
 
 
 section .data
+static __FP_TMP:data
+__FP_TMP:
+dq 0
+static __GP_TMP:data
+__GP_TMP:
+times 64 db 0
 
 
 section .rodata
@@ -355,7 +363,3 @@ STR21:
 db "float:              %f",0
 STR22:
 db "float (n digits):   %*f",0
-FP0:
-dq 16.2126
-FP1:
-dq 16.212635

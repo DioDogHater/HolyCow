@@ -290,8 +290,7 @@ sin:
 	push rbp
 	mov rbp, rsp
 	fld QWORD [rbp+24]
-	mov DWORD [__FP_TMP], 0x40c90fdb
-	fld DWORD [__FP_TMP]
+	fld QWORD [FP0]
 	fprem
 	fstp st0
 	fstp QWORD [rbp+24]
@@ -307,8 +306,7 @@ cos:
 	push rbp
 	mov rbp, rsp
 	fld QWORD [rbp+24]
-	mov DWORD [__FP_TMP], 0x40c90fdb
-	fld DWORD [__FP_TMP]
+	fld QWORD [FP0]
 	fprem
 	fstp st0
 	fstp QWORD [rbp+24]
@@ -324,8 +322,7 @@ tan:
 	push rbp
 	mov rbp, rsp
 	fld QWORD [rbp+24]
-	mov DWORD [__FP_TMP], 0x40c90fdb
-	fld DWORD [__FP_TMP]
+	fld QWORD [FP0]
 	fprem
 	fstp st0
 	fstp QWORD [rbp+24]
@@ -1320,8 +1317,7 @@ print_double:
 	push rbp
 	mov rbp, rsp
 	sub rsp, 160
-	mov DWORD [__FP_TMP], 0x0
-	fld DWORD [__FP_TMP]
+	fld QWORD [FP1]
 	fld QWORD [rbp+16]
 	fcomip
 	fstp st0
@@ -1354,8 +1350,7 @@ print_double:
 	fsubp
 	sub rsp, 32
 	mov [rsp+24], rbx
-	mov DWORD [__FP_TMP], 0x41200000
-	fld DWORD [__FP_TMP]
+	fld QWORD [FP2]
 	fstp QWORD [rsp+8]
 	mov rcx, [rbp+24]
 	mov [__FP_TMP], rcx
@@ -3190,3 +3185,9 @@ STR11:
 db "input() error: %i",0
 STR12:
 db "input_char() error: %i",0
+FP0:
+dq 6.28318530718
+FP1:
+dq 0.0
+FP2:
+dq 10.0

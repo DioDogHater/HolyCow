@@ -10,7 +10,7 @@ int nanosleep(timespec* rqtp, timespec* rmtp = NULL){
 }
 
 // Sleep in seconds
-void sleep(float seconds){
+void sleep(double seconds){
     timespec ts = timespec{seconds, seconds % 1.0 * 1000000000.0};
     nanosleep(&ts);
 }
@@ -34,8 +34,8 @@ int clock_gettime(uint clock = CLOCK_REALTIME, timespec* tp){
 }
 
 // Get time since the Epoch, in seconds
-float time(){
+double time(){
     timespec tp;
     clock_gettime(,&tp);
-    return (float)tp.tv_sec + (float)tp.tv_nsec / 1000000000.0;
+    return (double)tp.tv_sec + (double)tp.tv_nsec / 1000000000.0;
 }

@@ -10,11 +10,6 @@ size_t stack_ptr = 0;
 size_t stack_sz = 0;
 size_t label_count = 1;
 
-vector_t vars[1] = { NEW_VECTOR(var_t) };
-vector_t funcs[1] = { NEW_VECTOR(func_t) };
-vector_t structs[1] = { NEW_VECTOR(struct_t) };
-vector_t unions[1] = { NEW_VECTOR(union_t) };
-
 node_term* str_literals = NULL;
 size_t str_literal_count = 0;
 
@@ -22,64 +17,6 @@ node_term* float_literals = NULL;
 size_t float_literal_count = 0;
 
 static node_expr* global_var_values = NULL;
-
-// Find a named thing in a vector
-void* find_named_thing(vector_t* vec, const char* str, size_t strlen){
-    for(size_t i = 0; i < vector_size(vec); i++){
-        struct{ const char* str; size_t strlen; }* thing = vector_at(vec, i);
-        if(thing->strlen == strlen && strncmp(thing->str, str, strlen) == 0)
-            return thing;
-    }
-    return NULL;
-}
-
-// Find a variable with its name
-var_t* get_var(const char* str, size_t strlen){
-    return (var_t*) find_named_thing(vars, str, strlen);
-}
-
-// Find a function with its name
-func_t* get_func(const char* str, size_t strlen){
-    return (func_t*) find_named_thing(funcs, str, strlen);
-}
-
-// Find a struct with its name
-struct_t* get_struct(const char* str, size_t strlen){
-    return (struct_t*) find_named_thing(structs, str, strlen);
-}
-
-// get_struct wrapper for tokens
-struct_t* get_struct_tk(token_t* tk){
-    return get_struct(tk->str, tk->strlen);
-}
-
-// Find a structure's member
-var_t* get_member(struct_t* struc, const char* str, size_t strlen){
-    return (var_t*) find_named_thing(struc->members, str, strlen);
-}
-
-// Find a structure's method
-func_t* get_method(struct_t* struc, const char* str, size_t strlen){
-    return (func_t*) find_named_thing(struc->funcs, str, strlen);
-}
-
-// Find a union type
-union_t* get_union(const char* str, size_t strlen){
-    return (union_t*) find_named_thing(unions, str, strlen);
-}
-
-union_t* get_union_tk(token_t* tk){
-    return get_union(tk->str, tk->strlen);
-}
-
-// Find a union's member
-node_stmt* get_union_member(union_t* uni, const char* str, size_t strlen){
-    for(node_stmt* ptr = uni->members; ptr; ptr = ptr->next){
-        if(ptr->var_decl.identifier->strlen == strlen && strncmp(ptr->var_decl.identifier->str, str, strlen) == 0)
-            return ptr;
-    }
-    return NULL;
-}
 
 // Get the size of a scope (the size of all variables inside)
 size_t get_scope_size(node_stmt* scope){
@@ -149,6 +86,26 @@ size_t append_string_literal(node_term* str_lit){
         ptr->next = (node_expr*) str_lit;
     }
     return str_literal_count++;
+}
+
+static void gen_free(HC_FILE fptr){
+    vector_destroy(vars);
+    hashtable_destroy(funcs);
+    for(size_t i = 0; i < vector_size(structs); i++){
+        struct_t* stru = vector_at(structs, i);
+        vector_destroy(stru->members);
+        vector_destroy(stru->funcs);
+    }
+    vector_destroy(structs);
+    vector_destroy(unions);
+    HC_FCLOSE(fptr);
+}
+
+void fail_gen_expr(HC_FILE fptr){
+    HC_ERR("\nGENERATION FAILED!");
+    gen_free(fptr);
+    compiler_quit();
+    HC_FAIL();
 }
 
 // Append a float literal to the linked list of float literals
@@ -247,7 +204,7 @@ bool save_struct(HC_FILE fptr, struct_t* stru, reg_t* ptr, node_expr* value){
             }else if(member->type.data == DATA_FLOAT){
                 if(!generate_float_expr(fptr, arg_expr))
                     return false;
-                gen_save_offset_float(fptr, ptr, member->stack_ptr);
+                gen_save_offset_float(fptr, ptr, member->stack_ptr, member->type.size == 8);
             }else if(member->type.data == DATA_STRUCT || member->type.data == DATA_UNION){
                 reg_t* member_ptr = alloc_reg(GET_MASK_REG(target_address_size, allowed_copy_regs), false);
                 gen_load_offset_ptr(fptr, member_ptr, ptr, member->stack_ptr);
@@ -305,7 +262,7 @@ bool save_union(HC_FILE fptr, union_t* unio, reg_t* ptr, node_expr* value){
         else if(member_type.data == DATA_FLOAT){
             if(!generate_float_expr(fptr, value->uconstruct.elem))
                 return false;
-            gen_save_ptr_float(fptr, ptr);
+            gen_save_ptr_float(fptr, ptr, member_type.size == 8);
         }else if(member_type.data == DATA_STRUCT){
             struct_t* stru = get_struct_tk(member_type.repr);
             if(!save_struct(fptr, stru, ptr, value->uconstruct.elem))
@@ -408,11 +365,11 @@ bool save_expr(HC_FILE fptr, node_expr* expr, node_expr* value){
             if(!generate_float_expr(fptr, value))
                 return false;
             if(var->location == VAR_STACK)
-                gen_save_stack_float(fptr, stack_sz - var->stack_ptr);
+                gen_save_stack_float(fptr, stack_sz - var->stack_ptr, var->type.size == 8);
             else if(var->location == VAR_GLOBAL)
-                gen_save_global_float(fptr, var->str, var->strlen);
+                gen_save_global_float(fptr, var->str, var->strlen, var->type.size == 8);
             else if(var->location == VAR_ARG)
-                gen_save_arg_float(fptr, var->stack_ptr);
+                gen_save_arg_float(fptr, var->stack_ptr, var->type.size == 8);
         }else if(var->type.data == DATA_STRUCT || var->type.data == DATA_UNION){
             reg_t* var_ptr = alloc_reg(GET_MASK_REG(target_address_size, allowed_copy_regs), false);
             if(var->location == VAR_STACK)
@@ -449,7 +406,7 @@ bool save_expr(HC_FILE fptr, node_expr* expr, node_expr* value){
         }else if(ptr_type.data == DATA_FLOAT){
             if(!generate_float_expr(fptr, value))
                 return false;
-            gen_save_ptr_float(fptr, ptr);
+            gen_save_ptr_float(fptr, ptr, ptr_type.size == 8);
         }else if(ptr_type.data == DATA_STRUCT){
             struct_t* stru = get_struct_tk(ptr_type.repr);
             if(!save_struct(fptr, stru, ptr, value))
@@ -481,7 +438,7 @@ bool save_expr(HC_FILE fptr, node_expr* expr, node_expr* value){
             // Save the float expression into the array element
             if(!generate_float_expr(fptr, value))
                 return false;
-            gen_save_idx_float(fptr, ptr, idx, ptr_type.size);
+            gen_save_idx_float(fptr, ptr, idx, ptr_type.size, ptr_type.size == 8);
         }else if(ptr_type.data == DATA_STRUCT || ptr_type.data == DATA_UNION){
             (void) free_reg(ptr);
             reg_t* tmp = alloc_reg(GET_MASK_REG(target_address_size, allowed_copy_regs), false);
@@ -542,7 +499,7 @@ bool save_expr(HC_FILE fptr, node_expr* expr, node_expr* value){
                 }else if(member->type.data == DATA_FLOAT){
                     if(!generate_float_expr(fptr, value))
                         return false;
-                    gen_save_offset_float(fptr, ptr, member->stack_ptr);
+                    gen_save_offset_float(fptr, ptr, member->stack_ptr, member->type.size == 8);
                 }else if(member->type.data == DATA_STRUCT){
                     struct_t* stru = get_struct_tk(member->type.repr);
                     gen_load_offset_ptr(fptr, ptr, ptr, member->stack_ptr);
@@ -570,11 +527,11 @@ bool save_expr(HC_FILE fptr, node_expr* expr, node_expr* value){
                     if(!generate_float_expr(fptr, value))
                         return false;
                     if(var->location == VAR_STACK || var->location == VAR_ARRAY)
-                        gen_save_stack_float(fptr, stack_sz - var->stack_ptr + member->stack_ptr);
+                        gen_save_stack_float(fptr, stack_sz - var->stack_ptr + member->stack_ptr, var->type.size == 8);
                     else if(var->location == VAR_GLOBAL || var->location == VAR_GLOBAL_ARR)
-                        gen_save_global_offset_float(fptr, var->str, var->strlen, member->stack_ptr);
+                        gen_save_global_offset_float(fptr, var->str, var->strlen, member->stack_ptr, var->type.size == 8);
                     else if(var->location == VAR_ARG)
-                        gen_save_arg_float(fptr, var->stack_ptr + member->stack_ptr);
+                        gen_save_arg_float(fptr, var->stack_ptr + member->stack_ptr, var->type.size == 8);
                 }else if(member->type.data == DATA_STRUCT || member->type.data == DATA_UNION){
                     reg_t* tmp = alloc_reg(GET_MASK_REG(target_address_size, allowed_copy_regs), false);
                     if(var->location == VAR_STACK || var->location == VAR_ARRAY)
@@ -635,7 +592,7 @@ bool save_expr(HC_FILE fptr, node_expr* expr, node_expr* value){
                 }else if(member_type.data == DATA_FLOAT){
                     if(!generate_float_expr(fptr, value))
                         return false;
-                    gen_save_ptr_float(fptr, ptr);
+                    gen_save_ptr_float(fptr, ptr, member_type.size == 8);
                 }else if(member_type.data == DATA_STRUCT){
                     struct_t* stru = get_struct_tk(member_type.repr);
                     if(!save_struct(fptr, stru, ptr, value))
@@ -661,11 +618,11 @@ bool save_expr(HC_FILE fptr, node_expr* expr, node_expr* value){
                     if(!generate_float_expr(fptr, value))
                         return false;
                     if(var->location == VAR_STACK || var->location == VAR_ARRAY)
-                        gen_save_stack_float(fptr, stack_sz - var->stack_ptr);
+                        gen_save_stack_float(fptr, stack_sz - var->stack_ptr, var->type.size == 8);
                     else if(var->location == VAR_GLOBAL || var->location == VAR_GLOBAL_ARR)
-                        gen_save_global_float(fptr, var->str, var->strlen);
+                        gen_save_global_float(fptr, var->str, var->strlen, var->type.size == 8);
                     else if(var->location == VAR_ARG)
-                        gen_save_arg_float(fptr, var->stack_ptr);
+                        gen_save_arg_float(fptr, var->stack_ptr, var->type.size == 8);
                 }else if(member_type.data == DATA_STRUCT || member_type.data == DATA_UNION){
                     reg_t* tmp = alloc_reg(GET_MASK_REG(target_address_size, allowed_copy_regs), false);
                     if(var->location == VAR_STACK || var->location == VAR_ARRAY)
@@ -694,28 +651,11 @@ bool save_expr(HC_FILE fptr, node_expr* expr, node_expr* value){
     return false;
 }
 
-extern void compiler_quit(void);
-
-static void gen_free(HC_FILE fptr){
-    vector_destroy(vars);
-    vector_destroy(funcs);
-    for(size_t i = 0; i < vector_size(structs); i++){
-        struct_t* stru = vector_at(structs, i);
-        vector_destroy(stru->members);
-        vector_destroy(stru->funcs);
-    }
-    vector_destroy(structs);
-    vector_destroy(unions);
-    HC_FCLOSE(fptr);
-}
-
-void fail_gen_expr(HC_FILE fptr){
-    HC_ERR("\nGENERATION FAILED!");
-    gen_free(fptr);
-    compiler_quit();
-    HC_FAIL();
-}
-
+// Generates a function call.
+// expr = the function call expression.
+// ret_func = pointer to function we just called, where this function will modify it.
+// struct_ptr = an optional parameter, used when the function returns a structure.
+// Returns the stack size allocated to call the function and provide arguments.
 size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_t* struct_ptr){
     reg_t* masked_regs[MAX_REGS];
 
@@ -729,6 +669,10 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
         print_context_expr("Unknown function", expr->func.func);
         fail_gen_expr(fptr);
     }
+    *ret_func = func;
+
+    if(func->flags & FLAG_CFUNC)
+        return generate_cfunc_call(fptr, expr, *ret_func, struct_ptr);
 
     // The amount of bytes allocated on the stack
     size_t func_call_sz = (func->type.ptr_depth || func->type.data == DATA_STRUCT || func->type.data == DATA_UNION) ? target_address_size : func->type.size;
@@ -772,7 +716,7 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
         if(struct_ptr) gen_save_stack(fptr, free_reg(struct_ptr), 0);
         else{
             reg_t* tmp = GET_FREE_REG(target_address_size);
-            gen_set_reg(fptr, tmp, "0", 1);
+            gen_clear_reg(fptr, tmp);
             gen_save_stack(fptr, tmp, 0);
         }
     }
@@ -797,9 +741,8 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
         if(arg->type == tk_var_args){
             arg_ptr = ALIGN(arg_ptr, 8);
             if(((node_expr_stmt*)arg)->expr){
-                char buff[256];
                 reg_t* tmp = alloc_reg(GET_FREE_REG(8), false);
-                gen_set_reg(fptr, tmp, buff, snprintf(buff, 255, "%lu", varg_count));
+                gen_set_reg_raw(fptr, tmp, varg_count);
                 gen_save_stack(fptr, tmp, arg_ptr);
                 (void) free_reg(tmp);
                 arg_ptr += 8;
@@ -819,7 +762,7 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
                 else if(expr_type.data == DATA_FLOAT){
                     if(!generate_float_expr(fptr, arg_expr))
                         fail_gen_expr(fptr);
-                    gen_save_stack_float(fptr, arg_ptr);
+                    gen_save_stack_float(fptr, arg_ptr, true);
                 }// Other data types
                 else{
                     print_context_expr("Unsupported variable argument type", arg_expr);
@@ -853,22 +796,22 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
         }
 
         arg_ptr = ALIGN(arg_ptr, arg_align);
-        if(expr_type.ptr_depth || expr_type.data == DATA_INT){
+        if(arg_type.ptr_depth || arg_type.data == DATA_INT){
             reg_t* tmp = EXPR_ONCE(arg_expr, arg_type, NULL);
             gen_save_stack(fptr, tmp, arg_ptr);
-        }else if(expr_type.data == DATA_FLOAT){
+        }else if(arg_type.data == DATA_FLOAT){
             if(!generate_float_expr(fptr, arg_expr))
                 fail_gen_expr(fptr);
-            gen_save_stack_float(fptr, arg_ptr);
-        }else if(expr_type.data == DATA_STRUCT || expr_type.data == DATA_UNION){
+            gen_save_stack_float(fptr, arg_ptr, arg_type.size == 8);
+        }else if(arg_type.data == DATA_STRUCT || arg_type.data == DATA_UNION){
             reg_t* tmp = alloc_reg(GET_MASK_REG(target_address_size, allowed_copy_regs), false);
             gen_load_stack_ptr(fptr, tmp, arg_ptr);
-            if(expr_type.data == DATA_STRUCT){
-                struct_t* stru = get_struct_tk(expr_type.repr);
+            if(arg_type.data == DATA_STRUCT){
+                struct_t* stru = get_struct_tk(arg_type.repr);
                 if(!save_struct(fptr, stru, tmp, arg_expr))
                     return false;
             }else{
-                union_t* unio = get_union_tk(expr_type.repr);
+                union_t* unio = get_union_tk(arg_type.repr);
                 if(!save_union(fptr, unio, tmp, arg_expr))
                     return false;
             }
@@ -888,19 +831,19 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
     }
 
     // Call the function
-    gen_call_func(fptr, func->str, func->strlen);
+    if(func->flags & FLAG_EXTERN)
+        gen_call_extern_func(fptr, func->str, func->strlen);
+    else
+        gen_call_func(fptr, func->str, func->strlen);
 
     // Retrieve every register off the stack
     arg_ptr = 0;
-    n = get_mask_occup_regs(ALL_REGS, true, registers, masked_regs);
     for(int i = 0; i < n; i++){
         if(struct_ptr && masked_regs[i]->name == struct_ptr->name) continue;
         arg_ptr = ALIGN(arg_ptr, masked_regs[i]->size);
         arg_ptr += masked_regs[i]->size;
         gen_load_stack(fptr, masked_regs[i], func_call_sz - arg_ptr);
     }
-
-    *ret_func = func;
     return func_call_sz;
 }
 
@@ -949,9 +892,11 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
     if(sign){
         int64_t result;
         if(eval_int_expr(expr, &result)){
-            char buff[256];
             reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(sz), true);
-            gen_set_reg(fptr, tmp, buff, snprintf(buff, 255, "%li", result));
+            if(!result)
+                gen_clear_reg(fptr, tmp);
+            else
+                gen_set_reg_raw(fptr, tmp, result);
             return tmp;
         }
     }else{
@@ -959,7 +904,10 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
         if(eval_uint_expr(expr, &result)){
             char buff[256];
             reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(sz), false);
-            gen_set_reg(fptr, tmp, buff, snprintf(buff, 255, "%lu", result));
+            if(!result)
+                gen_clear_reg(fptr, tmp);
+            else
+                gen_set_reg_raw(fptr, tmp, result);
             return tmp;
         }
     }
@@ -1214,9 +1162,14 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
         return tmp;
     }
     case tk_cmp_approx:{
-        if(!get_var("FP_PRECISION", 12)){
+        var_t* FP_PRECISION = get_var("FP_PRECISION", 12);
+        if(!FP_PRECISION){
             print_context_expr("Missing FP_PRECISION global variable.", expr);
             HC_WARN("FP_PRECISION must be a declared global variable containing the max difference between two numbers approximately equal.");
+            fail_gen_expr(fptr);
+        }
+        if(DATAOF_T(FP_PRECISION->type) != DATA_FLOAT || FP_PRECISION->type.size != 8){
+            print_context_ex("FP_PRECISION must be of type double.", FP_PRECISION->str, FP_PRECISION->strlen);
             fail_gen_expr(fptr);
         }
         type_t t1 = typeof_expr(expr->bin_op.lhs), t2 = typeof_expr(expr->bin_op.rhs);
@@ -1492,8 +1445,7 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
         if(!value_type.data)
             fail_gen_expr(fptr);
         reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(sz), sign);
-        char buffer[128];
-        gen_set_reg(fptr, tmp, buffer, snprintf(buffer, 127, "%lu", SIZEOF_T(value_type)));
+        gen_set_reg_raw(fptr, tmp, SIZEOF_T(value_type));
         return tmp;
     }
     // NOT WORTH IT AT THE MOMENT
@@ -1542,8 +1494,14 @@ bool generate_float_expr(HC_FILE fptr, node_expr* expr){
         return false;
     }
 
-    // Try to evaluate a compile-time value
-    // TODO later
+    // Compile-time evaluation
+    if(expr->type != tk_float_lit){
+        double result;
+        if(eval_float_expr(expr, &result)){
+            gen_load_float_raw(fptr, result);
+            return true;
+        }
+    }
 
     switch(expr->type){
     case tk_float_lit:
@@ -1552,11 +1510,11 @@ bool generate_float_expr(HC_FILE fptr, node_expr* expr){
     case tk_identifier:{
         var_t* var = get_var(expr->term.str, expr->term.strlen);
         if(var->location == VAR_STACK)
-            gen_load_stack_float(fptr, stack_sz - var->stack_ptr);
+            gen_load_stack_float(fptr, stack_sz - var->stack_ptr, var->type.size == 8);
         else if(var->location == VAR_ARG)
-            gen_load_arg_float(fptr, var->stack_ptr);
+            gen_load_arg_float(fptr, var->stack_ptr, var->type.size == 8);
         else if(var->location == VAR_GLOBAL)
-            gen_load_global_float(fptr, var->str, var->strlen);
+            gen_load_global_float(fptr, var->str, var->strlen, var->type.size == 8);
         else{
             print_context_ex("Not implemented", expr->term.str, expr->term.strlen);
             return false;
@@ -1588,14 +1546,14 @@ bool generate_float_expr(HC_FILE fptr, node_expr* expr){
     case tk_deref:{
         expr_type.ptr_depth++;
         reg_t* ptr = EXPR_ONCE(expr->unary_op.lhs, expr_type, NULL);
-        gen_load_ptr_float(fptr, ptr);
+        gen_load_ptr_float(fptr, ptr, expr_type.size == 8);
         break;
     }
     case tk_open_bracket:{
         expr_type.ptr_depth++;
         reg_t* ptr = generate_expr(fptr, expr->bin_op.lhs, expr_type, NULL);
         reg_t* idx = generate_expr(fptr, expr->bin_op.rhs, (type_t){8, GET_DUMMY_TYPE(uint64), false, DATA_INT, 8, 0}, NULL);
-        gen_load_idx_float(fptr, ptr, idx, 8);
+        gen_load_idx_float(fptr, ptr, idx, expr_type.size, expr_type.size == 8);
         (void) free_reg(ptr);
         (void) free_reg(idx);
         break;
@@ -1606,7 +1564,7 @@ bool generate_float_expr(HC_FILE fptr, node_expr* expr){
         func_t* func = NULL;
         size_t func_call_sz = generate_func_call(fptr, expr, &func, NULL);
 
-        gen_load_stack_float(fptr, 0);
+        gen_load_stack_float(fptr, 0, expr_type.size == 8);
 
         if(func_call_sz)
             gen_dealloc_stack(fptr, func_call_sz);
@@ -1641,16 +1599,16 @@ bool generate_float_expr(HC_FILE fptr, node_expr* expr){
                     if(!get_expr_address(fptr, ptr, expr->access.obj))
                         return false;
                 }
-                gen_load_offset_float(fptr, ptr, member->stack_ptr);
+                gen_load_offset_float(fptr, ptr, member->stack_ptr, member->type.size == 8);
                 (void) free_reg(ptr);
             }else if(expr->access.obj->type == tk_identifier){
                 var_t* var = get_var(expr->access.obj->term.str, expr->access.obj->term.strlen);
                 if(var->location == VAR_STACK)
-                    gen_load_stack_float(fptr, stack_sz - var->stack_ptr + member->stack_ptr);
+                    gen_load_stack_float(fptr, stack_sz - var->stack_ptr + member->stack_ptr, member->type.size == 8);
                 else if(var->location == VAR_GLOBAL)
-                    gen_load_global_offset_float(fptr, var->str, var->strlen, member->stack_ptr);
+                    gen_load_global_offset_float(fptr, var->str, var->strlen, member->stack_ptr, member->type.size == 8);
                 else if(var->location == VAR_ARG)
-                    gen_load_arg_float(fptr, var->stack_ptr + member->stack_ptr);
+                    gen_load_arg_float(fptr, var->stack_ptr + member->stack_ptr, member->type.size == 8);
             }else{
                 print_context_expr("Not implemented yet", expr);
                 return false;
@@ -1681,17 +1639,17 @@ bool generate_float_expr(HC_FILE fptr, node_expr* expr){
                     if(!get_expr_address(fptr, ptr, expr->access.obj))
                         return false;
                 }
-                gen_load_ptr_float(fptr, ptr);
+                gen_load_ptr_float(fptr, ptr, member_type.size == 8);
                 (void) free_reg(ptr);
                 return true;
             }else if(expr->access.obj->type == tk_identifier){
                 var_t* var = get_var(expr->access.obj->term.str, expr->access.obj->term.strlen);
                 if(var->location == VAR_STACK || var->location == VAR_ARRAY)
-                    gen_load_stack_float(fptr, stack_sz - var->stack_ptr);
+                    gen_load_stack_float(fptr, stack_sz - var->stack_ptr, member_type.size == 8);
                 else if(var->location == VAR_GLOBAL || var->location == VAR_GLOBAL_ARR)
-                    gen_load_global_float(fptr, var->str, var->strlen);
+                    gen_load_global_float(fptr, var->str, var->strlen, member_type.size == 8);
                 else if(var->location == VAR_ARG)
-                    gen_load_arg_float(fptr, var->stack_ptr);
+                    gen_load_arg_float(fptr, var->stack_ptr, member_type.size == 8);
                 return true;
             }else{
                 print_context_expr("Not implemented yet", expr);
@@ -1713,6 +1671,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
         stmt->type != tk_struct &&
         stmt->type != tk_union &&
         stmt->type != tk_class &&
+        stmt->type != tk_enum &&
         stmt->type != tk_asm){
         HC_PRINT(BOLD "Sadly I can't tell you where the error is, but here is the invalid statement's type: %lu :(" RESET_ATTR "\n", stmt->type);
         HC_ERR("Cannot do more than declaring functions, variables, arrays or data structures outside a function!");
@@ -1740,6 +1699,11 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             flags_from_tk(stmt->func_decl.func_type),
             type_from_tk(stmt->func_decl.func_type)
         };
+        if(!func.type.data || (!func.type.ptr_depth && func.type.data != DATA_INT && !func.type.size)){
+            print_context("Type returned by function is invalid", stmt->func_decl.identifier);
+            return false;
+        }
+
         if(stmt->func_decl.stmts)
             func.flags |= FLAG_FDEF;
 
@@ -1781,11 +1745,22 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             if(stmt->func_decl.stmts && !(last_def->flags & FLAG_FDEF))
                 *last_def = func;
         }else
-            vector_append(funcs, &func);
+            hashtable_set(funcs, (const void*) &func);
 
-        if(stmt->func_decl.stmts && (func.flags & FLAG_EXTERN)){
+        if(stmt->func_decl.stmts && (func.flags & FLAG_EXTERN || func.flags & FLAG_CFUNC)){
             print_context("Cannot define an external function", stmt->func_decl.func_type);
             return false;
+        }
+
+        // Check if all arguments are valid
+        for(node_var_decl* arg = &func.args->var_decl; arg; arg = &arg->next->var_decl){
+            if(arg->type == tk_var_args)
+                break;
+            type_t arg_type = type_from_tk(arg->var_type);
+            if(!SIZEOF_T(arg_type)){
+                print_context("Argument is 0 bytes big!", arg->identifier);
+                return false;
+            }
         }
 
         if(!stmt->func_decl.stmts)
@@ -2130,11 +2105,20 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
     }
     case tk_var_decl:{
         // If the variable already got declared
-        if(get_var(stmt->var_decl.identifier->str, stmt->var_decl.identifier->strlen)){
+        var_t* last_def = get_var(stmt->var_decl.identifier->str, stmt->var_decl.identifier->strlen);
+        if(last_def && !(last_def->flags & FLAG_EXTERN)){
             print_context("Variable was already declared before", stmt->var_decl.identifier);
-            var_t* var = get_var(stmt->var_decl.identifier->str, stmt->var_decl.identifier->strlen);
-            print_context_ex("First declared here:", var->str, var->strlen);
+            print_context_ex("First declared here:", last_def->str, last_def->strlen);
             return false;
+        }
+
+        {
+            enum_t* enu = get_enum(stmt->var_decl.identifier->str, stmt->var_decl.identifier->strlen);
+            if(enu){
+                print_context("Enum has the same name", stmt->var_decl.identifier);
+                print_context_ex("Enum defined here", enu->str, enu->strlen);
+                return false;
+            }
         }
 
         type_t var_type = type_from_tk(stmt->var_decl.var_type);
@@ -2164,7 +2148,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
                 }else if(var_type.data == DATA_FLOAT){
                     if(!generate_float_expr(fptr, stmt->var_decl.expr))
                         return false;
-                    gen_save_stack_float(fptr, stack_sz - var_ptr);
+                    gen_save_stack_float(fptr, stack_sz - var_ptr, var_type.size == 8);
                 }else if(var_type.data == DATA_STRUCT || var_type.data == DATA_UNION){
                     reg_t* ptr = alloc_reg(GET_MASK_REG(target_address_size, allowed_copy_regs), false);
                     gen_load_stack_ptr(fptr, ptr, stack_sz - var_ptr);
@@ -2188,7 +2172,10 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
 
             // Register the variable in the variable vector
             var_t new_var = (var_t){stmt->var_decl.identifier->str, stmt->var_decl.identifier->strlen, var_ptr, VAR_STACK, var_flags, var_type};
-            vector_append(vars, &new_var);
+            if(last_def)
+                *last_def = new_var;
+            else
+                vector_append(vars, &new_var);
         }else{
             // Global variables
             if(stmt->var_decl.expr){
@@ -2213,8 +2200,17 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             }
 
             // Register the variable in the variable vector
-            var_t new_var = (var_t){stmt->var_decl.identifier->str, stmt->var_decl.identifier->strlen, (stmt->var_decl.expr != 0), VAR_GLOBAL, var_flags, var_type};
-            vector_append(vars, &new_var);
+            var_t new_var = (var_t){
+                stmt->var_decl.identifier->str,
+                stmt->var_decl.identifier->strlen,
+                (stmt->var_decl.expr != 0),
+                VAR_GLOBAL, var_flags, var_type
+            };
+
+            if(last_def)
+                *last_def = new_var;
+            else
+                vector_append(vars, &new_var);
         }
         return true;
     }
@@ -2347,13 +2343,13 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
                     if(ptr->var_decl.expr)
                         val->next = ptr->var_decl.expr;
                     else{
-                        val->next = (node_expr*) ARENA_ALLOC(parent.arena, node_nothing_expr);
+                        val->next = (node_expr*) ARENA_ALLOC(arena, node_nothing_expr);
                         val->next->none = (node_nothing_expr){tk_nothing, NULL};
                     }
                 }else if(ptr->var_decl.expr)
                     new_struct.default_values = ptr->var_decl.expr;
                 else{
-                    new_struct.default_values = (node_expr*) ARENA_ALLOC(parent.arena, node_nothing_expr);
+                    new_struct.default_values = (node_expr*) ARENA_ALLOC(arena, node_nothing_expr);
                     new_struct.default_values->none = (node_nothing_expr){tk_nothing, NULL};
                 }
             }// Array members
@@ -2502,8 +2498,29 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
         else
             *last_def = unio;
         return true;
-    }
-    case tk_assign:
+    }case tk_enum:{
+        if(fn_type.data){
+            print_context("Enum type cannot be declared in a function", stmt->enum_decl.identifier);
+            return false;
+        }
+        enum_t enu = (enum_t){stmt->enum_decl.identifier->str, stmt->enum_decl.identifier->strlen, stmt->enum_decl.members};
+        enum_t* last_def = get_enum(enu.str, enu.strlen);
+        if(last_def){
+            print_context_ex("Enum already defined", enu.str, enu.strlen);
+            print_context_ex("Last definition", last_def->str, last_def->strlen);
+            return false;
+        }
+        {
+            var_t* var = get_var(enu.str, enu.strlen);
+            if(var){
+                print_context_ex("Variable has the same name", enu.str, enu.strlen);
+                print_context_ex("Variable defined here", var->str, var->strlen);
+                return false;
+            }
+        }
+        vector_append(enums, &enu);
+        return true;
+    }case tk_assign:
         return save_expr(fptr, stmt->var_assign.var, stmt->var_assign.expr);
     case tk_add_assign:
     case tk_sub_assign:
@@ -2633,7 +2650,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             else if(fn_type.data == DATA_FLOAT){
                 if(!generate_float_expr(fptr, stmt->ret.expr))
                     return false;
-                gen_save_arg_float(fptr, 0);
+                gen_save_arg_float(fptr, 0, fn_type.size == 8);
             }else if(fn_type.data == DATA_STRUCT || fn_type.data == DATA_UNION){
                 reg_t* ptr = alloc_reg(GET_MASK_REG(target_address_size, allowed_copy_regs), false);
                 gen_load_arg(fptr, ptr, 0);
@@ -2722,7 +2739,7 @@ static bool generate_constant(HC_FILE fptr, type_t target_type, node_expr* expr)
             print_context_expr("Expression is not constant", expr);
             return false;
         }
-        gen_declare_float(fptr, val);
+        gen_declare_float(fptr, val, target_type.size == 8);
     }else if(target_type.data == DATA_STRUCT){
         if(expr->type != tk_struct){
             print_context_expr("Expected structure construction", expr);
@@ -2790,32 +2807,51 @@ static bool generate_constant(HC_FILE fptr, type_t target_type, node_expr* expr)
     return true;
 }
 
-bool generate(const char* output_file, node_stmt* AST, arena_t* arena, bool library){
+bool generate(const char* output_file, node_stmt* AST, bool library){
     HC_FILE fptr = HC_FOPEN_WRITE(output_file);
-
 
     // Start the code section (aka text section)
     HC_FPRINTF(fptr, "%s", target_text_section);
     gen_setup(fptr, library);
 
+    // Init the function hashtable
+    // Starting size of 256 tables, 16 functions each max.
+    hashtable_init(funcs, 256);
+
     // Go through each statement and generate it
     for(; AST; AST = AST->next){
-        if(!generate_stmt(fptr, AST, INVALID_TYPE, (scope_info){0,0,0,0,0,arena})){
+        if(!generate_stmt(fptr, AST, INVALID_TYPE, (scope_info){0,0,0,0,0})){
             gen_free(fptr);
             return false;
         }
     }
 
+    //HC_WARN("Generating statements ended");
+
     // Go through all declared but not defined functions
     // to set them as extern for the linking stage
-    for(size_t i = 0; i < vector_size(funcs); i++){
-        func_t* func = vector_at(funcs, i);
-        if(func->flags & FLAG_FDEF) continue;
-        gen_declare_extern(fptr, func->str, func->strlen, "function");
+    HC_FPRINTF(fptr, "\n\n");
+    for(size_t i = 0; i < funcs->size; i++){
+        hashset_t set = funcs->sets[i];
+        for(size_t j = 0; j < set.size; j++){
+            func_t* func = &((func_t*)set.pairs)[j];
+            if(func->flags & FLAG_FDEF) continue;
+            gen_declare_extern(fptr, func->str, func->strlen, "function");
+        }
     }
 
-    // Go through all global variables and add them in the .data section
+    // Data section
     HC_FPRINTF(fptr, "\n\n%s", target_data_section);
+
+    // Create a static temporary space for floating point operations
+    gen_start_global_decl(fptr, "__FP_TMP", 8, true);
+    gen_declare_int(fptr, 0, 8);
+
+    // Create a static general purpose temporary space
+    gen_start_global_decl(fptr, "__GP_TMP", 8, true);
+    gen_declare_mem(fptr, 64);
+
+    // Go through all global variables and add them in the .data section
     node_expr* global_val = global_var_values;
     for(size_t i = 0; i < vector_size(vars); i++){
         var_t* var = vector_at(vars, i);

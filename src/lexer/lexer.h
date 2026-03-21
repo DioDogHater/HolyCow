@@ -1,10 +1,7 @@
 #ifndef HCC_LEXER_H
 #define HCC_LEXER_H
 
-#include "../dev/libs.h"
-#include "../dev/types.h"
-#include "../dev/utils.h"
-#include "../dev/style.h"
+#include "../compiler.h"
 
 enum{
     tk_identifier,
@@ -19,6 +16,7 @@ enum{
     tk_int64,
     tk_uint64,
     tk_float,
+    tk_double,
     tk_string,
     tk_bool,
     tk_void,
@@ -91,6 +89,7 @@ enum{
     tk_struct,
     tk_union,
     tk_class,
+    tk_enum,
     tk_sizeof,         // sizeof(...)
     tk_typeof,         // typeof(...)
     tk_stack_alloc,    // @stack_alloc(type, n)
@@ -167,7 +166,7 @@ bool consume_tk_type(token_t**, tk_type);
 
 // Tokenize a file's contents
 #define MAX_MACROS 2048
-token_t* tokenize(file_t*, arena_t*, token_t*);
+token_t* tokenize(file_t*, token_t*);
 
 // Free included files
 void free_included_files(void);

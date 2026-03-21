@@ -129,7 +129,7 @@ int get_operator_precedence(tk_type type){
     return -1;
 }
 
-static node_expr* parse_args(token_t** tokens, arena_t* arena, tk_type end){
+static node_expr* parse_args(token_t** tokens, tk_type end){
     node_expr *args = NULL, *head = NULL;
 
     if(!peek_tk_type(tokens, end)){
@@ -137,7 +137,7 @@ static node_expr* parse_args(token_t** tokens, arena_t* arena, tk_type end){
             args = head = (node_expr*) ARENA_ALLOC(arena, node_nothing_expr);
             args->none = (node_nothing_expr){tk_nothing, NULL};
         }else{
-            args = head = parse_expr(tokens, 1, arena);
+            args = head = parse_expr(tokens, 1);
             if(!args){
                 print_context("Expected expression", *tokens);
                 return (node_expr*)(~0);
@@ -151,7 +151,7 @@ static node_expr* parse_args(token_t** tokens, arena_t* arena, tk_type end){
         if(peek_tk_type(tokens, tk_comma)){
             new_head = (node_expr*) ARENA_ALLOC(arena, node_nothing_expr);
             new_head->none = (node_nothing_expr){tk_nothing, NULL};
-        }else if(!(new_head = parse_expr(tokens, 1, arena))){
+        }else if(!(new_head = parse_expr(tokens, 1))){
             print_context("Expected expression", *tokens);
             return (node_expr*)(~0);
         }
@@ -162,7 +162,7 @@ static node_expr* parse_args(token_t** tokens, arena_t* arena, tk_type end){
     return args;
 }
 
-node_expr* parse_term(token_t** tokens, arena_t* arena){
+node_expr* parse_term(token_t** tokens){
     node_expr* expr = NULL;
     token_t* token = consume_token(tokens);
     if(!token)
@@ -204,7 +204,7 @@ node_expr* parse_term(token_t** tokens, arena_t* arena){
             // Struct / class manual construction (identifier{...})
             expr = (node_expr*) ARENA_ALLOC(arena, node_construct);
             expr->construct = (node_construct){tk_struct, NULL, token, NULL};
-            node_expr* args = parse_args(tokens, arena, tk_close_braces);
+            node_expr* args = parse_args(tokens, tk_close_braces);
             if(args == (node_expr*)(~0))
                 return NULL;
             expr->construct.elems = args;
@@ -219,7 +219,7 @@ node_expr* parse_term(token_t** tokens, arena_t* arena){
             token_t* member = consume_token(tokens);
             consume_token(tokens);
             expr = (node_expr*) ARENA_ALLOC(arena, node_uconstruct);
-            expr->uconstruct = (node_uconstruct){tk_union, NULL, token, member, parse_expr(tokens, 0, arena)};
+            expr->uconstruct = (node_uconstruct){tk_union, NULL, token, member, parse_expr(tokens, 0)};
 
             if(!expr->uconstruct.elem){
                 print_context("Expected expression", *tokens);
@@ -242,7 +242,7 @@ node_expr* parse_term(token_t** tokens, arena_t* arena){
     case tk_dec:
         // Unary operations
         expr = (node_expr*) ARENA_ALLOC(arena, node_unary_op);
-        expr->unary_op = (node_unary_op) {token->type, NULL, parse_expr(tokens, get_operator_precedence(token->type), arena)};
+        expr->unary_op = (node_unary_op) {token->type, NULL, parse_expr(tokens, get_operator_precedence(token->type))};
         if(!expr->unary_op.lhs){
             print_context("Missing expression", token);
             return NULL;
@@ -251,14 +251,14 @@ node_expr* parse_term(token_t** tokens, arena_t* arena){
     case tk_sub:
         // Negation
         expr = (node_expr*) ARENA_ALLOC(arena, node_unary_op);
-        expr->unary_op = (node_unary_op) {tk_neg, NULL, parse_expr(tokens, get_operator_precedence(tk_neg), arena)};
+        expr->unary_op = (node_unary_op) {tk_neg, NULL, parse_expr(tokens, get_operator_precedence(tk_neg))};
         break;
     case tk_mult:
     case tk_bin_and:
         // Dereferencing and getting a reference (address)
         expr = (node_expr*) ARENA_ALLOC(arena, node_unary_op);
         expr->unary_op = (node_unary_op) {(token->type == tk_mult) ? tk_deref : tk_getaddr, NULL,
-            parse_expr(tokens, get_operator_precedence((token->type == tk_mult) ? tk_deref : tk_getaddr), arena)};
+            parse_expr(tokens, get_operator_precedence((token->type == tk_mult) ? tk_deref : tk_getaddr))};
         if(!expr->unary_op.lhs){
             print_context("Missing expression", token);
             return NULL;
@@ -272,7 +272,7 @@ node_expr* parse_term(token_t** tokens, arena_t* arena){
             return NULL;
         }
         expr = (node_expr*) ARENA_ALLOC(arena, node_unary_op);
-        expr->unary_op = (node_unary_op){token->type, NULL, parse_expr(tokens, 0, arena)};
+        expr->unary_op = (node_unary_op){token->type, NULL, parse_expr(tokens, 0)};
         if(!expr->unary_op.lhs){
             print_context("Expected expression to get size of", token);
             return NULL;
@@ -288,13 +288,13 @@ node_expr* parse_term(token_t** tokens, arena_t* arena){
             print_context("Expected '('", token);
             return NULL;
         }
-        node_expr* elem_type = parse_term(tokens, arena);
+        node_expr* elem_type = parse_term(tokens);
         if(!elem_type || elem_type->type != tk_int8){
             print_context("Expected type of elements allocated", token);
             return NULL;
         }
         (void) consume_tk_type(tokens, tk_comma);
-        node_expr* elem_count = parse_expr(tokens, 0, arena);
+        node_expr* elem_count = parse_expr(tokens, 0);
         if(!elem_count){
             print_context("Expected number of elements to allocate", token);
             return NULL;
@@ -308,7 +308,7 @@ node_expr* parse_term(token_t** tokens, arena_t* arena){
         break;
     case tk_open_parent:
         // Parentheses
-        expr = parse_expr(tokens, 0, arena);
+        expr = parse_expr(tokens, 0);
         if(!consume_tk_type(tokens, tk_close_parent)){
             print_context("Expected closing ')'", token);
             return NULL;
@@ -317,7 +317,7 @@ node_expr* parse_term(token_t** tokens, arena_t* arena){
         if(expr->type == tk_int8){
             node_type* lhs = &expr->type_expr;
             expr = (node_expr*) ARENA_ALLOC(arena, node_type_cast);
-            expr->type_cast = (node_type_cast){tk_type_cast, NULL, lhs, parse_expr(tokens, get_operator_precedence(tk_type_cast), arena)};
+            expr->type_cast = (node_type_cast){tk_type_cast, NULL, lhs, parse_expr(tokens, get_operator_precedence(tk_type_cast))};
             if(!expr->type_cast.rhs){
                 print_context("Expected valid right hand side of type cast", lhs->start);
                 return NULL;
@@ -328,8 +328,8 @@ node_expr* parse_term(token_t** tokens, arena_t* arena){
     return expr;
 }
 
-node_expr* parse_expr(token_t** tokens, int min_precedence, arena_t* arena){
-    node_expr* lhs = parse_term(tokens, arena);
+node_expr* parse_expr(token_t** tokens, int min_precedence){
+    node_expr* lhs = parse_term(tokens);
     if(lhs){
         while(peek_token(tokens)){
             token_t* operator = peek_token(tokens);
@@ -349,7 +349,7 @@ node_expr* parse_expr(token_t** tokens, int min_precedence, arena_t* arena){
                 expr->unary_op = (node_unary_op){(operator->type == tk_inc) ? tk_post_inc : tk_post_dec, NULL, lhs};
             }else if(operator->type == tk_open_parent){
                 // Function call
-                node_expr* args = parse_args(tokens, arena, tk_close_parent);
+                node_expr* args = parse_args(tokens, tk_close_parent);
                 if(args == (node_expr*)(~0))
                     return NULL;
 
@@ -363,7 +363,7 @@ node_expr* parse_expr(token_t** tokens, int min_precedence, arena_t* arena){
             }else if(operator->type == tk_open_bracket){
                 expr = (node_expr*) ARENA_ALLOC(arena, node_bin_op);
                 expr->bin_op = (node_bin_op){tk_open_bracket, NULL, lhs, NULL};
-                expr->bin_op.rhs = parse_expr(tokens, 0, arena);
+                expr->bin_op.rhs = parse_expr(tokens, 0);
                 if(!expr->bin_op.rhs){
                     print_context("Missing index", operator);
                     return NULL;
@@ -382,7 +382,7 @@ node_expr* parse_expr(token_t** tokens, int min_precedence, arena_t* arena){
             }else{
                 expr = (node_expr*) ARENA_ALLOC(arena, node_bin_op);
                 expr->bin_op = (node_bin_op) {operator->type, NULL, lhs, NULL};
-                expr->bin_op.rhs = parse_expr(tokens, op_precedence + 1, arena);
+                expr->bin_op.rhs = parse_expr(tokens, op_precedence + 1);
                 if(!expr->bin_op.rhs)
                     return NULL;
             }
@@ -394,7 +394,7 @@ node_expr* parse_expr(token_t** tokens, int min_precedence, arena_t* arena){
         return NULL;
 }
 
-node_stmt* parse_stmt(token_t** tokens, arena_t* arena, bool sc_necessary){
+node_stmt* parse_stmt(token_t** tokens, bool sc_necessary){
     node_stmt* stmt = NULL;
     token_t* token = peek_token(tokens);
     if(!token)
@@ -404,7 +404,7 @@ node_stmt* parse_stmt(token_t** tokens, arena_t* arena, bool sc_necessary){
     // Starts with a type and an identifier must follow
     if((token->type >= tk_int8 && token->type < tk_constexpr) ||
        (token->type == tk_identifier && (peek_tk_type(&token, tk_identifier) || peek_tk_type(&token, tk_mult)))){
-        while(peek_token(tokens)->type >= tk_public && peek_token(tokens)->type <= tk_peek)
+        while(peek_token(tokens)->type >= tk_public && peek_token(tokens)->type <= tk_cfunc)
             (void) consume_token(tokens);
 
         (void) consume_token(tokens); // Consume the first token
@@ -433,7 +433,7 @@ node_stmt* parse_stmt(token_t** tokens, arena_t* arena, bool sc_necessary){
                         new_head->expr.expr->term = (node_term){tk_identifier, NULL, vargc->str, vargc->strlen};
                     }
                 }else{
-                    new_head = parse_stmt(tokens, arena, false);
+                    new_head = parse_stmt(tokens, false);
                     if(!new_head || new_head->type != tk_var_decl){
                         print_context("Expected valid argument", *tokens);
                         return NULL;
@@ -451,7 +451,7 @@ node_stmt* parse_stmt(token_t** tokens, arena_t* arena, bool sc_necessary){
             node_stmt* stmts = NULL;
             if(consume_tk_type(tokens, tk_semicolon));
             else{
-                stmts = parse_scope(tokens, arena);
+                stmts = parse_scope(tokens);
                 if(!stmts)
                     return NULL;
             }
@@ -462,7 +462,7 @@ node_stmt* parse_stmt(token_t** tokens, arena_t* arena, bool sc_necessary){
 
         // Array declaration
         if(consume_tk_type(tokens, tk_open_bracket)){
-            node_expr* elem_count = parse_expr(tokens, 0, arena);
+            node_expr* elem_count = parse_expr(tokens, 0);
             if(!elem_count){
                 print_context("Expected size of array (you have to specify it manually)", *tokens);
                 return NULL;
@@ -478,7 +478,7 @@ node_stmt* parse_stmt(token_t** tokens, arena_t* arena, bool sc_necessary){
             // Variable declaration
             node_expr* expr = NULL;
             if(consume_tk_type(tokens, tk_assign)){
-                expr = parse_expr(tokens, 1, arena);
+                expr = parse_expr(tokens, 1);
                 if(!expr){
                     print_context("Missing expression", identifier->next);
                     return NULL;
@@ -499,13 +499,56 @@ node_stmt* parse_stmt(token_t** tokens, arena_t* arena, bool sc_necessary){
         }
         if(consume_tk_type(tokens, tk_semicolon))
             return stmt;
-        stmt->struct_decl.members = parse_scope(tokens, arena);
+        stmt->struct_decl.members = parse_scope(tokens);
         if(!stmt->struct_decl.members || stmt->struct_decl.members == (node_stmt*)(~0)){
             print_context("Expected braces containing valid members.", stmt->struct_decl.identifier);
             return NULL;
         }
         return stmt;
-    }// if / else if / while / repeat statements (they're all really similar)
+    }// Enums
+    else if(token->type == tk_enum){
+        (void) consume_token(tokens);
+        stmt = (node_stmt*) ARENA_ALLOC(arena, node_enum_decl);
+        stmt->enum_decl = (node_enum_decl){tk_enum, NULL, peek_token(tokens), NULL};
+        if(!consume_tk_type(tokens, tk_identifier)){
+            print_context("Expected identifier to name enum", *tokens);
+            return NULL;
+        }
+        if(!consume_tk_type(tokens, tk_open_braces)){
+            print_context("Expected opening {", *tokens);
+            return NULL;
+        }
+        node_expr *vals = NULL, *head = NULL;
+        while(!peek_tk_type(tokens, tk_close_braces)){
+            node_expr* val = parse_term(tokens);
+            if(!val || val->type != tk_identifier){
+                print_context("Expected identifier for enum value", *tokens);
+                return NULL;
+            }
+            if(consume_tk_type(tokens, tk_assign)){
+                node_expr* lhs = val;
+                node_expr* rhs = parse_expr(tokens, 0);
+                if(!rhs)
+                    return NULL;
+                val = (node_expr*) ARENA_ALLOC(arena, node_bin_op);
+                val->bin_op = (node_bin_op){tk_assign, NULL, lhs, rhs};
+            }
+            if(vals){
+                head->next = val;
+                head = val;
+            }else
+                vals = head = val;
+            if(!consume_tk_type(tokens, tk_comma))
+                break;
+        }
+        stmt->enum_decl.members = vals;
+        if(!consume_tk_type(tokens, tk_close_braces)){
+            print_context("Expected closing }", *tokens);
+            return NULL;
+        }
+        return stmt;
+    }
+    // if / else if / while / repeat statements (they're all really similar)
     else if(token->type == tk_if || token->type == tk_while || token->type == tk_repeat ||
             token->type == tk_else_if || (token->type == tk_else && token->next && token->next->type == tk_if)){
         (void) consume_tk_type(tokens, tk_else);
@@ -515,7 +558,7 @@ node_stmt* parse_stmt(token_t** tokens, arena_t* arena, bool sc_necessary){
             return NULL;
         }
         stmt = (node_stmt*) ARENA_ALLOC(arena, node_if);
-        stmt->if_stmt = (node_if) {(token->type != tk_else) ? token->type : tk_else_if, NULL, parse_expr(tokens, 0, arena), NULL};
+        stmt->if_stmt = (node_if) {(token->type != tk_else) ? token->type : tk_else_if, NULL, parse_expr(tokens, 0), NULL};
         if(!stmt->if_stmt.cond){
             if(token->type == tk_repeat) print_context("Expected number of repetitions", token);
             else print_context("Expected condition", token);
@@ -528,13 +571,13 @@ node_stmt* parse_stmt(token_t** tokens, arena_t* arena, bool sc_necessary){
         if(consume_tk_type(tokens, tk_semicolon));
         else{
             if(token->type == tk_while || token->type == tk_repeat){
-                stmt->if_stmt.stmts = parse_scope(tokens, arena);
+                stmt->if_stmt.stmts = parse_scope(tokens);
                 if(!stmt->if_stmt.stmts)
                     return NULL;
                 if(stmt->if_stmt.stmts == (node_stmt*)(~0))
                     stmt->if_stmt.stmts = NULL;
             }else{
-                stmt->if_stmt.stmts = parse_stmt(tokens, arena, true);
+                stmt->if_stmt.stmts = parse_stmt(tokens, true);
                 if(!stmt->if_stmt.stmts)
                     return NULL;
             }
@@ -544,7 +587,7 @@ node_stmt* parse_stmt(token_t** tokens, arena_t* arena, bool sc_necessary){
     else if(token->type == tk_else || token->type == tk_loop){
         (void) consume_token(tokens);
         stmt = (node_stmt*) ARENA_ALLOC(arena, node_scope);
-        stmt->scope = (node_scope){token->type, NULL, parse_stmt(tokens, arena, true)};
+        stmt->scope = (node_scope){token->type, NULL, parse_stmt(tokens, true)};
         if(!stmt->scope.stmts){
             print_context("Expected statement", token);
             return NULL;
@@ -554,7 +597,7 @@ node_stmt* parse_stmt(token_t** tokens, arena_t* arena, bool sc_necessary){
     // scope statement
     else if(token->type == tk_open_braces){
         stmt = (node_stmt*) ARENA_ALLOC(arena, node_scope);
-        stmt->scope = (node_scope){tk_open_braces, NULL, parse_scope(tokens, arena)};
+        stmt->scope = (node_scope){tk_open_braces, NULL, parse_scope(tokens)};
         if(!stmt->scope.stmts || stmt->scope.stmts == (node_stmt*)(~0)){
             if(stmt->scope.stmts)
                 print_context("Scope is empty (if it's intentional, please omit it)", token);
@@ -575,14 +618,14 @@ node_stmt* parse_stmt(token_t** tokens, arena_t* arena, bool sc_necessary){
 
         // init
         if(!consume_tk_type(tokens, tk_semicolon)){
-            init = parse_stmt(tokens, arena, false);
+            init = parse_stmt(tokens, false);
             if(!init || init->type != tk_var_decl){
                 print_context("Expected variable declaration first", token);
                 return NULL;
             }
             node_stmt* head = init;
             while(consume_tk_type(tokens, tk_comma)){
-                node_stmt* new_head = parse_stmt(tokens, arena, false);
+                node_stmt* new_head = parse_stmt(tokens, false);
                 if(!new_head || new_head->type != tk_var_decl){
                     print_context("Expected valid variable declaration", *tokens);
                     return NULL;
@@ -597,7 +640,7 @@ node_stmt* parse_stmt(token_t** tokens, arena_t* arena, bool sc_necessary){
 
         // cond
         if(!consume_tk_type(tokens, tk_semicolon)){
-            cond = parse_expr(tokens, 0, arena);
+            cond = parse_expr(tokens, 0);
             if(!cond){
                 print_context("Expected condition in for loop", *tokens);
                 return NULL;
@@ -610,14 +653,14 @@ node_stmt* parse_stmt(token_t** tokens, arena_t* arena, bool sc_necessary){
 
         // step
         if(!peek_tk_type(tokens, tk_close_parent)){
-            step = parse_stmt(tokens, arena, false);
+            step = parse_stmt(tokens, false);
             if(!step){
                 print_context("Expected step expression", *tokens);
                 return NULL;
             }
             node_stmt* head = step;
             while(consume_tk_type(tokens, tk_comma)){
-                node_stmt* new_head = parse_stmt(tokens, arena, false);
+                node_stmt* new_head = parse_stmt(tokens, false);
                 if(!new_head){
                     print_context("Expected valid step expression", *tokens);
                     return NULL;
@@ -638,7 +681,7 @@ node_stmt* parse_stmt(token_t** tokens, arena_t* arena, bool sc_necessary){
 
         if(consume_tk_type(tokens, tk_semicolon));
         else{
-            stmt->for_stmt.stmts = parse_stmt(tokens, arena, true);
+            stmt->for_stmt.stmts = parse_stmt(tokens, true);
             if(!stmt->for_stmt.stmts)
                 return NULL;
         }
@@ -652,7 +695,7 @@ node_stmt* parse_stmt(token_t** tokens, arena_t* arena, bool sc_necessary){
         stmt->ret = (node_return){tk_return, NULL, NULL};
 
         if(peek_tk_type(tokens, tk_semicolon));
-        else if(!(stmt->ret.expr = parse_expr(tokens, 0, arena))){
+        else if(!(stmt->ret.expr = parse_expr(tokens, 0))){
             print_context("Expected return value.",token);
             return NULL;
         }
@@ -667,7 +710,7 @@ node_stmt* parse_stmt(token_t** tokens, arena_t* arena, bool sc_necessary){
         // Pass in used registers first like this: @asm(reg1, reg2, reg3, ...)
         node_expr *mask_root = NULL, *head = NULL;
         while(!peek_tk_type(tokens, tk_str_lit)){
-            node_expr* new_head = parse_term(tokens, arena);
+            node_expr* new_head = parse_term(tokens);
             if(!new_head || new_head->type != tk_identifier){
                 print_context("Expected used registers, then assembly code", *tokens);
                 return NULL;
@@ -679,7 +722,7 @@ node_stmt* parse_stmt(token_t** tokens, arena_t* arena, bool sc_necessary){
         }
 
         // Code in a string literal must follow used registers
-        node_expr* code = parse_term(tokens, arena);
+        node_expr* code = parse_term(tokens);
         if(!code || code->type != tk_str_lit){
             print_context("Expected assembly code as string literal", *tokens);
             return NULL;
@@ -693,7 +736,7 @@ node_stmt* parse_stmt(token_t** tokens, arena_t* arena, bool sc_necessary){
         node_expr* vargs_root = NULL; head = NULL;
         if(consume_tk_type(tokens, tk_comma))
           while(!peek_tk_type(tokens, tk_close_parent)){
-            node_expr* new_head = parse_expr(tokens, 0, arena);
+            node_expr* new_head = parse_expr(tokens, 0);
             if(!new_head){
                 print_context("Expected valid argument", *tokens);
                 return NULL;
@@ -718,7 +761,7 @@ node_stmt* parse_stmt(token_t** tokens, arena_t* arena, bool sc_necessary){
     }// expression / var assign statement
     else{
         // Try to get the expression
-        node_expr* expr = parse_expr(tokens,0,arena);
+        node_expr* expr = parse_expr(tokens, 0);
 
         if(!expr){
             print_context("Invalid statement here", token);
@@ -735,7 +778,7 @@ node_stmt* parse_stmt(token_t** tokens, arena_t* arena, bool sc_necessary){
             peek_tk_type(tokens, tk_mod_assign)) {
 
             token_t* assign = consume_token(tokens);
-            node_expr* expr2 = parse_expr(tokens, 0, arena);
+            node_expr* expr2 = parse_expr(tokens, 0);
             if(!expr2){
                 print_context("Expected expression", token->next);
                 return NULL;
@@ -762,7 +805,7 @@ node_stmt* parse_stmt(token_t** tokens, arena_t* arena, bool sc_necessary){
     return stmt;
 }
 
-node_stmt* parse_scope(token_t** tokens, arena_t* arena){
+node_stmt* parse_scope(token_t** tokens){
     if(!consume_tk_type(tokens, tk_open_braces)){
         print_context("Expected '{'", *tokens);
         return NULL;
@@ -770,7 +813,7 @@ node_stmt* parse_scope(token_t** tokens, arena_t* arena){
     node_stmt root = (node_stmt){tk_invalid, NULL};
     node_stmt* head = &root;
     while(!peek_tk_type(tokens, tk_close_braces)){
-        head->next = parse_stmt(tokens, arena, true);
+        head->next = parse_stmt(tokens, true);
         if(!head->next)
             return NULL;
         head = head->next;
@@ -784,7 +827,7 @@ node_stmt* parse_scope(token_t** tokens, arena_t* arena){
     return root.next;
 }
 
-node_stmt* parse(token_t* tokens, arena_t* arena){
+node_stmt* parse(token_t* tokens){
     // The token linked list "root"
     token_t token_root = (token_t){tk_invalid, NULL, 0, tokens};
     tokens = &token_root;
@@ -798,7 +841,7 @@ node_stmt* parse(token_t* tokens, arena_t* arena){
     // While we can read tokens, parse a statement
     while(peek_token(&tokens)){
         token_t* first_token = peek_token(&tokens);
-        head->next = parse_stmt(&tokens, arena, true);
+        head->next = parse_stmt(&tokens, true);
         if(!head->next)
             return NULL;
         head = head->next;

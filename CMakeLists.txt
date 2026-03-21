@@ -24,6 +24,7 @@ src/parser/parser.c
 
 # generator (Assembly Generator)
 src/generator/regs.c
+src/generator/user_defined.c
 src/generator/hc_types.c
 src/generator/evaluator.c
 src/generator/generator.c

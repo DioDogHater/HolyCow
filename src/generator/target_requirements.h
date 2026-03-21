@@ -18,11 +18,11 @@ extern const char* target_data_section;
 extern const char* target_rodata_section;
 
 // Setup the entry point and other stuff
-extern void gen_setup(HC_FILE fptr, bool library);
+void gen_setup(HC_FILE fptr, bool library);
 
 // Assemble and link via external assembler and linker
-extern int assemble(const char* output_file, bool debug);
-extern int link(const char* output_file, char* link_files);
+int assemble(const char* output_file, bool debug);
+int link(const char* output_file, char* link_files);
 
 typedef enum { OCCUP_NONE = 0, OCCUP_UNSIGNED, OCCUP_SIGNED, OCCUP_IGNORE } reg_occup_t;
 
@@ -55,78 +55,86 @@ typedef uint64_t reg_mask;
 extern reg_t registers[];
 
 // Setup
-extern void gen_alloc_stack(HC_FILE, size_t);
-extern void gen_dealloc_stack(HC_FILE, size_t);
-extern void gen_start_func(HC_FILE, const char*, size_t, bool);
-extern void gen_return_func(HC_FILE);
-extern void gen_push_stack(HC_FILE, reg_t*);
-extern void gen_pop_stack(HC_FILE, reg_t*);
+void gen_alloc_stack(HC_FILE, size_t);
+void gen_dealloc_stack(HC_FILE, size_t);
+void gen_start_func(HC_FILE, const char*, size_t, bool);
+void gen_return_func(HC_FILE);
+void gen_push_stack(HC_FILE, reg_t*);
+void gen_pop_stack(HC_FILE, reg_t*);
 
 // Unary operations / simple instructions
-extern void gen_set_reg(HC_FILE, reg_t*, const char*, size_t);
-extern void gen_clear_reg(HC_FILE, reg_t*);
-extern void gen_flip_reg(HC_FILE, reg_t*);
-extern void gen_neg_reg(HC_FILE, reg_t*);
-extern void gen_inc_reg(HC_FILE, reg_t*);
-extern void gen_dec_reg(HC_FILE, reg_t*);
+void gen_set_reg(HC_FILE, reg_t*, const char*, size_t);
+void gen_clear_reg(HC_FILE, reg_t*);
+void gen_add_reg(HC_FILE, reg_t*, size_t);
+void gen_sub_reg(HC_FILE, reg_t*, size_t);
+void gen_and_reg(HC_FILE, reg_t*, size_t);
+void gen_shl_reg(HC_FILE, reg_t*, size_t);
+void gen_shr_reg(HC_FILE, reg_t*, size_t);
+void gen_sshr_reg(HC_FILE, reg_t*, size_t);
+void gen_rol_reg(HC_FILE, reg_t*, size_t);
+void gen_ror_reg(HC_FILE, reg_t*, size_t);
+void gen_flip_reg(HC_FILE, reg_t*);
+void gen_neg_reg(HC_FILE, reg_t*);
+void gen_inc_reg(HC_FILE, reg_t*);
+void gen_dec_reg(HC_FILE, reg_t*);
 
 // String literal IO
-extern void gen_load_str_lit(HC_FILE, reg_t*, size_t);
+void gen_load_str_lit(HC_FILE, reg_t*, size_t);
 
 // Global IO
-extern void gen_load_global(HC_FILE, reg_t*, const char*, size_t);
-extern void gen_loadx_global(HC_FILE, reg_t*, const char*, size_t, size_t, bool);
-extern void gen_load_global_offset(HC_FILE, reg_t*, const char*, size_t, size_t);
-extern void gen_loadx_global_offset(HC_FILE, reg_t*, const char*, size_t, size_t, size_t, bool);
-extern void gen_load_global_ptr(HC_FILE, reg_t*, const char*, size_t);
-extern void gen_load_global_offset_ptr(HC_FILE, reg_t*, const char*, size_t, size_t);
-extern void gen_save_global(HC_FILE, reg_t*, const char*, size_t);
-extern void gen_save_global_offset(HC_FILE, reg_t*, const char*, size_t, size_t);
+void gen_load_global(HC_FILE, reg_t*, const char*, size_t);
+void gen_loadx_global(HC_FILE, reg_t*, const char*, size_t, size_t, bool);
+void gen_load_global_offset(HC_FILE, reg_t*, const char*, size_t, size_t);
+void gen_loadx_global_offset(HC_FILE, reg_t*, const char*, size_t, size_t, size_t, bool);
+void gen_load_global_ptr(HC_FILE, reg_t*, const char*, size_t);
+void gen_load_global_offset_ptr(HC_FILE, reg_t*, const char*, size_t, size_t);
+void gen_save_global(HC_FILE, reg_t*, const char*, size_t);
+void gen_save_global_offset(HC_FILE, reg_t*, const char*, size_t, size_t);
 
 // Stack IO
-extern void gen_load_stack(HC_FILE, reg_t*, size_t);
-extern void gen_loadx_stack(HC_FILE, reg_t*, size_t, size_t, bool); // Extended (small -> big)
-extern void gen_load_stack_ptr(HC_FILE, reg_t*, size_t);
-extern void gen_save_stack(HC_FILE, reg_t*, size_t);
+void gen_load_stack(HC_FILE, reg_t*, size_t);
+void gen_loadx_stack(HC_FILE, reg_t*, size_t, size_t, bool); // Extended (small -> big)
+void gen_load_stack_ptr(HC_FILE, reg_t*, size_t);
+void gen_save_stack(HC_FILE, reg_t*, size_t);
 
 // Argument IO
-extern void gen_load_arg(HC_FILE, reg_t*, size_t);
-extern void gen_loadx_arg(HC_FILE, reg_t*, size_t, size_t, bool);   // Extended (small -> big)
-extern void gen_load_arg_ptr(HC_FILE, reg_t*, size_t);
-extern void gen_save_arg(HC_FILE, reg_t*, size_t);
+void gen_load_arg(HC_FILE, reg_t*, size_t);
+void gen_loadx_arg(HC_FILE, reg_t*, size_t, size_t, bool);   // Extended (small -> big)
+void gen_load_arg_ptr(HC_FILE, reg_t*, size_t);
+void gen_save_arg(HC_FILE, reg_t*, size_t);
 
 // Pointer IO
-extern void gen_load_ptr(HC_FILE, reg_t*, reg_t*);
-extern void gen_loadx_ptr(HC_FILE, reg_t*, reg_t*, size_t, bool);   // Extended (small -> big)
-extern void gen_save_ptr(HC_FILE, reg_t*, reg_t*);
+void gen_load_ptr(HC_FILE, reg_t*, reg_t*);
+void gen_loadx_ptr(HC_FILE, reg_t*, reg_t*, size_t, bool);   // Extended (small -> big)
+void gen_save_ptr(HC_FILE, reg_t*, reg_t*);
 
 // Indexing IO
-extern void gen_load_idx(HC_FILE, reg_t*, reg_t*, reg_t*, size_t);
-extern void gen_loadx_idx(HC_FILE, reg_t*, reg_t*, reg_t*, size_t, bool); // Extended (small -> big)
-extern void gen_load_idx_ptr(HC_FILE, reg_t*, reg_t*, reg_t*, size_t);
-extern void gen_save_idx(HC_FILE, reg_t*, reg_t*, reg_t*, size_t);
+void gen_load_idx(HC_FILE, reg_t*, reg_t*, reg_t*, size_t);
+void gen_loadx_idx(HC_FILE, reg_t*, reg_t*, reg_t*, size_t, bool); // Extended (small -> big)
+void gen_load_idx_ptr(HC_FILE, reg_t*, reg_t*, reg_t*, size_t);
+void gen_save_idx(HC_FILE, reg_t*, reg_t*, reg_t*, size_t);
 
 // Pointer + offset IO
-extern void gen_load_offset(HC_FILE, reg_t*, reg_t*, size_t);
-extern void gen_loadx_offset(HC_FILE, reg_t*, reg_t*, size_t, size_t, bool); // Extended (small -> big)
-extern void gen_load_offset_ptr(HC_FILE, reg_t*, reg_t*, size_t);
-extern void gen_save_offset(HC_FILE, reg_t*, reg_t*, size_t);
+void gen_load_offset(HC_FILE, reg_t*, reg_t*, size_t);
+void gen_loadx_offset(HC_FILE, reg_t*, reg_t*, size_t, size_t, bool); // Extended (small -> big)
+void gen_load_offset_ptr(HC_FILE, reg_t*, reg_t*, size_t);
+void gen_save_offset(HC_FILE, reg_t*, reg_t*, size_t);
 
 // Copy memory
 extern const reg_mask allowed_copy_regs;    // Alls regs except those used to copy data
-extern void gen_copy_global(HC_FILE, reg_t* dest, const char* str, size_t strlen, size_t sz);
-extern void gen_copy_stack(HC_FILE, reg_t* dest, size_t ptr, size_t sz);
-extern void gen_copy_arg(HC_FILE, reg_t* dest, size_t ptr, size_t sz);
-extern void gen_copy_ptr(HC_FILE, reg_t* dest, reg_t* src, size_t sz);
-extern void gen_copy_idx(HC_FILE, reg_t* dest, reg_t* src, reg_t* idx, size_t sz);
+void gen_copy_global(HC_FILE, reg_t* dest, const char* str, size_t strlen, size_t sz);
+void gen_copy_stack(HC_FILE, reg_t* dest, size_t ptr, size_t sz);
+void gen_copy_arg(HC_FILE, reg_t* dest, size_t ptr, size_t sz);
+void gen_copy_ptr(HC_FILE, reg_t* dest, reg_t* src, size_t sz);
+void gen_copy_idx(HC_FILE, reg_t* dest, reg_t* src, reg_t* idx, size_t sz);
 
 // Register transfer
-extern void gen_move_reg(HC_FILE, reg_t*, reg_t*);
-extern void gen_movex_reg(HC_FILE, reg_t*, reg_t*, bool);   // Extended (small -> big)
+void gen_move_reg(HC_FILE, reg_t*, reg_t*);
+void gen_movex_reg(HC_FILE, reg_t*, reg_t*, bool);   // Extended (small -> big)
 
 // BINARY OPERATIONS -> file, op1, op2, result
 // follows this format: op1 OPERATION op2 -> op1
-#define REQ_OPERATION(op) REQ_ALLOWED_REGS(op); extern void gen_##op##_regs(HC_FILE, reg_t*, reg_t*)
+#define REQ_OPERATION(op) REQ_ALLOWED_REGS(op); void gen_##op##_regs(HC_FILE, reg_t*, reg_t*)
 #define CREATE_OPERATION(op,fmt,...) void gen_##op##_regs(HC_FILE fptr, reg_t* op1, reg_t* op2) { HC_FPRINTF(fptr, (fmt),##__VA_ARGS__); }
 REQ_OPERATION(add);
 REQ_OPERATION(sub);
@@ -150,56 +158,57 @@ REQ_AFFECTED_REGS(mod);
 REQ_OPERATION(mod);
 
 // Labels, jumps and conditional jumps / sets
-extern void gen_label(HC_FILE, size_t);
-extern void gen_jump(HC_FILE, size_t);
-extern void gen_call_func(HC_FILE, const char*, size_t);
-extern void gen_cmpz_reg(HC_FILE, reg_t*);
-extern void gen_compare(HC_FILE, reg_t*, reg_t*);
-extern void gen_cond_jump(HC_FILE, tk_type, size_t, bool);
-extern void gen_cond_set(HC_FILE, tk_type, reg_t*, bool);
+void gen_label(HC_FILE, size_t);
+void gen_jump(HC_FILE, size_t);
+void gen_call_func(HC_FILE, const char*, size_t);
+void gen_call_extern_func(HC_FILE, const char*, size_t);
+void gen_cmpz_reg(HC_FILE, reg_t*);
+void gen_compare(HC_FILE, reg_t*, reg_t*);
+void gen_cond_jump(HC_FILE, tk_type, size_t, bool);
+void gen_cond_set(HC_FILE, tk_type, reg_t*, bool);
 
 // Declaration tools
-extern void gen_declare_extern(HC_FILE, const char*, size_t, const char* category);
-extern void gen_start_global_decl(HC_FILE, const char*, size_t, bool);
-extern void gen_declare_int(HC_FILE, int64_t, size_t);
-extern size_t gen_declare_str(HC_FILE, const char*, size_t);
-extern void gen_declare_str_lit_ptr(HC_FILE, size_t);
-extern void gen_declare_global_ptr(HC_FILE, const char*, size_t);
-extern void gen_declare_float(HC_FILE, double);
-extern void gen_declare_mem(HC_FILE, size_t);
-extern void gen_declare_align(HC_FILE, const char*, size_t, size_t);
+void gen_declare_extern(HC_FILE, const char*, size_t, const char* category);
+void gen_start_global_decl(HC_FILE, const char*, size_t, bool);
+void gen_declare_int(HC_FILE, int64_t, size_t);
+size_t gen_declare_str(HC_FILE, const char*, size_t);
+void gen_declare_str_lit_ptr(HC_FILE, size_t);
+void gen_declare_global_ptr(HC_FILE, const char*, size_t);
+void gen_declare_float(HC_FILE, double, bool);
+void gen_declare_mem(HC_FILE, size_t);
+void gen_declare_align(HC_FILE, const char*, size_t, size_t);
 
-extern void gen_declare_str_lit(HC_FILE, size_t, const char*, size_t);
-extern void gen_declare_float_lit(HC_FILE, size_t, const char*, size_t);
+void gen_declare_str_lit(HC_FILE, size_t, const char*, size_t);
+void gen_declare_float_lit(HC_FILE, size_t, const char*, size_t);
 
 // Floating point operations
-extern void gen_pop_float(HC_FILE);
-extern void gen_load_float(HC_FILE, size_t);
-extern void gen_load_stack_float(HC_FILE, size_t);
-extern void gen_load_arg_float(HC_FILE, size_t);
-extern void gen_load_ptr_float(HC_FILE, reg_t*);
-extern void gen_load_idx_float(HC_FILE, reg_t*, reg_t*, size_t);
-extern void gen_load_global_float(HC_FILE, const char*, size_t);
-extern void gen_load_global_offset_float(HC_FILE, const char*, size_t, size_t);
-extern void gen_load_offset_float(HC_FILE, reg_t*, size_t);
-extern void gen_save_stack_float(HC_FILE, size_t);
-extern void gen_save_arg_float(HC_FILE, size_t);
-extern void gen_save_ptr_float(HC_FILE, reg_t*);
-extern void gen_save_idx_float(HC_FILE, reg_t*, reg_t*, size_t);
-extern void gen_save_global_float(HC_FILE, const char*, size_t);
-extern void gen_save_global_offset_float(HC_FILE, const char*, size_t, size_t);
-extern void gen_save_offset_float(HC_FILE, reg_t*, size_t);
-extern void gen_load_float_reg(HC_FILE, reg_t*);
-extern void gen_int_to_float(HC_FILE, reg_t*);
-extern void gen_float_to_int(HC_FILE, reg_t*);
-extern void gen_neg_float(HC_FILE);
-extern void gen_add_floats(HC_FILE);
-extern void gen_sub_floats(HC_FILE);
-extern void gen_mul_floats(HC_FILE);
-extern void gen_div_floats(HC_FILE);
-extern void gen_mod_floats(HC_FILE);
-extern void gen_cmpz_float(HC_FILE);
-extern void gen_cmp_floats(HC_FILE);
-extern void gen_cmp_approx_floats(HC_FILE);
+void gen_pop_float(HC_FILE);
+void gen_load_float(HC_FILE, size_t);
+void gen_load_float_raw(HC_FILE, float);
+void gen_load_stack_float(HC_FILE, size_t, bool);
+void gen_load_arg_float(HC_FILE, size_t, bool);
+void gen_load_ptr_float(HC_FILE, reg_t*, bool);
+void gen_load_idx_float(HC_FILE, reg_t*, reg_t*, size_t, bool);
+void gen_load_global_float(HC_FILE, const char*, size_t, bool);
+void gen_load_global_offset_float(HC_FILE, const char*, size_t, size_t, bool);
+void gen_load_offset_float(HC_FILE, reg_t*, size_t, bool);
+void gen_save_stack_float(HC_FILE, size_t, bool);
+void gen_save_arg_float(HC_FILE, size_t, bool);
+void gen_save_ptr_float(HC_FILE, reg_t*, bool);
+void gen_save_idx_float(HC_FILE, reg_t*, reg_t*, size_t, bool);
+void gen_save_global_float(HC_FILE, const char*, size_t, bool);
+void gen_save_global_offset_float(HC_FILE, const char*, size_t, size_t, bool);
+void gen_save_offset_float(HC_FILE, reg_t*, size_t, bool);
+void gen_int_to_float(HC_FILE, reg_t*);
+void gen_float_to_int(HC_FILE, reg_t*);
+void gen_neg_float(HC_FILE);
+void gen_add_floats(HC_FILE);
+void gen_sub_floats(HC_FILE);
+void gen_mul_floats(HC_FILE);
+void gen_div_floats(HC_FILE);
+void gen_mod_floats(HC_FILE);
+void gen_cmpz_float(HC_FILE);
+void gen_cmp_floats(HC_FILE);
+void gen_cmp_approx_floats(HC_FILE);
 
 #endif

@@ -18,6 +18,7 @@ static struct keyword_pair keywords[] = {
     KEYWORD(uint64),
     KEYWORD(bool),
     KEYWORD(float),
+    KEYWORD(double),
     KEYWORD(public),
     KEYWORD(private),
     KEYWORD(protected),
@@ -48,6 +49,7 @@ static struct keyword_pair keywords[] = {
     KEYWORD(struct),
     KEYWORD(union),
     KEYWORD(class),
+    KEYWORD(enum),
     KEYWORD(sizeof),
     KEYWORD(typeof),
     ALIAS_KW(@stack_alloc,stack_alloc)

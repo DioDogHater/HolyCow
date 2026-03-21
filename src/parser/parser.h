@@ -1,9 +1,7 @@
 #ifndef PARSER_H
 #define PARSER_H
 
-#include "../dev/libs.h"
-#include "../dev/types.h"
-#include "../dev/utils.h"
+#include "../compiler.h"
 
 #include "../lexer/lexer.h"
 
@@ -181,6 +179,13 @@ typedef struct{
     union node_stmt* members;
 } node_struct_decl;
 
+// tk_enum
+typedef struct{
+    NODE_STMT_BASE;
+    token_t* identifier;
+    node_expr* members;
+} node_enum_decl;
+
 // tk_assign
 // tk_add_assign
 // tk_sub_assign
@@ -257,6 +262,7 @@ typedef union node_stmt{
     node_var_decl var_decl;
     node_arr_decl arr_decl;
     node_struct_decl struct_decl;
+    node_enum_decl enum_decl;
     node_var_assign var_assign;
     node_if if_stmt;
     node_if while_stmt;
@@ -279,18 +285,18 @@ bool print_context_expr(const char*, node_expr*);
 int get_operator_precedence(tk_type);
 
 // Parse a term of an expression
-node_expr* parse_term(token_t**, arena_t*);
+node_expr* parse_term(token_t**);
 
 // Parse an entire expression
-node_expr* parse_expr(token_t**, int, arena_t*);
+node_expr* parse_expr(token_t**, int);
 
 // Parse a statement
-node_stmt* parse_stmt(token_t**, arena_t*, bool);
+node_stmt* parse_stmt(token_t**, bool);
 
 // Parse a scope
-node_stmt* parse_scope(token_t**, arena_t*);
+node_stmt* parse_scope(token_t**);
 
 // Parse the entire program
-node_stmt* parse(token_t*, arena_t*);
+node_stmt* parse(token_t*);
 
 #endif

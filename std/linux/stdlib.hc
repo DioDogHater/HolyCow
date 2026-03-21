@@ -12,7 +12,7 @@ int absi(int x){
     if(x < 0){ return -x; }
     return x;
 }
-float absf(float x){
+double absf(double x){
     @asm("fld QWORD [rbp+24]
     fabs
     fstp QWORD [rbp+16]");
@@ -63,12 +63,12 @@ void set_rounding(uint8 mode){
     @asm("fldcw [@0]", &fcw);
 }
 
-float sqrt(float x){
+double sqrt(double x){
     @asm("fld QWORD [rbp+24]
     fsqrt
     fstp QWORD [rbp+16]");
 }
-float pow(float x, float p){
+double pow(double x, double p){
     @asm("fld QWORD [rbp+32]
     fld QWORD [rbp+24]
     fyl2x
@@ -82,7 +82,7 @@ float pow(float x, float p){
     fstp st0
     fstp QWORD [rbp+16]");
 }
-float log(float x){
+double log(double x){
     @asm("fld QWORD [rbp+24]
     fld1
     fldl2t
@@ -93,60 +93,57 @@ float log(float x){
     fstp st0");
 }
 
-float sin(float x){
+double sin(double x){
     x %= 6.28318530718;
     @asm("fld QWORD [rbp+24]
     fsin
     fstp QWORD [rbp+16]");
 }
-float cos(float x){
+double cos(double x){
     x %= 6.28318530718;
     @asm("fld QWORD [rbp+24]
     fcos
     fstp QWORD [rbp+16]");
 }
-float tan(float x){
+double tan(double x){
     x %= 6.28318530718;
     @asm("fld QWORD [rbp+24]
     fptan
     fstp st0
     fstp QWORD [rbp+16]");
 }
-float atan2(float y, float x){
+double atan2(double y, double x){
     @asm("fld QWORD [rbp+24]
     fld QWORD [rbp+32]
     fpatan
     fstp QWORD [rbp+16]");
 }
 
-float round(float x){
+double round(double x){
     set_rounding(FP_ROUND);
     @asm(
     "fld QWORD [rbp+24]
     frndint
     fstp QWORD [rbp+16]");
-    set_rounding();
 }
 
-float floor(float x){
+double floor(double x){
     set_rounding(FP_FLOOR);
     @asm(
     "fld QWORD [rbp+24]
     frndint
     fstp QWORD [rbp+16]");
-    set_rounding();
 }
 
-float ceil(float x){
+double ceil(double x){
     set_rounding(FP_CEIL);
     @asm(
     "fld QWORD [rbp+24]
     frndint
     fstp QWORD [rbp+16]");
-    set_rounding();
 }
 
-float trunc(float x){
+double trunc(double x){
     set_rounding();
     @asm(
     "fld QWORD [rbp+24]
@@ -402,17 +399,15 @@ void print_fixed(fixed x){
     print_str(uint_to_string(fractional, buffer, 5, '0'));
 }
 
-void print_float(float x, uint digits){
+void print_double(double x, uint digits){
     char buffer[128];
     bool sign = (x < 0.0);
     if(sign){
         print_char('-');
         x = -x;
     }
-    set_rounding(FP_TRUNC);
     uint integer = x;
-    set_rounding(FP_ROUND);
-    uint fractional = (x - (float)integer) * pow(10.0, (float)digits);
+    uint fractional = round((x - (double)integer) * pow(10.0, (double)digits));
     print_udecimal(integer);
     print_char('.');
     print_str(uint_to_string(fractional, buffer, digits+1, '0'));
@@ -501,7 +496,7 @@ void print_format(char* fmt, uint* argv){
         }else if(*(fmt+1) == 'F'){
             print_fixed((fixed)argv[argc++]);
         }else if(*(fmt+1) == 'f'){
-            print_float(((float*)argv)[argc++]);
+            print_double(((double*)argv)[argc++]);
         }else if(*(fmt+1) == '0'){
             char buffer[64];
             ++fmt;
@@ -545,7 +540,7 @@ void print_format(char* fmt, uint* argv){
                     stdout_cursor = last + mod;
                 }
             }else if(*(fmt+1) == 'f'){
-                print_float(((float*)argv)[argc++], mod);
+                print_double(((double*)argv)[argc++], mod);
             }else{
                 print_str("\nUnexpected format specifier %");
                 print_str(fmt-1, 2);

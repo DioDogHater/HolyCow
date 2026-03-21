@@ -30,7 +30,7 @@ frame:
 	mov rbx, [rsp+0]
 	add rsp, 16
 	mov [rsp+16], rbx
-	mov rbx, 0
+	xor rbx, rbx
 	mov [rsp+8], rbx
 	mov rbx, [rbp+24]
 	sub rsp, 16
@@ -41,8 +41,8 @@ frame:
 	mov [rsp+24], rbx
 	mov rcx, [rsp+72]
 	mov rsi, [rsp+56]
-	mov r8, [rcx+rsi*8]
-	mov [rsp+8], r8
+	mov rdi, [rcx+rsi*8]
+	mov [rsp+8], rdi
 	call strlen
 	mov rbx, [rsp+24]
 	mov rcx, [rsp+0]
@@ -68,7 +68,7 @@ frame:
 	.L3:
 	add rsp, 16
 	mov rbx, [rsp+16]
-	mov rcx, 4
+	mov rcx, 0x4
 	add rbx, rcx
 	mov [rsp+16], rbx
 	mov rcx, [rbp+16]
@@ -82,7 +82,7 @@ frame:
 	mov [rsp+0], rbx
 	mov rbx, [rsp+48]
 	mov [rsp+8], rbx
-	mov rbx, 45
+	mov rbx, 0x2d
 	mov [rsp+16], rbx
 	call println
 	add rsp, 32
@@ -95,7 +95,7 @@ frame:
 	mov [rsp+8], rbx
 	mov rbx, [rsp+48]
 	mov [rsp+16], rbx
-	mov rbx, 45
+	mov rbx, 0x2d
 	mov [rsp+24], rbx
 	call println
 	add rsp, 32
@@ -117,7 +117,7 @@ frame:
 	mov rbx, [rsp+24]
 	add rsp, 32
 	mov rcx, [rsp+24]
-	mov rsi, 8
+	mov rsi, 0x8
 	add rcx, rsi
 	mov [rsp+24], rcx
 	.L9:
@@ -129,7 +129,7 @@ frame:
 	mov [rsp+0], rbx
 	mov rbx, [rsp+48]
 	mov [rsp+8], rbx
-	mov rbx, 45
+	mov rbx, 0x2d
 	mov [rsp+16], rbx
 	call println
 	add rsp, 32
@@ -142,10 +142,10 @@ get_test:
 	push rbp
 	mov rbp, rsp
 	mov rbx, [rbp+16]
-	mov rcx, 10
+	mov rcx, 0xa
 	mov [rbx+0], rcx
 	mov rbx, [rbp+16]
-	mov rcx, 5
+	mov rcx, 0x5
 	mov [rbx+8], rcx
 	mov rbx, [rbp+16]
 	lea rbx, [rbx+16]
@@ -188,7 +188,7 @@ print_msg:
 	mov rbp, rsp
 	mov rcx, [rbp+16]
 	mov rbx, [rcx+0]
-	mov rcx, 0
+	xor rcx, rcx
 	cmp rbx, rcx
 	sete bl
 	test bl, bl
@@ -209,7 +209,7 @@ print_msg:
 	.L1:
 	mov rcx, [rbp+16]
 	mov rbx, [rcx+0]
-	mov rcx, 1
+	mov rcx, 0x1
 	cmp rbx, rcx
 	sete bl
 	test bl, bl
@@ -230,7 +230,7 @@ print_msg:
 	.L3:
 	mov rcx, [rbp+16]
 	mov rbx, [rcx+0]
-	mov rcx, 2
+	mov rcx, 0x2
 	cmp rbx, rcx
 	sete bl
 	test bl, bl
@@ -243,7 +243,7 @@ print_msg:
 	mov [rsp+8], rbx
 	mov rbx, [rbp+16]
 	lea rbx, [rbx+8]
-	fld QWORD [rbx]
+	fld DWORD [rbx]
 	fstp QWORD [rsp+16]
 	call println
 	add rsp, 32
@@ -288,11 +288,11 @@ main:
 	sub rsp, 48
 	mov rbx, STR10
 	mov [rsp+0], rbx
-	mov rbx, 10
+	mov rbx, 0xa
 	mov [rsp+8], rbx
 	fld QWORD [rsp+104]
 	fstp QWORD [rsp+16]
-	mov rbx, 10
+	mov rbx, 0xa
 	mov [rsp+24], rbx
 	fld QWORD [rsp+96]
 	fstp QWORD [rsp+32]
@@ -306,7 +306,7 @@ main:
 	sub rsp, 48
 	mov rbx, STR11
 	mov [rsp+0], rbx
-	mov rbx, 3
+	mov rbx, 0x3
 	mov [rsp+8], rbx
 	mov rbx, STR12
 	mov [rsp+16], rbx
@@ -317,9 +317,9 @@ main:
 	call frame
 	add rsp, 48
 	lea rbx, [rsp+16]
-	mov rcx, 0
+	xor rcx, rcx
 	mov [rbx+0], rcx
-	mov rcx, 6
+	mov rcx, 0x6
 	mov [rbx+8], rcx
 	lea r8, [rbx+16]
 	mov rcx, STR15
@@ -344,7 +344,7 @@ main:
 	call print_test
 	add rsp, 32
 	lea rbx, [rsp+0]
-	mov rcx, 0
+	xor rcx, rcx
 	mov [rbx+0], rcx
 	lea r8, [rbx+8]
 	mov rcx, STR15
@@ -357,66 +357,74 @@ main:
 	.L0:
 	leave
 	ret
-extern absi:function
-extern absf:function
-extern random:function
-extern randint:function
-extern is_alpha:function
-extern is_num:function
-extern is_alnum:function
-extern to_lower:function
-extern to_upper:function
-extern set_rounding:function
-extern sqrt:function
-extern pow:function
-extern log:function
-extern sin:function
-extern cos:function
-extern tan:function
-extern atan2:function
-extern round:function
-extern floor:function
-extern ceil:function
-extern trunc:function
+
+
 extern int_to_fixed:function
+extern log:function
 extern fraction_to_fixed:function
-extern string_to_fixed:function
-extern fixed_to_int:function
-extern mul_fixed:function
-extern div_fixed:function
-extern mod_fixed:function
-extern memset:function
-extern memcpy:function
-extern memmove:function
-extern strlen:function
-extern strfind:function
-extern strdfind:function
-extern strcpy:function
-extern strcmp:function
-extern strequal:function
-extern flush_stdout:function
-extern print_str:function
+extern sin:function
 extern print_char:function
-extern print_decimal:function
-extern print_udecimal:function
-extern print_hex:function
-extern print_fixed:function
-extern print_float:function
-extern print_format:function
+extern trunc:function
 extern print:function
-extern println:function
-extern error:function
-extern input:function
-extern input_char:function
-extern int_to_string:function
-extern uint_to_string:function
-extern string_to_int:function
-extern read:function
-extern write:function
+extern set_rounding:function
+extern div_fixed:function
+extern pow:function
+extern memmove:function
+extern mul_fixed:function
+extern random:function
+extern is_num:function
+extern memset:function
 extern exit:function
+extern read:function
+extern tan:function
+extern int_to_string:function
+extern string_to_int:function
+extern string_to_fixed:function
+extern write:function
+extern print_format:function
+extern strcmp:function
+extern strfind:function
+extern absf:function
+extern fixed_to_int:function
+extern print_fixed:function
+extern absi:function
+extern floor:function
+extern uint_to_string:function
+extern strdfind:function
+extern flush_stdout:function
+extern to_lower:function
+extern memcpy:function
+extern input_char:function
+extern strequal:function
+extern strlen:function
+extern ceil:function
+extern print_str:function
+extern to_upper:function
+extern print_udecimal:function
+extern input:function
+extern print_decimal:function
+extern is_alpha:function
+extern cos:function
+extern strcpy:function
+extern print_double:function
+extern mod_fixed:function
+extern println:function
+extern round:function
+extern sqrt:function
+extern error:function
+extern randint:function
+extern print_hex:function
+extern atan2:function
+extern is_alnum:function
 
 
 section .data
+static __FP_TMP:data
+__FP_TMP:
+dq 0
+static __GP_TMP:data
+__GP_TMP:
+times 64 db 0
 global FP_PRECISION:data
 FP_PRECISION:
 dq 0.0001000000
@@ -436,13 +444,13 @@ db "Blud",0
 STR5:
 db "test{%i, %i, test2{",34,"%s",34,", ",34,"%s",34,"}}",0
 STR6:
-db "msg{%u, ",34,"%s",34,"}",0
+db "msg{msg.text, ",34,"%s",34,"}",0
 STR7:
-db "msg{%u, %i}",0
+db "msg{msg.integer, %i}",0
 STR8:
-db "msg{%u, %f}",0
+db "msg{msg.number, %f}",0
 STR9:
-db "msg{%u, %b}",0
+db "msg{msg.confirm, %b}",0
 STR10:
 db "%*f ~= %*f ± %f",0
 STR11:

@@ -77,7 +77,7 @@ typedef struct {
 
 // Hashtable
 #define HASHTABLE_GROW(n) ((n) * 2)
-#define HASHTABLE_MAX_SET_SIZE 8
+#define HASHTABLE_MAX_SET_SIZE 32
 #define NEW_HASHTABLE(pair_size,hash_func,cmp_func) {0, NULL, (pair_size), (hash_func), (cmp_func)}
 typedef struct {
     size_t size;

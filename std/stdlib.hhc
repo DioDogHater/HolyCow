@@ -28,8 +28,8 @@ int main(uint argc, char** argv);
 // ========== Miscelaneous utilities ===========
 // Get absolute (positive) integer number
 int absi(int x);
-// Get absolute (positive) floating point number
-float absf(float x);
+// Get absolute (positive) doubleing point number
+double absf(double x);
 // Randomize memory
 void random(uint8* data, uint size);
 // Get a random int from min to max
@@ -52,31 +52,31 @@ char to_upper(char c);
 #define FP_TRUNC    0x0C
 // Set the rounding to a specific mode for future operations
 // Rounding mode is not set by default !!!
-// Please ensure rounding mode before float / int operations
+// Please ensure rounding mode before double / int operations
 void set_rounding(uint8 mode = FP_TRUNC);
 // Square root
-float sqrt(float x);
+double sqrt(double x);
 // x to the power p (exponentiation)
-float pow(float x, float p);
+double pow(double x, double p);
 // Logarithm
-float log(float x);
+double log(double x);
 
 #define PI 3.14159265359
 // Sine function
-float sin(float x);
+double sin(double x);
 // Cosine function
-float cos(float x);
+double cos(double x);
 // Tangent function
-float tan(float x);
+double tan(double x);
 // Arctangent function (with quadrant checking)
 // Returns the angle between x+ axis and the point (x, y)
-float atan2(float y, float x);
+double atan2(double y, double x);
 
 // Rounding
-float round(float x);
-float floor(float x);
-float ceil(float x);
-float trunc(float x);
+double round(double x);
+double floor(double x);
+double ceil(double x);
+double trunc(double x);
 
 // ========= Fixed point arithmetic ============
 #define fixed int32
@@ -121,7 +121,7 @@ char* strcpy(char* dest, char* src, uint len = -1);
 // if s1 != s2, return s1 - s2
 int8 strcmp(char* s1, char* s2, uint len = -1);
 // Check if strings are equal
-// Checks if their length are equal
+// Also checks if their length are equal
 bool strequal(char* s1, char* s2);
 
 // ========== Terminal IO ==============
@@ -135,7 +135,7 @@ void print_decimal(int x);
 void print_udecimal(uint x);
 void print_hex(uint x);
 void print_fixed(fixed x);
-void print_float(float x, uint digits = 4);
+void print_double(double x, uint digits = 4);
 
 // Print formatted text
 // fmt is the string to format
@@ -167,7 +167,7 @@ void print_float(float x, uint digits = 4);
  *      print("%*s", n, s);
  *
  * %f, %*f:
- *  Print float x up to 4 decimals or n decimals if %*f is used
+ *  Print double x up to 4 decimals or n decimals if %*f is used
  *      print("%f", x);
  *
  * %F:

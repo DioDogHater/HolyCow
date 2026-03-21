@@ -1,6 +1,8 @@
 #ifndef HCC_LIBS_H
 #define HCC_LIBS_H
 
+#include "style.h"
+
 // Disable standard libraries
 #ifndef NO_STDLIBS
 
@@ -10,8 +12,19 @@
 #include <stdbool.h>
 #include <string.h>
 #include <ctype.h>
+#include <inttypes.h>
 
-#include "style.h"
+#ifdef PRIx64
+#define HC_FMT_64HEX PRIx64
+#else
+#define HC_FMT_64HEX "lx"
+#endif
+
+#ifdef PRIx32
+#define HC_FMT_32HEX PRIx32
+#else
+#define HC_FMT_32HEX "lx"
+#endif
 
 #define HC_PRINT(fmt, ...) printf(fmt,##__VA_ARGS__)
 #define HC_WARN(fmt,...) printf(BOLD CYAN_FG "WARNING : " fmt RESET_ATTR "\n",##__VA_ARGS__)

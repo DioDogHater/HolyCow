@@ -3,10 +3,12 @@
 char board[9];
 char player = ' ';
 
-#define STATE_TURN  0
-#define STATE_GAME  1
-#define STATE_END   2
-uint state = STATE_TURN;
+enum GameState {
+    TURN = 1,
+    GAME = 2,
+    END  = 3
+}
+uint state = GameState.TURN;
 
 void init(){
     memset(board, ' ', 9);
@@ -74,7 +76,7 @@ int main(uint argc, char** argv){
 
     // Game loop
     loop{
-        if(state == STATE_TURN){
+        if(state == GameState.TURN){
             // Switch player
             if(player == 'X'){ player = 'O'; }
             else{ player = 'X'; }
@@ -82,8 +84,8 @@ int main(uint argc, char** argv){
             // Display new board and turn
             print_board();
             println("TURN: %c", player);
-            state = STATE_GAME;
-        }else if(state == STATE_GAME){
+            state = GameState.GAME;
+        }else if(state == GameState.GAME){
             // Get input
             int n = input(buffer, 16);
             if(*buffer == 'q'){ break; }
@@ -108,16 +110,16 @@ int main(uint argc, char** argv){
 
             // Set the coordinate to the player's symbol
             board[row*3+col] = player;
-            if(check_win(player)){ state = STATE_END; }
-            else if(check_tie()){ state = STATE_END; }
-            else{ state = STATE_TURN; }
+            if(check_win(player)){ state = GameState.END; }
+            else if(check_tie()){ state = GameState.END; }
+            else{ state = GameState.TURN; }
         }else{
             print_board();
             println("\n<< GAME OVER! >>\n- Play again? (y/n) -");
 
             if(to_lower(input_char()) == 'y'){
                 init();
-                state = STATE_TURN;
+                state = GameState.TURN;
             }else{
                 break;
             }

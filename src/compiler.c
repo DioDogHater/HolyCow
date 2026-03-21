@@ -1,5 +1,6 @@
 #include "dev/libs.h"
 #include "dev/types.h"
+#include "compiler.h"
 
 // 3 stages of this compiler
 
@@ -21,7 +22,7 @@
 #include "generator/generator.h"
 
 // Arena allocator (used to swiftly allocate / free without trouble everything)
-static arena_t arena[1] = { NEW_ARENA() };
+arena_t arena[1] = { NEW_ARENA() };
 
 // The compilation options
 static struct{
@@ -30,7 +31,15 @@ static struct{
     char* link_files;
     bool debug;
     bool library;
-} options = {.input_files = NEW_FILE(NULL), .output_file = NULL, .link_files = "", .debug = false, .library = false};
+    bool object;
+} options = {
+    .input_files = NEW_FILE(NULL),
+    .output_file = NULL,
+    .link_files = "",
+    .debug = false,
+    .library = false,
+    .object = false
+};
 
 // Show the usage of the compiler
 static void show_usage(const char* msg){
@@ -128,10 +137,13 @@ static void parse_compiler_args(int argc, char* argv[]){
                     last_arg = C_ARG_LINK;
                 }
 
+                // Object file output
+                else if(match_arg(&arg, "-c") || match_arg(&arg, "--no-link"))
+                    options.object = true;
+
                 // Static library
-                else if(match_arg(&arg, "-s") || match_arg(&arg, "--static")){
+                else if(match_arg(&arg, "-s") || match_arg(&arg, "--static"))
                     options.library = true;
-                }
 
                 // Debug enabled
                 else if(match_arg(&arg, "-d") || match_arg(&arg, "--debug"))
@@ -200,7 +212,7 @@ int main(int argc, char* argv[]){
 
     // Tokenize the input files one by one
     while(input_file){
-        token_t* tokens = tokenize(input_file, arena, last_token);
+        token_t* tokens = tokenize(input_file, last_token);
         if(!tokens){
             HC_ERR("\nTOKENIZATION FAILED!");
             compiler_quit();
@@ -214,29 +226,38 @@ int main(int argc, char* argv[]){
         input_file = input_file->next;
     }
 
+#ifdef COMPILER_DEBUG
+    for(token_t* tk = all_tokens; tk; tk = tk->next)
+        print_token(tk);
+#endif
+
+    //HC_WARN("Tokenization ended");
+
     // Destroy the keyword table
     keyword_table_destroy();
 
     // Parse the tokens and turn them into an AST
-    node_stmt* AST = parse(all_tokens, arena);
+    node_stmt* AST = parse(all_tokens);
     if(!AST){
         HC_ERR("\nPARSING FAILED!");
         compiler_quit();
         return EXIT_FAILURE;
     }
 
+    //HC_WARN("Parsing ended");
+
     // Generate the assembly
     // We need a buffer to store the .nasm filepath
     char buffer[512];
-    snprintf(buffer, 511, "%s.nasm", options.output_file);
-    if(!generate(buffer, AST, arena, options.library)){
+    snprintf(buffer, 511, "%s.asm", options.output_file);
+    if(!generate(buffer, AST, options.library)){
         HC_ERR("\nGENERATION FAILED!");
         compiler_quit();
         return EXIT_FAILURE;
     }
 
     if(options.debug)
-        HC_CONFIRM("Intermediate assembly %s.nasm was generated.", options.output_file);
+        HC_CONFIRM("Intermediate assembly %s.asm was generated.", options.output_file);
 
     int sts = assemble(options.output_file, options.debug);
 
@@ -244,10 +265,10 @@ int main(int argc, char* argv[]){
         HC_ERR("\nASSEMBLY FAILED! Error code: %d", sts);
         compiler_quit();
         return EXIT_FAILURE;
-    }else if(options.library)
+    }else if(options.library || options.object)
         HC_CONFIRM("Assembled successfully, %s.o generated.", options.output_file);
 
-    if(!options.library){
+    if(!options.library && !options.object){
         sts = link(options.output_file, options.link_files);
 
         if(sts){
@@ -264,14 +285,12 @@ int main(int argc, char* argv[]){
     if(!options.debug)
         HC_DELETE_FILE(buffer);
     snprintf(buffer, 511, "%s.o", options.output_file);
-    if(!options.library)
+    if(!options.library && !options.object)
         HC_DELETE_FILE(buffer);
 
     HC_CONFIRM("COMPILATION SUCCESSFUL!");
 
-#ifdef COMPILER_DEBUG
     HC_CONFIRM("Used %.2f%% of arena memory", (float)arena->ptr / (float)arena->size * 100.f);
-#endif
 
     compiler_quit();
     return 0;

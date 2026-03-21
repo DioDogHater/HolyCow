@@ -10,7 +10,7 @@ static size_t count_lines(const char** str){
     return count;
 }
 
-static token_t* append_token(token_t* target, token_t tk, arena_t* arena){
+static token_t* append_token(token_t* target, token_t tk){
     if(tk.type == tk_invalid)
         return target;
     target->next = ARENA_ALLOC(arena, token_t);
@@ -107,8 +107,8 @@ size_t relative_path(const char* path, size_t len, const char* src, char* dest){
 }
 
 static file_t included_files = NEW_FILE(NULL);
-token_t* tokenize(file_t* src, arena_t* arena, token_t* token_start){
-    if(!src || !src->data || !arena)
+token_t* tokenize(file_t* src, token_t* token_start){
+    if(!src || !src->data)
         return false;
 
     // Macros
@@ -126,25 +126,30 @@ token_t* tokenize(file_t* src, arena_t* arena, token_t* token_start){
 
         // Skip whitespace
         if(isspace(*str)){
-            if(recording_macro && *str == '\n')
+            if(recording_macro && *str == '\n'){
                 recording_macro = false;
+            }
             str++;
         }
 
         // Identifiers / keywords
-        else if(isalpha(*str) || *str == '@' || *str == '$' || *str == '_'){
+        else if(isalpha(*str) || *str == '@' || *str == '_'){
             const char* start = str++;
             while(*str && (isalnum(*str) || *str == '_')) str++;
             tk = (token_t){tk_identifier, start, str - start, NULL};
 
             // Check if it's a macro
             bool is_macro = false;
-            for(size_t i = 0; i < macro_count; i++){
+            for(size_t i = 0; i < macro_count - (recording_macro) ? 1 : 0; i++){
                 if(tk.strlen == macros[i].strlen && strncmp(tk.str, macros[i].str, tk.strlen) == 0){
-                    token_t* macro_contents = macros[i].next;
-                    while(macro_contents){
-                        end_token = append_token(end_token, *macro_contents, arena);
-                        macro_contents = macro_contents->next;
+                    for(token_t* macro_contents = macros[i].next; macro_contents; macro_contents = macro_contents->next){
+                        if(!recording_macro){
+                            end_token = append_token(end_token, *macro_contents);
+                        }else{
+                            token_t* last_token = &macros[macro_count-1];
+                            for(; last_token->next; last_token = last_token->next);
+                            append_token(last_token, *macro_contents);
+                        }
                     }
                     is_macro = true;
                     break;
@@ -313,6 +318,11 @@ token_t* tokenize(file_t* src, arena_t* arena, token_t* token_start){
                 while(*str && isalpha(*str)) str++;
                 tk.strlen = str - start;
 
+                if(recording_macro){
+                    print_context("Cannot use a preprocessor inside a macro", &tk);
+                    return NULL;
+                }
+
                 // #include "PATH"
                 if(tk.strlen == 8 && strncmp(start, "#include", 8) == 0){
                     tk.type = tk_invalid;
@@ -359,7 +369,7 @@ token_t* tokenize(file_t* src, arena_t* arena, token_t* token_start){
                     }
 
                     // Tokenize included file
-                    token_t* included_tokens = tokenize(last_file->next, arena, end_token);
+                    token_t* included_tokens = tokenize(last_file->next, end_token);
                     if(!included_tokens)
                         return NULL;
                     for(;included_tokens->next; included_tokens = included_tokens->next);
@@ -379,7 +389,7 @@ token_t* tokenize(file_t* src, arena_t* arena, token_t* token_start){
                     while(*str && (isalnum(*str) || *str == '_')) str++;
                     tk = (token_t){tk_identifier, start, str - start, NULL};
                     if(macro_count == MAX_MACROS){
-                        HC_WARN("Current max number of macros is %d", MAX_MACROS);
+                        HC_WARN("Current max number of macros is %lu", (size_t)MAX_MACROS);
                         print_context("Reached maximum number of macros", &tk);
                         return NULL;
                     }
@@ -402,11 +412,11 @@ token_t* tokenize(file_t* src, arena_t* arena, token_t* token_start){
         }
 
         if(!recording_macro)
-            end_token = append_token(end_token, tk, arena);
+            end_token = append_token(end_token, tk);
         else{
             token_t* last_tk = &macros[macro_count-1];
-            while(last_tk->next) last_tk = last_tk->next;
-            append_token(last_tk, tk, arena);
+            for(; last_tk->next; last_tk = last_tk->next);
+            append_token(last_tk, tk);
         }
     }
     if(!tokens.next)

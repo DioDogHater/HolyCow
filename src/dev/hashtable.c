@@ -22,7 +22,8 @@ bool hashtable_grow(hashtable_t* table, size_t size){
         HC_ERR("HASHTABLE : Invalid table");
         return false;
     }
-    HC_PRINT("HASHTABLE : Growing hashtable...");
+    HC_WARN("HASHTABLE : Growing hashtable to %lu hashsets", size);
+    HC_FAIL();
     hashtable_t new_table = NEW_HASHTABLE(table->pair_size, table->hashing_func, table->cmp_func);
     if(!hashtable_init(&new_table, size))
         return false;
@@ -44,6 +45,7 @@ bool hashtable_set(hashtable_t* table, const void* pair){
         return false;
     }
     size_t hash = table->hashing_func(pair) % table->size;
+    //HC_PRINT("hashtable_set : hash = %lu\n", hash);
     hashset_t* set = &table->sets[hash];
     if(set->size == 0){
         set->pairs = (uint8_t*) HC_MALLOC(table->pair_size * HASHTABLE_MAX_SET_SIZE);

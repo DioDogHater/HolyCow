@@ -1,6 +1,6 @@
 #include "../std/stdlib.hhc"
 
-float FP_PRECISION = 0.0001;
+double FP_PRECISION = 0.0001;
 
 // Prints a frame around lines of text (with a title)
 void frame(char* title = "", ...count){
@@ -54,10 +54,12 @@ union msg_contents {
     bool confirm;
 }
 
-#define MSG_TEXT    0
-#define MSG_INT     1
-#define MSG_NUMBER  2
-#define MSG_CONFIRM 3
+enum msg {
+    text,
+    integer,
+    number,
+    confirm
+}
 struct msg {
     uint type;
     msg_contents contents;
@@ -77,19 +79,19 @@ void print_test(test t){
 }
 
 void print_msg(msg* m){
-    if(m.type == MSG_TEXT)
-        println("msg{%u, \"%s\"}", m.type, m.contents.text);
-    else if(m.type == MSG_INT)
-        println("msg{%u, %i}", m.type, m.contents.integer);
-    else if(m.type == MSG_NUMBER)
-        println("msg{%u, %f}", m.type, m.contents.number);
+    if(m.type == msg.text)
+        println("msg{msg.text, \"%s\"}", m.type, m.contents.text);
+    else if(m.type == msg.integer)
+        println("msg{msg.integer, %i}", m.type, m.contents.integer);
+    else if(m.type == msg.number)
+        println("msg{msg.number, %f}", m.type, m.contents.number);
     else
-        println("msg{%u, %b}", m.type, m.contents.confirm);
+        println("msg{msg.confirm, %b}", m.type, m.contents.confirm);
 }
 
 int main(uint argc, char** argv){
-    float pi = PI;
-    float almost_pi = 3.14153;
+    double pi = PI;
+    double almost_pi = 3.14153;
 
     if(pi ~= almost_pi){
         println("%*f ~= %*f ± %f", 10, pi, 10, almost_pi, FP_PRECISION);
@@ -101,6 +103,6 @@ int main(uint argc, char** argv){
     print_test(a);
     print_test(get_test());
 
-    msg m = msg{MSG_TEXT, msg_contents.text{"Hello world!"}};
+    msg m = msg{msg.text, msg_contents.text{"Hello world!"}};
     print_msg(&m);
 }

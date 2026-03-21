@@ -40,22 +40,22 @@ uint snake_length;
 vec2 food;
 
 // Get the player's direction using input
-vec2 get_direction(bool* gameover){
+bool get_direction(){
     char input[24];
     int sz = read(STDIN, input, 24);
+    @return = false;
     if(sz <= 0)
         return;
     if(input[sz-1] == 'w' && !last_direction.y)
-        return vec2{0, -1};
+        last_direction = vec2{0, -1};
     else if(input[sz-1] == 's' && !last_direction.y)
-        return vec2{0, 1};
+        last_direction = vec2{0, 1};
     else if(input[sz-1] == 'a' && !last_direction.x)
-        return vec2{-1, 0};
+        last_direction = vec2{-1, 0};
     else if(input[sz-1] == 'd' && !last_direction.x)
-        return vec2{1, 0};
+        last_direction = vec2{1, 0};
     else if(input[sz-1] == 'q')
-        *gameover = true;
-    // No return, so last_direction stays the same
+        @return = true;
 }
 
 // Give food a random position
@@ -150,11 +150,11 @@ int main(uint argc, char** argv){
         draw_game();
 
         now = time();
-        println("SCORE: %04\tPress q to quit.", snake_length);
+        println("SCORE: %04%APress q to quit.", snake_length, WIDTH - 16);
         last_frame = now;
 
         // Update the head's direction
-        last_direction = get_direction(&gameover);
+        gameover = get_direction();
 
         // Move every body part of the snake
         // to the position of the one in front of it
@@ -205,7 +205,7 @@ int main(uint argc, char** argv){
             sleep(0.25); // Wait to let their loss simmer in the bottom of their soul
 
             if(to_lower(input_char()) != 'y')
-                break;
+                return;
 
             // To continue playing, we reinitialize the game
             // and we restore the new STDIN setup

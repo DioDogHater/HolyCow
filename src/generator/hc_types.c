@@ -12,6 +12,7 @@ token_t dummy_types[] = {
     DUMMY_TYPE(int64),
     DUMMY_TYPE(uint64),
     DUMMY_TYPE(float),
+    DUMMY_TYPE(double),
     DUMMY_TYPE(string),
     DUMMY_TYPE(bool),
     DUMMY_TYPE(void)
@@ -48,6 +49,7 @@ bool signof_type(token_t* tk){
         case tk_int32:
         case tk_int64:
         case tk_float:
+        case tk_double:
             return true;
         case tk_uint8:
         case tk_uint16:
@@ -77,10 +79,11 @@ size_t sizeof_type(token_t* tk){
             return 2;
         case tk_int32:
         case tk_uint32:
+        case tk_float:
             return 4;
         case tk_int64:
         case tk_uint64:
-        case tk_float:
+        case tk_double:
             return 8;
     }
 
@@ -90,7 +93,7 @@ size_t sizeof_type(token_t* tk){
 
 type_t type_from_tk(token_t* tk){
     type_t t;
-    while(tk->next && tk->type >= tk_public && tk->type <= tk_peek)
+    while(tk->next && tk->type >= tk_public && tk->type <= tk_cfunc)
         tk = tk->next;
     t.repr = tk, t.ptr_depth = 0;
     if(tk->type != tk_identifier){
@@ -99,7 +102,7 @@ type_t type_from_tk(token_t* tk){
             return INVALID_TYPE;
         bool sign = signof_type(tk);
         t.size = sz, t.align = sz, t.sign = sign;
-        t.data = (tk->type == tk_float) ? DATA_FLOAT : DATA_INT;
+        t.data = (tk->type == tk_float || tk->type == tk_double) ? DATA_FLOAT : DATA_INT;
     }else{
         t.sign = false;
         struct_t* struc = get_struct_tk(tk);
@@ -144,13 +147,8 @@ size_t flags_from_tk(token_t* tk){
         print_context("Cannot be peakable if it isn't private or protected", tk);
     }
 
-    if((a & FLAG_CFUNC) && (a & FLAG_EXTERN)){
-        a -= FLAG_EXTERN;
-        print_context("cfunc modifier assumes it is an external function", tk);
-    }
-
-    if(((a & FLAG_PRIVATE) || (a & FLAG_PROTECT) || (a & FLAG_STATIC) || (a & FLAG_PEEK)) && (a & FLAG_EXTERN)){
-        a &= ~(FLAG_PRIVATE | FLAG_PROTECT | FLAG_STATIC);
+    if((a & FLAG_EXTERN) && (a != FLAG_EXTERN && a != (FLAG_EXTERN | FLAG_CFUNC))){
+        a &= FLAG_EXTERN;
         print_context("extern can only be used by itself", tk);
     }
 
@@ -191,7 +189,7 @@ type_t typeof_expr(node_expr* expr){
                 max = (type_t){8, GET_DUMMY_TYPE(int64), true, DATA_INT, 8, 0};
             break;
         }case tk_float_lit:{
-            max = (type_t){8, GET_DUMMY_TYPE(float), true, DATA_FLOAT, 8, 0};
+            max = (type_t){8, GET_DUMMY_TYPE(double), true, DATA_FLOAT, 8, 0};
             break;
         }case tk_identifier:{
             var_t* var = get_var(expr->term.str, expr->term.strlen);
@@ -237,6 +235,12 @@ type_t typeof_expr(node_expr* expr){
             max = (type_t){unio->size, expr->uconstruct.unio, false, DATA_UNION, unio->align, 0};
             break;
         }case tk_dot:{
+            if(expr->access.obj->type == tk_identifier){
+                enum_t* enu = get_enum(expr->access.obj->term.str, expr->access.obj->term.strlen);
+                if(enu && get_enum_val(enu, expr->access.member->str, expr->access.member->strlen, NULL))
+                    return (type_t){8, GET_DUMMY_TYPE(int64), true, DATA_INT, 8, 0};
+            }
+
             type_t obj_type = typeof_expr(expr->access.obj);
             if(!obj_type.data || obj_type.ptr_depth > 1 || (obj_type.data != DATA_STRUCT && obj_type.data != DATA_UNION)){
                 print_context_expr("Expected structure / class / union", expr->access.obj);

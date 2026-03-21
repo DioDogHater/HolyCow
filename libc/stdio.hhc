@@ -1,0 +1,201 @@
+#include "defs.hhc"
+
+// Opaque definition of a file IO stream
+struct FILE;
+#define size_t uint64
+#define ssize_t int64
+
+/* The possibilities for the third argument to `setvbuf'.  */
+#define _IOFBF 0		/* Fully buffered.  */
+#define _IOLBF 1		/* Line buffered.  */
+#define _IONBF 2		/* No buffering.  */
+
+
+/* Default buffer size.  */
+#define BUFSIZ 8192
+
+
+/* The value returned by fgetc and similar functions
+ * to indicate the end of the file.  */
+#define EOF (-1)
+
+
+/* The possibilities for the third argument to `fseek'.
+T hese values should not be changed.  */
+#define SEEK_SET	0	/* Seek from beginning of file.  */
+#define SEEK_CUR	1	/* Seek from current position.  */
+#define SEEK_END	2	/* Seek from end of file.  */
+
+/* Standard streams.  */
+extern FILE *stdin;		/* Standard input stream.  */
+extern FILE *stdout;	/* Standard output stream.  */
+extern FILE *stderr;	/* Standard error output stream.  */
+
+/* Remove file FILENAME.  */
+LIBC_FUNC int32 remove (char* __filename);
+/* Rename file OLD to NEW.  */
+LIBC_FUNC int32 rename (char* __old, char* __new);
+
+/* Close STREAM.
+ *
+ This function is a possible cancellation point and therefore not
+ marked with __THROW.  */
+LIBC_FUNC int32 fclose (FILE* __stream);
+
+/* Flush STREAM, or all streams if STREAM is NULL.
+ *
+ This function is a possible cancellation point and therefore not
+ marked with __THROW.  */
+LIBC_FUNC int32 fflush (FILE* __stream);
+
+/* Open a file and create a new stream for it.
+ *
+ This function is a possible cancellation point and therefore not
+ marked with __THROW.  */
+LIBC_FUNC FILE *fopen (char* __filename,
+                    char* __modes);
+
+/* Open a file, replacing an existing stream with it.
+ *
+ This function is a possible cancellation point and therefore not
+ marked with __THROW.  */
+LIBC_FUNC FILE *freopen (char* __filename,
+                      char* __modes,
+                      FILE* __stream);
+
+/* If BUF is NULL, make STREAM unbuffered.
+ Else make it use buffer BUF, of size BUFSIZ.  */
+LIBC_FUNC void setbuf (FILE* __stream, char* __buf);
+
+/* Make STREAM use buffering mode MODE.
+ If BUF is not NULL, use N bytes of it for buffering;
+ else allocate an internal buffer N bytes long.  */
+LIBC_FUNC int32 setvbuf (FILE* __stream, char* __buf,
+                    int32 __modes, size_t __n);
+
+/* Make STREAM line-buffered.  */
+LIBC_FUNC void setlinebuf (FILE* __stream);
+
+/* Write formatted output to STREAM.
+ *
+ This function is a possible cancellation point and therefore not
+ marked with __THROW.  */
+LIBC_FUNC int32 fprintf (FILE* __stream, char* __format, ...);
+
+/* Write formatted output to stdout.
+ *
+ This function is a possible cancellation point and therefore not
+ marked with __THROW.  */
+LIBC_FUNC int32 printf (char* __format, ...);
+
+/* Write formatted output to S.  */
+LIBC_FUNC int32 sprintf (char* __s, char* __format, ...);
+
+/* Maximum chars of output to write in MAXLEN.  */
+LIBC_FUNC int32 snprintf (char* __s, size_t __maxlen, char* __format, ...);
+
+/* Read formatted input from STREAM.
+ *
+ This function is a possible cancellation point and therefore not
+ marked with __THROW.  */
+LIBC_FUNC int32 fscanf (FILE* __stream, char* __format, ...);
+
+/* Read formatted input from stdin.
+ *
+ This function is a possible cancellation point and therefore not
+ marked with __THROW.  */
+LIBC_FUNC int32 scanf (char* __format, ...);
+
+/* Read formatted input from S.  */
+LIBC_FUNC int32 sscanf (char* __s, char* __format, ...);
+
+/* Read a character from STREAM.
+ *
+ These functions are possible cancellation points and therefore not
+ marked with __THROW.  */
+LIBC_FUNC int32 fgetc (FILE* __stream);
+LIBC_FUNC int32 getc (FILE* __stream);
+
+/* Read a character from stdin.
+ *
+ This function is a possible cancellation point and therefore not
+ marked with __THROW.  */
+LIBC_FUNC int32 getchar ();
+
+/* Write a character to STREAM.
+ *
+ These functions are possible cancellation points and therefore not
+ marked with __THROW.  */
+LIBC_FUNC int32 fputc (int32 __c, FILE* __stream);
+LIBC_FUNC int32 putc (int32 __c, FILE* __stream);
+
+/* Write a character to stdout.
+ *
+ This function is a possible cancellation point and therefore not
+ marked with __THROW.  */
+LIBC_FUNC int32 putchar (int32 __c);
+
+/* Write a string to STREAM.
+ *
+ This function is a possible cancellation point and therefore not
+ marked with __THROW.  */
+LIBC_FUNC int32 fputs (char* __s, FILE* __stream);
+
+/* Write a string, followed by a newline, to stdout.
+ *
+ This function is a possible can*cellation point and therefore not
+ marked with __THROW.  */
+LIBC_FUNC int32 puts (char* __s);
+
+/* Push a character back onto the input buffer of STREAM.
+ *
+ This function is a possible cancellation point and therefore not
+ marked with __THROW.  */
+LIBC_FUNC int32 ungetc (int32 __c, FILE* __stream);
+
+/* Read chunks of generic data from STREAM.
+ *
+ This function is a possible cancellation point and therefore not
+ marked with __THROW.  */
+LIBC_FUNC size_t fread (void* __ptr, size_t __size,
+                     size_t __n, FILE* __stream);
+
+/* Write chunks of generic data to STREAM.
+ *
+ This function is a possible cancellation point and therefore not
+ marked with __THROW.  */
+LIBC_FUNC size_t fwrite (void* __ptr, size_t __size,
+                      size_t __n, FILE* __s);
+
+/* Seek to a certain position on STREAM.
+ *
+ This function is a possible cancellation point and therefore not
+ marked with __THROW.  */
+LIBC_FUNC int32 fseek (FILE* __stream, int64 __off, int32 __whence);
+
+/* Return the current position of STREAM.
+ *
+ This function is a possible cancellation point and therefore not
+ marked with __THROW.  */
+LIBC_FUNC int64 ftell (FILE* __stream);
+
+/* Clear the error and EOF indicators for STREAM.  */
+LIBC_FUNC void clearerr (FILE* __stream);
+
+/* Rewind to the beginning of STREAM.
+ *
+ This function is a possible cancellation point and therefore not
+ marked with __THROW.  */
+LIBC_FUNC void rewind (FILE* __stream);
+
+/* Return the EOF indicator for STREAM.  */
+LIBC_FUNC int32 feof (FILE* __stream);
+
+/* Return the error indicator for STREAM.  */
+LIBC_FUNC int32 ferror (FILE* __stream);
+
+/* Print a message describing the meaning of the value of errno.
+ *
+ T his function is a possible cancel*lation point and therefore not
+ marked with __THROW.  */
+LIBC_FUNC void perror (char* __s);

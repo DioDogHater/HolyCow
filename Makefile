@@ -3,22 +3,24 @@
 
 ifeq ($(OS),Windows_NT)
 	HCC := .\build\hcc.exe
-    HELLOWORLD := .\programs\build\helloworld.exe
+	HELLOWORLD := .\programs\build\helloworld.exe
 	TEST := .\programs\build\test.exe
 	TICTACTOE := .\programs\build\tictactoe.exe
 	SNAKE := .\programs\build\snake.exe
 	FIBONACCI := .\programs\build\fibonacci.exe
+	RAYLIB := .\programs\build\raylib.exe
 else
 	HCC := ./build/hcc
-    HELLOWORLD := ./programs/build/helloworld
+	HELLOWORLD := ./programs/build/helloworld
 	TEST := ./programs/build/test
 	TICTACTOE := ./programs/build/tictactoe
 	SNAKE := ./programs/build/snake
 	FIBONACCI := ./programs/build/fibonacci
+	RAYLIB := ./programs/build/raylib
 endif
 
 
-all: $(HELLOWORLD) $(TEST) $(TICTACTOE) $(SNAKE) $(FIBONACCI)
+all: $(HELLOWORLD) $(TEST) $(TICTACTOE) $(SNAKE) $(FIBONACCI) $(RAYLIB)
 
 helloworld: $(HELLOWORLD)
 	$<
@@ -34,6 +36,13 @@ snake: $(SNAKE)
 
 fibonacci: $(FIBONACCI)
 	$<
+
+raylib: $(RAYLIB)
+	$<
+
+$(RAYLIB): programs/raylib/main.hc std/stdlib.o std/stdlib.hhc $(HCC)
+	$(HCC) -c -d $< -o $@
+	gcc -no-pie -nostdlib -Lprograms/raylib -lc -lm -lraylib $@.o -o $@
 
 $(FIBONACCI): programs/fibonacci.hc std/stdlib.o std/stdlib.hhc $(HCC)
 	$(HCC) -d $< -o $@ -lstd/stdlib.o

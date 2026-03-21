@@ -18,6 +18,7 @@ const char* target_data_section = "section .data\n";
 const char* target_rodata_section = "section .rodata\n";
 
 void gen_setup(HC_FILE fptr, bool library){
+    sysV_init();
     HC_FPRINTF(fptr,
         "BITS 64\n"
         "CPU X64\n"
@@ -41,7 +42,7 @@ void gen_setup(HC_FILE fptr, bool library){
 
 int assemble(const char* output_file, bool debug){
     char buffer[1024];
-    snprintf(buffer, 1023, "nasm %s -felf64 %s.nasm -o %s.o", debug ? "-g -F dwarf" : "", output_file, output_file);
+    snprintf(buffer, 1023, "nasm %s -felf64 %s.asm -o %s.o", debug ? "-g -F dwarf" : "", output_file, output_file);
     return system(buffer);
 }
 
@@ -50,6 +51,7 @@ int link(const char* output_file, char* link_files){
     for(char* ptr = link_files; *ptr; ptr++)
         if(*ptr == ',') *ptr = ' ';
     snprintf(buffer, 4095, "ld %s %s.o -o %s", link_files, output_file, output_file);
+    HC_WARN("%s", buffer);
     return system(buffer);
 }
 

@@ -1,4 +1,5 @@
 #include "evaluator.h"
+#include "generator.h"
 
 uint64_t eval_char_lit(node_term* char_lit){
     const char* str = char_lit->str;
@@ -112,6 +113,13 @@ bool eval_##name##_expr(node_expr* expr, T* result){\
     case tk_bool_lit:\
         *result = *expr->term.str == 't';\
         return true;\
+    case tk_dot:{\
+        if(expr->access.obj->type != tk_identifier)\
+            return false;\
+        enum_t* enu = get_enum(expr->access.obj->term.str, expr->access.obj->term.strlen);\
+        if(!enu) return false;\
+        return get_enum_val(enu, expr->access.member->str, expr->access.member->strlen, (int64_t*)result);\
+    }\
     EVAL_UNARY_OP(tk_neg, -, name, T)\
     EVAL_UNARY_OP(tk_bin_flip, ~, name, T)\
     EVAL_UNARY_OP(tk_not, !, name, T)\
@@ -144,6 +152,15 @@ case name:{\
 }
 
 bool eval_float_expr(node_expr* expr, double* result){
+    type_t expr_type = typeof_expr(expr);
+    if(DATAOF_T(expr_type) == DATA_INT){
+        int64_t integer;
+        if(eval_int_expr(expr, &integer))
+            return false;
+        *result = (double) integer;
+        return true;
+    }
+
     switch(expr->type){
     case tk_float_lit:
         *result = eval_float_lit(&expr->term);

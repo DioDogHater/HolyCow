@@ -1,0 +1,130 @@
+#include "defs.hhc"
+
+#define M_E         2.7182818284590452354	/* e */
+#define M_LOG2E	    1.4426950408889634074	/* log_2 e */
+#define M_LOG10E	0.43429448190325182765	/* log_10 e */
+#define M_LN2		0.69314718055994530942	/* log_e 2 */
+#define M_LN10		2.30258509299404568402	/* log_e 10 */
+#define M_PI		3.14159265358979323846	/* pi */
+#define M_PI_2		1.57079632679489661923	/* pi/2 */
+#define M_PI_4		0.78539816339744830962	/* pi/4 */
+#define M_1_PI		0.31830988618379067154	/* 1/pi */
+#define M_2_PI		0.63661977236758134308	/* 2/pi */
+#define M_2_SQRTPI	1.12837916709551257390	/* 2/sqrt(pi) */
+#define M_SQRT2	    1.41421356237309504880	/* sqrt(2) */
+#define M_SQRT1_2	0.70710678118654752440	/* 1/sqrt(2) */
+
+// Minimum of 2 float values
+LIBC_FUNC double fmin(double x, double y);
+LIBC_FUNC float fminf(float x, float y);
+
+// Maximum of 2 float values
+LIBC_FUNC double fmax(double x, double y);
+LIBC_FUNC float fmaxf(float x, float y);
+
+// Round to greater integer
+LIBC_FUNC double ceil(double x);
+LIBC_FUNC float ceilf(float x);
+
+// Round to lower integer
+LIBC_FUNC double floor(double x);
+LIBC_FUNC float floorf(float x);
+
+// Round
+LIBC_FUNC double round(double x);
+LIBC_FUNC float roundf(float x);
+
+// Absolute value
+LIBC_FUNC double fabs(double x);
+LIBC_FUNC float fabsf(float x);
+
+// Square root
+LIBC_FUNC double sqrt(double x);
+LIBC_FUNC float sqrtf(double x);
+
+// Cubic root
+LIBC_FUNC double cbrt(double x);
+LIBC_FUNC float cbrtf(float y);
+
+// Exponentiation (Power)
+LIBC_FUNC double pow(double x, double y);
+LIBC_FUNC float powf(float x, float y);
+
+// Power of e
+LIBC_FUNC double exp(double x);
+LIBC_FUNC float expf(float x);
+
+// Power of 2
+LIBC_FUNC double exp2(double x);
+LIBC_FUNC float exp2f(float x);
+
+// Remainder of x divided by y (Modulo)
+LIBC_FUNC double fmod(double x, double y);
+LIBC_FUNC float fmodf(float x, float y);
+
+// Natural logarithm (log of e)
+LIBC_FUNC double log(double x);
+LIBC_FUNC float logf(float x);
+
+// Base 10 logarithm
+LIBC_FUNC double log10(double x);
+LIBC_FUNC float log10f(float x);
+
+// Base 2 logarithm
+LIBC_FUNC double log2(double x);
+LIBC_FUNC float log2f(float x);
+
+// Returns fractional part of x, sets y to integer part of x
+LIBC_FUNC double modf(double x, double* y);
+
+// Cosine (radians)
+LIBC_FUNC double cos(double x);
+LIBC_FUNC float cosf(float x);
+
+// Sine (radians)
+LIBC_FUNC double sin(double x);
+LIBC_FUNC float sinf(float x);
+
+// Tangent (radians)
+LIBC_FUNC double tan(double x);
+LIBC_FUNC float tanf(float x);
+
+// Arc cosine (radians)
+LIBC_FUNC double acos(double x);
+LIBC_FUNC float acosf(float x);
+
+// Arc sine (radians)
+LIBC_FUNC double asin(double x);
+LIBC_FUNC float asinf(float x);
+
+// Arc tangent (radians)
+LIBC_FUNC double atan(double x);
+LIBC_FUNC float atanf(float x);
+
+// Angle of vector
+LIBC_FUNC double atan2(double y, double x);
+LIBC_FUNC float atan2f(float y, float x);
+
+// Hyperbolic cosine (radians)
+LIBC_FUNC double cosh(double x);
+LIBC_FUNC float coshf(float x);
+
+// Hyperbolic sine (radians)
+LIBC_FUNC double sinh(double x);
+LIBC_FUNC float sinhf(float x);
+
+// Pythagora's theorem
+// Hypothenuse (sqrt(x*x + y*y))
+LIBC_FUNC double hypot(double x, double y);
+LIBC_FUNC float hypotf(float x, float y);
+
+// Returns nonzero if x is finite and not NaN
+LIBC_FUNC int32 finite(double x);
+
+// Make x be the same sign as y
+LIBC_FUNC double copysign(double x, double y);
+LIBC_FUNC float copysignf(float x, float y);
+
+// True gamma function
+LIBC_FUNC double tgamma(double x);
+LIBC_FUNC float tgammaf(float x);

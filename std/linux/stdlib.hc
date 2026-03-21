@@ -501,7 +501,7 @@ void print_format(char* fmt, uint* argv){
             char buffer[64];
             ++fmt;
             if(*(fmt+1) < '2' || *(fmt+1) > '9'){
-                print_str("\nExpected in to be in the range [2, 9] in format specifier @0n\n");
+                print_str("\nExpected in to be in the range [2, 9] in format specifier %0n\n");
                 exit(1);
             }
             uint n_len = *(fmt+1) - '0';

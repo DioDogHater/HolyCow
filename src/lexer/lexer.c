@@ -102,7 +102,10 @@ size_t relative_path(const char* path, size_t len, const char* src, char* dest){
     }
 
     memcpy(dest + offset, path, len);
-    //HC_PRINT("%.*s (%lu) + %.*s = %s\n", (int)(i + 1), src, slashes_to_skip, (int)len, path, dest);
+    if(DIR_SEP != '/'){
+        for(char* ptr = dest; *ptr; ptr++)
+            if(*ptr == '/') *ptr = DIR_SEP;
+    }
     return offset + len;
 }
 

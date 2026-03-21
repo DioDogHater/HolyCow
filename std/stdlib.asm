@@ -3176,7 +3176,7 @@ db "true ",0
 STR7:
 db "false",0
 STR8:
-db "",10,"Expected in to be in the range [2, 9] in format specifier @0n",10,"",0
+db "",10,"Expected in to be in the range [2, 9] in format specifier %0n",10,"",0
 STR9:
 db "",10,"Expected %[ before %*T to enclose text to truncate",10,"",0
 STR10:

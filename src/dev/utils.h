@@ -13,4 +13,10 @@
 #define KB 1024
 #define MB 1048576
 
+#ifdef _WIN32
+#define DIR_SEP  '\\'
+#else
+#define DIR_SEP  '/'
+#endif
+
 #endif

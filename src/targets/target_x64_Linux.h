@@ -51,7 +51,6 @@ int link(const char* output_file, char* link_files){
     for(char* ptr = link_files; *ptr; ptr++)
         if(*ptr == ',') *ptr = ' ';
     snprintf(buffer, 4095, "ld %s %s.o -o %s", link_files, output_file, output_file);
-    HC_WARN("%s", buffer);
     return system(buffer);
 }
 

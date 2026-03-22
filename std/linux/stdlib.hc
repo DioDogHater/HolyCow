@@ -9,8 +9,7 @@
 // }
 
 int absi(int x){
-    if(x < 0){ return -x; }
-    return x;
+    @return = (x < 0) ? -x : x;
 }
 double absf(double x){
     @asm("fld QWORD [rbp+24]
@@ -29,30 +28,24 @@ void random(uint8* data, uint size){
 int randint(int min, int max){
     int rnd;
     random(&rnd, 8);
-    return rnd % (max - min) + min;
+    @return = rnd % (max - min) + min;
 }
 
 bool is_alpha(char c){
-    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+    @return = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
 }
 bool is_num(char c){
-    return c >= '0' && c <= '9';
+    @return = c >= '0' && c <= '9';
 }
 bool is_alnum(char c){
-    return is_alpha(c) || is_num(c);
+    @return = is_alpha(c) || is_num(c);
 }
 
 char to_lower(char c){
-    if(is_alpha(c)){
-        return c | 0b00100000;
-    }
-    return c;
+    @return = is_alpha(c) ? (c | 0b00100000) : c;
 }
 char to_upper(char c){
-    if(is_alpha(c)){
-        return c & 0b11011111;
-    }
-    return c;
+    @return = is_alpha(c) ? (c & 0b11011111) : c;
 }
 
 void set_rounding(uint8 mode){
@@ -153,20 +146,22 @@ double trunc(double x){
 
 // Fixed point arithmetic
 fixed int_to_fixed(int x){
-    return x << FIXED_PRECISION;
+    @return = x << FIXED_PRECISION;
 }
 fixed fraction_to_fixed(int a, int b){
-    return (int)((a << (FIXED_PRECISION2)) / b);
+    @return = (int)((a << (FIXED_PRECISION * 2)) / b);
 }
 fixed string_to_fixed(char* str, uint len){
-    if(len == -1){ len = strlen(str); }
+    if(len == -1)
+        len = strlen(str);
     fixed int_x = 0;
     fixed frac_x = 0;
     int32 d = 1;
     bool sign = false;
     bool frac = false;
     for(; len; ++str, --len){
-        if(*str == '-'){ sign = !sign; }
+        if(*str == '-')
+            sign = !sign;
         else if(*str >= '0' && *str <= '9'){
             if(frac){
                 frac_x = frac_x * 10 + ((*str - '0') << FIXED_PRECISION);
@@ -174,25 +169,25 @@ fixed string_to_fixed(char* str, uint len){
             }else{
                 int_x = int_x * 10 + ((*str - '0') << FIXED_PRECISION);
             }
-        }else if(*str == '.'){
+        }else if(*str == '.')
             frac = true;
-        }
     }
     int_x += (frac_x / d) & FIXED_FRAC_MASK;
-    if(sign){ int_x = -int_x; }
-    return int_x;
+    if(sign)
+        int_x = -int_x;
+    @return = int_x;
 }
 int fixed_to_int(fixed x){
-    return x >> FIXED_PRECISION;
+    @return = x >> FIXED_PRECISION;
 }
 fixed mul_fixed(fixed a, fixed b){
-    return (int)((a * b) >> FIXED_PRECISION);
+    @return = (int)((a * b) >> FIXED_PRECISION);
 }
 fixed div_fixed(fixed a, fixed b){
-    return (int)((a << FIXED_PRECISION) / b);
+    @return = (int)((a << FIXED_PRECISION) / b);
 }
 fixed mod_fixed(fixed a, fixed b){
-    return (int)((a << FIXED_PRECISION) % b);
+    @return = (int)((a << FIXED_PRECISION) % b);
 }
 
 // STR operations
@@ -222,7 +217,8 @@ void memmove(uint8* dest, uint8* src, uint mem_size){
         @asm("std");
         dest += mem_size - 1;
         src += mem_size - 1;
-    }else{ @asm("cld"); }
+    }else
+        @asm("cld");
     @asm(rcx, rsi, rdi,
     "mov rdi, @0
     mov rsi, @1
@@ -245,16 +241,16 @@ uint strlen(char* str){
 
 int strfind(char* str, char c, uint len, bool reverse){
     // Set len to the string length if not specified
-    if(len == -1){
+    if(len == -1)
         len = strlen(str);
-    }
 
     // Set direction flag
     if(reverse){
         @asm("std");
         // If we want to search in reverse, we must start from the end
         str += len - 1;
-    }else{ @asm("cld"); }
+    }else
+        @asm("cld");
 
     // Find the character inside the string
     @asm(rdi, al, rcx,
@@ -267,21 +263,22 @@ int strfind(char* str, char c, uint len, bool reverse){
     mov [rbp+16], @2",
     c, str, len + 1);
 
-    if(@return == len){ return -1; }
+    if(@return == len)
+        @return = -1;
 }
 
 int strdfind(char* str, char c, uint len, bool reverse){
     // Set len to the string length if not specified
-    if(len == -1){
+    if(len == -1)
         len = strlen(str);
-    }
 
     // Set direction flag
     if(reverse){
         @asm("std");
         // If we want to search in reverse, we must start from the end
         str += len - 1;
-    }else{ @asm("cld"); }
+    }else
+        @asm("cld");
 
     // Find the character inside the string
     @asm(rdi, al, rcx,
@@ -294,21 +291,24 @@ int strdfind(char* str, char c, uint len, bool reverse){
     mov [rbp+16], @2",
     c, str, len + 1);
 
-    if(@return == len){ return -1; }
+    if(@return == len)
+        @return = -1;
 }
 
 // Copy a string from src to dest
 char* strcpy(char* dest, char* src, uint len = -1){
-    if(len == -1){ len = strlen(src); }
+    if(len == -1)
+        len = strlen(src);
     memcpy(dest, src, len);
     dest += len;
     *dest = 0;
-    return dest;
+    @return = dest;
 }
 
 // Compare strings
 int8 strcmp(char* s1, char* s2, uint len = -1){
-    if(len == -1){ len = strlen(s1); }
+    if(len == -1)
+        len = strlen(s1);
     @asm(rsi, rdi, rcx,
     "mov rsi, @0
     mov rdi, @1
@@ -323,8 +323,9 @@ int8 strcmp(char* s1, char* s2, uint len = -1){
 }
 
 bool strequal(char* s1, char* s2){
-    if(strlen(s1) != strlen(s2)){ return false; }
-    return (strcmp(s1, s2) == 0);
+    if(strlen(s1) != strlen(s2))
+        return false;
+    @return = (strcmp(s1, s2) == 0);
 }
 
 // Terminal IO
@@ -342,8 +343,12 @@ void flush_stdout(){
 // Prints a string with a specified length
 // If len = -1 (so no length provided), len = strlen(str)
 void print_str(char* str, uint len){
-    if(!str){ print_str("(NULL)"); return; }
-    if(len == -1){ len = strlen(str); }
+    if(!str){
+        print_str("(NULL)");
+        return;
+    }
+    if(len == -1)
+        len = strlen(str);
     repeat(len){
         stdout_buff[stdout_cursor++] = *str;
         if(stdout_cursor >= STDOUT_BUFF_SZ || *str == '\n'){ flush_stdout(); }
@@ -583,36 +588,40 @@ void error(char* fmt, ...){
 uint input(char* buff, uint len){
     flush_stdout();
     int result = read(STDIN, buff, len);
-    if(result < 0){ error("input() error: %i", result); }
+    if(result < 0)
+        error("input() error: %i", result);
     buff[--result] = 0;
-    return result;
+    @return = result;
 }
 
 char input_char(){
     flush_stdout();
     uint16 c = 0;
     int result = read(STDIN, &c, 2);
-    if(result < 0){ error("input_char() error: %i", result); }
-    return c;
+    if(result < 0)
+        error("input_char() error: %i", result);
+    @return = c;
 }
 
 // INT - STR conversion
 char* int_to_string(int x, char* str, uint len, char filler){
     char* ptr = &str[--len];
     bool sign = x < 0;
-    if(sign){ x = -x; }
+    if(sign)
+        x = -x;
     *ptr = 0;
     --ptr;
     if(x == 0){
         *(ptr--) = '0';
         --len;
     }
-    for(; x && len; x /= 10, --len, --ptr){ *ptr = (int)(x % 10) + '0'; }
-    if(filler){
+    for(; x && len; x /= 10, --len, --ptr)
+        *ptr = (int)(x % 10) + '0';
+    if(filler)
         repeat(len){ *(ptr--) = filler; }
-    }
-    if(sign){ *(ptr--) = '-'; }
-    return ptr+1;
+    if(sign)
+        *(ptr--) = '-';
+    @return = ptr+1;
 }
 
 char* uint_to_string(uint x, char* str, uint len, char filler){
@@ -623,25 +632,27 @@ char* uint_to_string(uint x, char* str, uint len, char filler){
         *(ptr--) = '0';
         --len;
     }
-    for(; x && len; x /= 10, --len, --ptr){ *ptr = (uint)(x % 10) + '0'; }
-    if(filler){
+    for(; x && len; x /= 10, --len, --ptr)
+        *ptr = (uint)(x % 10) + '0';
+    if(filler)
         repeat(len){ *(ptr--) = filler; }
-    }
-    return ptr+1;
+    @return = ptr+1;
 }
 
 int string_to_int(char* str, uint len){
-    if(len == -1){ len = strlen(str); }
+    if(len == -1)
+        len = strlen(str);
     int result = 0;
     bool sign = false;
     for(; len; ++str, --len){
-        if(*str == '-'){ sign = !sign; }
-        else if(*str >= '0' && *str <= '9'){
+        if(*str == '-')
+            sign = !sign;
+        else if(*str >= '0' && *str <= '9')
             result = result * 10 + (*str - '0');
-        }
     }
-    if(sign){ result = -result; }
-    return result;
+    if(sign)
+        result = -result;
+    @return = result;
 }
 
 // OS stuff
@@ -676,12 +687,12 @@ int syscall3(int rax, int rdi, int rsi, int rdx){
 
 // Reads len bytes from file descriptor -> buff
 int read(uint fd, char* buff, uint len){
-    return syscall3(0, fd, (uint)buff, len);
+    @return = syscall3(0, fd, (uint)buff, len);
 }
 
 // Writes len bytes from buff -> file descriptor
 int write(uint fd, char* buff, uint len){
-    return syscall3(1, fd, (uint)buff, len);
+    @return = syscall3(1, fd, (uint)buff, len);
 }
 
 // Exits the program instantly with a code

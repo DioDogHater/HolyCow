@@ -9,8 +9,12 @@ is close to what I aim for.
 *I know there are many parts in the compiler where I repeat the same similar code structure multiple times. Trust me, making a general solution for seemingly similar problems will make my compiler even less optimized and more complicated than it already is. That said, there is still a lot of room for improvement in readability and clarity. This is exceptionally true for the generator part of my compiler.*
 <br></br>
 # Requirements
-For now, you can only use the language with **Linux**, but compatibility is an issue I'm willing to work on.
-You will need *cmake*, *make*, *nasm* and *ld* to start compiling right away.
+For now, you can only use the language with **Linux** in the x86-64 architecture, but compatibility is an issue I'm willing to work on soon.
+You will need these tools to start compiling programs:
+- The ***cmake*** building platform to compile the compiler
+- The ***make*** building platform to automate building HolyCow programs
+- ***nasm*** (*Netwide Assembler*) to assemble Linux x64 programs
+- ***ld*** (*GNU Linker*) to link programs
 <br></br>
 # Building
 ```
@@ -144,6 +148,22 @@ void hello_world(string msg = "Default"){
     println();
 }
 
+
+// Enums, unlike C, offer their own namespace.
+// You can give enum elements a specific value, but if they have
+// no value provided, they will simply have the last element's
+// value + 1.
+enum Values {
+    first = -1,   // Give a specific value
+    second,       // -1 + 1 = 0
+    third         //  0 + 1 = 1
+    fourth,       //  1 + 1 = 2
+    fifth = 0xDADA
+}
+
+// The enum values can be accessed like this:
+// Values.first, Values.second, Values.third, Values.fourth, Values.fifth
+
 /*
 - Structures and unions are like C structs and unions, except their members
   can have default values (peak feature imo) and they need a name.
@@ -157,6 +177,15 @@ struct Color {
     uint8 b = 0;
     uint8 a = 0;
 }
+
+// To construct a struct:
+// struct{ member1, member2, member3, ... }
+// A member, if given no value, will either use its default value or will simply
+// stay uninitialized.
+
+// Here, since we put nothing between commas, we want to use default values for
+// the members g and b.
+Color red = Color{ 255, , , 0 };
 
 union Data {
     uint integer;
@@ -173,9 +202,8 @@ Data data = Data.integer{ 50 };
     The built-in member holding the currently stored member is
     named "type".
     
-    Constants will be defined to represent each member as a unique
-    value (like an enum) automatically.
-    These constants are in the namespace of the variant type.
+    An enum with the same name as the variant type will be
+    defined and will give a value to each of its members.
     For example, in the "Message" type, these constants
     are defined to represent each member:
     Message.text, Message.integer, Message.color
@@ -228,6 +256,7 @@ class Animal{
 
 // Child class of Animal
 class Pet : Animal{
+    // Attributes are automatically public
     uint owner_count;
     string* owners;
     

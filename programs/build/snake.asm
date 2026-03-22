@@ -840,12 +840,12 @@ draw_game:
 	mov [rsp+16], rbx
 	call println
 	add rsp, 32
-	mov bl, 0x10
+	mov rbx, 0x10
 	.L10:
-	test bl, bl
+	test rbx, rbx
 	je .L12
 	sub rsp, 32
-	mov [rsp+31], bl
+	mov [rsp+24], rbx
 	mov rcx, STR1
 	mov [rsp+0], rcx
 	mov rcx, 0x20
@@ -853,14 +853,14 @@ draw_game:
 	mov rcx, [rsp+40]
 	mov [rsp+16], rcx
 	call println
-	mov bl, [rsp+31]
+	mov rbx, [rsp+24]
 	add rsp, 32
 	mov rcx, [rsp+8]
 	mov rsi, 0x20
 	add rcx, rsi
 	mov [rsp+8], rcx
 	.L11:
-	dec bl
+	dec rbx
 	jmp .L10
 	.L12:
 	sub rsp, 32
@@ -988,9 +988,9 @@ main:
 	test bl, bl
 	jne .L9
 	lea rsi, [snake]
-	mov ecx, [rsi+0]
-	mov esi, 0x20
-	cmp ecx, esi
+	movsxd rcx, DWORD [rsi+0]
+	mov rsi, 0x20
+	cmp rcx, rsi
 	setge bl
 	.L9:
 	test bl, bl
@@ -1004,9 +1004,9 @@ main:
 	test bl, bl
 	jne .L7
 	lea rsi, [snake]
-	mov ecx, [rsi+4]
-	mov esi, 0x10
-	cmp ecx, esi
+	movsxd rcx, DWORD [rsi+4]
+	mov rsi, 0x10
+	cmp rcx, rsi
 	setge bl
 	.L7:
 	test bl, bl

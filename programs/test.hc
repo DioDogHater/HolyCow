@@ -80,22 +80,21 @@ void print_test(test t){
 
 void print_msg(msg* m){
     if(m.type == msg.text)
-        println("msg{msg.text, \"%s\"}", m.type, m.contents.text);
+        println("msg{msg.text, \"%s\"}", m.contents.text);
     else if(m.type == msg.integer)
-        println("msg{msg.integer, %i}", m.type, m.contents.integer);
+        println("msg{msg.integer, %i}", m.contents.integer);
     else if(m.type == msg.number)
-        println("msg{msg.number, %f}", m.type, m.contents.number);
+        println("msg{msg.number, %f}", m.contents.number);
     else
-        println("msg{msg.confirm, %b}", m.type, m.contents.confirm);
+        println("msg{msg.confirm, %b}", m.contents.confirm);
 }
 
 int main(uint argc, char** argv){
     double pi = PI;
     double almost_pi = 3.14153;
 
-    if(pi ~= almost_pi){
+    if(pi ~= almost_pi)
         println("%*f ~= %*f ± %f", 10, pi, 10, almost_pi, FP_PRECISION);
-    }
 
     frame("Foo tierlist", "1. Foo", "2. Bar", "3. Foo-bar");
 
@@ -103,6 +102,6 @@ int main(uint argc, char** argv){
     print_test(a);
     print_test(get_test());
 
-    msg m = msg{msg.text, msg_contents.text{"Hello world!"}};
+    msg m = msg{msg.text, msg_contents.integer{"Hello world!"}};
     print_msg(&m);
 }

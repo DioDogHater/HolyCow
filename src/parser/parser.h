@@ -74,6 +74,15 @@ typedef struct{
     union node_expr* rhs;
 } node_bin_op;
 
+// Ternary operator
+// tk_ternary
+typedef struct{
+    NODE_EXPR_BASE;
+    union node_expr* cond;
+    union node_expr* lhs;
+    union node_expr* rhs;
+} node_ternary;
+
 // Nothing (used for default args)
 typedef struct{
     NODE_EXPR_BASE;
@@ -131,6 +140,7 @@ typedef union node_expr{
     node_unary_op unary_op;
     node_type_cast type_cast;
     node_bin_op bin_op;
+    node_ternary ternary;
     node_nothing_expr none;
     node_func_expr func;
     node_construct construct;

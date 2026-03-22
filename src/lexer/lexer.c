@@ -293,6 +293,9 @@ token_t* tokenize(file_t* src, token_t* token_start){
                 }else
                     tk.type = tk_dot;
                 break;
+            case '?':
+                tk.type = tk_ternary;
+                break;
             case ':':
                 tk.type = tk_colon;
                 break;

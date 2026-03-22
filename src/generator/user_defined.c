@@ -107,9 +107,9 @@ bool get_enum_val(enum_t* enu, const char* str, size_t strlen, int64_t* result){
                 strncmp(ptr->bin_op.lhs->term.str, str, strlen) == 0)
                 return true;
         }else{
+            (*result)++;
             if(ptr->term.strlen == strlen && strncmp(ptr->term.str, str, strlen) == 0)
                 return true;
-            (*result)++;
         }
     }
     return false;

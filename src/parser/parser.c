@@ -82,35 +82,37 @@ bool print_context_expr(const char* msg, node_expr* expr){
 // Very long but useful
 int get_operator_precedence(tk_type type){
     switch(type){
-    case tk_or:
+    case tk_ternary:
         return 1;
-    case tk_and:
+    case tk_or:
         return 2;
-    case tk_bin_or:
+    case tk_and:
         return 3;
-    case tk_bin_xor:
+    case tk_bin_or:
         return 4;
-    case tk_bin_and:
+    case tk_bin_xor:
         return 5;
+    case tk_bin_and:
+        return 6;
     case tk_cmp_eq:
     case tk_cmp_neq:
     case tk_cmp_approx:
-        return 6;
+        return 7;
     case tk_cmp_ge:
     case tk_cmp_g:
     case tk_cmp_le:
     case tk_cmp_l:
-        return 7;
+        return 8;
     case tk_shl:
     case tk_shr:
-        return 8;
+        return 9;
     case tk_add:
     case tk_sub:
-        return 9;
+        return 10;
     case tk_mult:
     case tk_div:
     case tk_mod:
-        return 10;
+        return 11;
     case tk_deref:
     case tk_getaddr:
     case tk_type_cast:
@@ -118,13 +120,13 @@ int get_operator_precedence(tk_type type){
     case tk_not:
     case tk_bin_flip:
     case tk_sizeof:
-        return 11;
+        return 12;
     case tk_dot:
     case tk_open_parent:
     case tk_open_bracket:
     case tk_inc:
     case tk_dec:
-        return 12;
+        return 13;
     }
     return -1;
 }
@@ -137,7 +139,7 @@ static node_expr* parse_args(token_t** tokens, tk_type end){
             args = head = (node_expr*) ARENA_ALLOC(arena, node_nothing_expr);
             args->none = (node_nothing_expr){tk_nothing, NULL};
         }else{
-            args = head = parse_expr(tokens, 1);
+            args = head = parse_expr(tokens, 0);
             if(!args){
                 print_context("Expected expression", *tokens);
                 return (node_expr*)(~0);
@@ -151,7 +153,7 @@ static node_expr* parse_args(token_t** tokens, tk_type end){
         if(peek_tk_type(tokens, tk_comma)){
             new_head = (node_expr*) ARENA_ALLOC(arena, node_nothing_expr);
             new_head->none = (node_nothing_expr){tk_nothing, NULL};
-        }else if(!(new_head = parse_expr(tokens, 1))){
+        }else if(!(new_head = parse_expr(tokens, 0))){
             print_context("Expected expression", *tokens);
             return (node_expr*)(~0);
         }
@@ -379,6 +381,22 @@ node_expr* parse_expr(token_t** tokens, int min_precedence){
                     print_context("Expected member / attribute name", *tokens);
                     return NULL;
                 }
+            }else if(operator->type == tk_ternary){
+                expr = (node_expr*) ARENA_ALLOC(arena, node_ternary);
+                expr->ternary = (node_ternary){tk_ternary, NULL, lhs, parse_expr(tokens, 0), NULL};
+                if(!expr->ternary.lhs){
+                    print_context("Expected left hand side", *tokens);
+                    return NULL;
+                }
+                if(!consume_tk_type(tokens, tk_colon)){
+                    print_context("Expected separating :", *tokens);
+                    return NULL;
+                }
+                expr->ternary.rhs = parse_expr(tokens, 0);
+                if(!expr->ternary.rhs){
+                    print_context("Expected right hand side", *tokens);
+                    return NULL;
+                }
             }else{
                 expr = (node_expr*) ARENA_ALLOC(arena, node_bin_op);
                 expr->bin_op = (node_bin_op) {operator->type, NULL, lhs, NULL};
@@ -478,7 +496,7 @@ node_stmt* parse_stmt(token_t** tokens, bool sc_necessary){
             // Variable declaration
             node_expr* expr = NULL;
             if(consume_tk_type(tokens, tk_assign)){
-                expr = parse_expr(tokens, 1);
+                expr = parse_expr(tokens, 0);
                 if(!expr){
                     print_context("Missing expression", identifier->next);
                     return NULL;

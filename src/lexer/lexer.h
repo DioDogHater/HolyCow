@@ -104,6 +104,7 @@ enum{
     tk_close_braces,   // }
     tk_semicolon,      // ;
     tk_colon,          // :
+    tk_ternary,        // ?
     tk_dot,            // .
     tk_var_args,       // ...
     tk_comma,          // ,

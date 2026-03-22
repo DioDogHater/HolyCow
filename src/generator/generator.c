@@ -1448,6 +1448,21 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
         gen_set_reg_raw(fptr, tmp, SIZEOF_T(value_type));
         return tmp;
     }
+    case tk_ternary:{
+        size_t other_label = label_count++, end_label = label_count++;
+        reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(sz), sign);
+        reg_t* cond = generate_expr(fptr, expr->ternary.cond, (type_t){1, GET_DUMMY_TYPE(bool), false, DATA_INT, 1, 0}, NULL);
+        (void) free_reg(tmp);
+        gen_cmpz_reg(fptr, cond);
+        gen_cond_jump(fptr, tk_cmp_eq, other_label, false);
+        tmp = generate_expr(fptr, expr->ternary.lhs, target_type, tmp);
+        (void) free_reg(tmp);
+        gen_jump(fptr, end_label);
+        gen_label(fptr, other_label);
+        tmp = generate_expr(fptr, expr->ternary.rhs, target_type, tmp);
+        gen_label(fptr, end_label);
+        return tmp;
+    }
     // NOT WORTH IT AT THE MOMENT
     /*case tk_stack_alloc:{
         if(sz != target_address_size){

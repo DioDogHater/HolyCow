@@ -7,22 +7,19 @@ global absi:function
 absi:
 	push rbp
 	mov rbp, rsp
-	mov rbx, [rbp+24]
-	xor rcx, rcx
-	cmp rbx, rcx
-	setl bl
-	test bl, bl
+	mov rcx, [rbp+24]
+	xor rsi, rsi
+	cmp rcx, rsi
+	setl cl
+	test cl, cl
 	je .L1
 	mov rbx, [rbp+24]
 	neg rbx
-	mov [rbp+16], rbx
-	jmp .L0
 	jmp .L2
 	.L1:
-	.L2:
 	mov rbx, [rbp+24]
+	.L2:
 	mov [rbp+16], rbx
-	jmp .L0
 	.L0:
 	leave
 	ret
@@ -75,7 +72,6 @@ randint:
 	mov rbx, [rbp+24]
 	add rax, rbx
 	mov [rbp+16], rax
-	jmp .L0
 	.L0:
 	leave
 	ret
@@ -110,7 +106,6 @@ is_alpha:
 	.L3:
 	.L1:
 	mov [rbp+16], bl
-	jmp .L0
 	.L0:
 	leave
 	ret
@@ -131,7 +126,6 @@ is_num:
 	setbe bl
 	.L1:
 	mov [rbp+16], bl
-	jmp .L0
 	.L0:
 	leave
 	ret
@@ -156,7 +150,6 @@ is_alnum:
 	add rsp, 16
 	.L1:
 	mov [rbp+16], bl
-	jmp .L0
 	.L0:
 	leave
 	ret
@@ -166,24 +159,23 @@ to_lower:
 	push rbp
 	mov rbp, rsp
 	sub rsp, 16
-	mov bl, [rbp+17]
-	mov [rsp+1], bl
+	mov [rsp+15], bl
+	mov cl, [rbp+17]
+	mov [rsp+1], cl
 	call is_alpha
-	mov bl, [rsp+0]
+	mov bl, [rsp+15]
+	mov cl, [rsp+0]
 	add rsp, 16
-	test bl, bl
+	test cl, cl
 	je .L1
 	mov bl, [rbp+17]
-	mov cl, 0x20
-	or bl, cl
-	mov [rbp+16], bl
-	jmp .L0
+	mov sil, 0x20
+	or bl, sil
 	jmp .L2
 	.L1:
-	.L2:
 	mov bl, [rbp+17]
+	.L2:
 	mov [rbp+16], bl
-	jmp .L0
 	.L0:
 	leave
 	ret
@@ -193,24 +185,25 @@ to_upper:
 	push rbp
 	mov rbp, rsp
 	sub rsp, 16
-	mov bl, [rbp+17]
-	mov [rsp+1], bl
+	mov [rsp+15], bl
+	mov [rsp+14], cl
+	mov sil, [rbp+17]
+	mov [rsp+1], sil
 	call is_alpha
-	mov bl, [rsp+0]
+	mov bl, [rsp+15]
+	mov cl, [rsp+14]
+	mov sil, [rsp+0]
 	add rsp, 16
-	test bl, bl
+	test sil, sil
 	je .L1
 	mov bl, [rbp+17]
-	mov cl, 0xdf
-	and bl, cl
-	mov [rbp+16], bl
-	jmp .L0
+	mov dil, 0xdf
+	and bl, dil
 	jmp .L2
 	.L1:
-	.L2:
 	mov bl, [rbp+17]
+	.L2:
 	mov [rbp+16], bl
-	jmp .L0
 	.L0:
 	leave
 	ret
@@ -418,7 +411,6 @@ int_to_fixed:
 	mov cl, 0xf
 	shl ebx, cl
 	mov [rbp+16], ebx
-	jmp .L0
 	.L0:
 	leave
 	ret
@@ -434,7 +426,6 @@ fraction_to_fixed:
 	xor rdx, rdx
 	idiv rbx
 	mov [rbp+16], eax
-	jmp .L0
 	.L0:
 	leave
 	ret
@@ -577,7 +568,6 @@ string_to_fixed:
 	.L14:
 	mov ebx, [rsp+12]
 	mov [rbp+16], ebx
-	jmp .L0
 	.L0:
 	leave
 	ret
@@ -590,7 +580,6 @@ fixed_to_int:
 	mov cl, 0xf
 	sar rbx, cl
 	mov [rbp+16], rbx
-	jmp .L0
 	.L0:
 	leave
 	ret
@@ -605,7 +594,6 @@ mul_fixed:
 	mov cl, 0xf
 	sar rax, cl
 	mov [rbp+16], eax
-	jmp .L0
 	.L0:
 	leave
 	ret
@@ -621,7 +609,6 @@ div_fixed:
 	xor rdx, rdx
 	idiv rbx
 	mov [rbp+16], eax
-	jmp .L0
 	.L0:
 	leave
 	ret
@@ -638,7 +625,6 @@ mod_fixed:
 	idiv rbx
 	mov rax, rdx
 	mov [rbp+16], eax
-	jmp .L0
 	.L0:
 	leave
 	ret
@@ -785,7 +771,6 @@ strfind:
 	je .L5
 	mov rbx, 0xffffffffffffffff
 	mov [rbp+16], rbx
-	jmp .L0
 	jmp .L6
 	.L5:
 	.L6:
@@ -847,7 +832,6 @@ strdfind:
 	je .L5
 	mov rbx, 0xffffffffffffffff
 	mov [rbp+16], rbx
-	jmp .L0
 	jmp .L6
 	.L5:
 	.L6:
@@ -893,7 +877,6 @@ strcpy:
 	mov [rbx], cl
 	mov rbx, [rbp+24]
 	mov [rbp+16], rbx
-	jmp .L0
 	.L0:
 	leave
 	ret
@@ -977,7 +960,6 @@ strequal:
 	cmp bl, cl
 	sete bl
 	mov [rbp+16], bl
-	jmp .L0
 	.L0:
 	leave
 	ret
@@ -2669,7 +2651,6 @@ input:
 	mov [rbx+rcx*1], sil
 	mov rbx, [rsp+8]
 	mov [rbp+16], rbx
-	jmp .L0
 	.L0:
 	leave
 	ret
@@ -2711,7 +2692,6 @@ input_char:
 	.L2:
 	mov bl, [rsp+14]
 	mov [rbp+16], bl
-	jmp .L0
 	.L0:
 	leave
 	ret
@@ -2835,7 +2815,6 @@ int_to_string:
 	mov rcx, 0x1
 	add rbx, rcx
 	mov [rbp+16], rbx
-	jmp .L0
 	.L0:
 	leave
 	ret
@@ -2933,7 +2912,6 @@ uint_to_string:
 	mov rcx, 0x1
 	add rbx, rcx
 	mov [rbp+16], rbx
-	jmp .L0
 	.L0:
 	leave
 	ret
@@ -3027,7 +3005,6 @@ string_to_int:
 	.L11:
 	mov rbx, [rsp+8]
 	mov [rbp+16], rbx
-	jmp .L0
 	.L0:
 	leave
 	ret
@@ -3097,7 +3074,6 @@ read:
 	mov rbx, [rsp+0]
 	add rsp, 48
 	mov [rbp+16], rbx
-	jmp .L0
 	.L0:
 	leave
 	ret
@@ -3119,7 +3095,6 @@ write:
 	mov rbx, [rsp+0]
 	add rsp, 48
 	mov [rbp+16], rbx
-	jmp .L0
 	.L0:
 	leave
 	ret

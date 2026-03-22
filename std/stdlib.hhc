@@ -81,7 +81,6 @@ double trunc(double x);
 // ========= Fixed point arithmetic ============
 #define fixed int32
 #define FIXED_PRECISION  15
-#define FIXED_PRECISION2 30
 #define FIXED_INT_MASK  0xFFFF8000
 #define FIXED_FRAC_MASK 0x00007FFF
 

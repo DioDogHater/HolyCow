@@ -1266,7 +1266,15 @@ main:
 	movsd xmm1, QWORD [__GP_TMP+8]
 	movsd xmm0, QWORD [__GP_TMP+0]
 	call DrawSphereWires
+	fld QWORD [FP2]
+	fstp DWORD [__FP_TMP]
+	movss xmm0, DWORD [__FP_TMP+0]
+	mov rdi, 0x20
+	call DrawGrid
 	call EndMode3D
+	xor rsi, rsi
+	xor rdi, rdi
+	call DrawFPS
 	lea rbx, [__GP_TMP]
 	xor cl, cl
 	mov [rbx+0], cl
@@ -1282,9 +1290,6 @@ main:
 	xor rsi, rsi
 	mov rdi, STR0
 	call DrawText
-	xor rsi, rsi
-	xor rdi, rdi
-	call DrawFPS
 	call EndDrawing
 	jmp .L1
 	.L2:

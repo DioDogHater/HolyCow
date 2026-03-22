@@ -24,8 +24,11 @@ void block_stdin(){
 }
 
 // Game dimensions
-#define WIDTH   32
-#define HEIGHT  16
+// Enums are kinda like structs but compile-time (constant)
+enum Game{
+    width = 32,
+    height = 16
+}
 
 // 2D integer vector
 struct vec2 {
@@ -33,7 +36,7 @@ struct vec2 {
     int32 y;
 }
 
-vec2 snake[WIDTH * HEIGHT];
+vec2 snake[Game.width * Game.height];
 vec2 last_direction;
 uint snake_length;
 
@@ -62,11 +65,11 @@ bool get_direction(){
 // If food is on a snake's body part, try again
 // Repeat until food is no longer colliding with snake
 void generate_food(){
-    food = vec2{randint(0, WIDTH), randint(0, HEIGHT)};
+    food = vec2{randint(0, Game.width), randint(0, Game.height)};
     vec2* body = snake;
     for(uint i = 0; i < snake_length; ++i){
         if(food.x == body.x && food.y == body.y){
-            food = vec2{randint(0, WIDTH), randint(0, HEIGHT)};
+            food = vec2{randint(0, Game.width), randint(0, Game.height)};
             body = snake;
             i = 0;
         }
@@ -75,52 +78,52 @@ void generate_food(){
 }
 
 void init_game(){
-    memset(snake, 0, WIDTH * HEIGHT * sizeof(vec2));
-    snake[0] = vec2{WIDTH / 2, HEIGHT / 2};
+    memset(snake, 0, Game.width * Game.height * sizeof(vec2));
+    snake[0] = vec2{Game.width / 2, Game.height / 2};
     snake_length = 1;
     last_direction = vec2{0, 0};
     generate_food();
 }
 
 void draw_game(){
-    char screen[WIDTH * HEIGHT];
-    memset(screen, ' ', WIDTH * HEIGHT);
+    char screen[Game.width * Game.height];
+    memset(screen, ' ', Game.width * Game.height);
 
     vec2* body = snake;
 
     // Draw the head of the snake, pointing
     // to where it is heading
     if(last_direction.x > 0)
-        screen[body.x + body.y * WIDTH] = '>';
+        screen[body.x + body.y * Game.width] = '>';
     else if(last_direction.x < 0)
-        screen[body.x + body.y * WIDTH] = '<';
+        screen[body.x + body.y * Game.width] = '<';
     else if(last_direction.y < 0)
-        screen[body.x + body.y * WIDTH] = '^';
+        screen[body.x + body.y * Game.width] = '^';
     else
-        screen[body.x + body.y * WIDTH] = 'v';
+        screen[body.x + body.y * Game.width] = 'v';
     body += sizeof(vec2);
 
     // Put a '@' where every body part of the snake is
     vec2* last_body = snake;
     repeat(snake_length - 1){
         if(body.x - last_body.x)
-            screen[body.x + body.y * WIDTH] = '-';
+            screen[body.x + body.y * Game.width] = '-';
         else
-            screen[body.x + body.y * WIDTH] = '|';
+            screen[body.x + body.y * Game.width] = '|';
         body += sizeof(vec2);
         last_body += sizeof(vec2);
     }
     // Put a 'o' where the food is
-    screen[food.x + food.y * WIDTH] = 'o';
+    screen[food.x + food.y * Game.width] = 'o';
 
     // Draw the screen, line by line
     char* ptr = screen;
-    println("\x1b[2J\x1b[H+%*c+", WIDTH, '=');
-    repeat(HEIGHT){
-        println("|%*s|", WIDTH, ptr);
-        ptr += WIDTH;
+    println("\x1b[2J\x1b[H+%*c+", Game.width, '=');
+    repeat(Game.height){
+        println("|%*s|", Game.width, ptr);
+        ptr += Game.width;
     }
-    println("+%*c+", WIDTH, '=');
+    println("+%*c+", Game.width, '=');
 }
 
 int main(uint argc, char** argv){
@@ -150,7 +153,7 @@ int main(uint argc, char** argv){
         draw_game();
 
         now = time();
-        println("SCORE: %04%APress q to quit.", snake_length, WIDTH - 16);
+        println("SCORE: %04%APress q to quit.", snake_length, Game.width - 16);
         last_frame = now;
 
         // Update the head's direction
@@ -167,7 +170,7 @@ int main(uint argc, char** argv){
         snake.y += last_direction.y;
 
         // Collision check with borders
-        if(snake.x < 0 || snake.x >= WIDTH || snake.y < 0 || snake.y >= HEIGHT)
+        if(snake.x < 0 || snake.x >= Game.width || snake.y < 0 || snake.y >= Game.height)
             gameover = true;
 
         // Collision check with the snake's body

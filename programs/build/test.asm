@@ -188,79 +188,67 @@ print_msg:
 	mov rbp, rsp
 	mov rcx, [rbp+16]
 	mov rbx, [rcx+0]
-	xor rcx, rcx
-	cmp rbx, rcx
-	sete bl
-	test bl, bl
-	je .L1
-	sub rsp, 32
-	mov rbx, STR6
-	mov [rsp+0], rbx
-	mov rcx, [rbp+16]
-	mov rbx, [rcx+0]
-	mov [rsp+8], rbx
-	mov rcx, [rbp+16]
-	lea rcx, [rcx+8]
-	mov rbx, [rcx]
-	mov [rsp+16], rbx
-	call println
-	add rsp, 32
-	jmp .L2
-	.L1:
-	mov rcx, [rbp+16]
-	mov rbx, [rcx+0]
 	mov rcx, 0x1
 	cmp rbx, rcx
 	sete bl
 	test bl, bl
-	je .L3
-	sub rsp, 32
-	mov rbx, STR7
+	je .L1
+	sub rsp, 16
+	mov rbx, STR6
 	mov [rsp+0], rbx
-	mov rcx, [rbp+16]
-	mov rbx, [rcx+0]
-	mov [rsp+8], rbx
 	mov rcx, [rbp+16]
 	lea rcx, [rcx+8]
 	mov rbx, [rcx]
-	mov [rsp+16], rbx
+	mov [rsp+8], rbx
 	call println
-	add rsp, 32
+	add rsp, 16
 	jmp .L2
-	.L3:
+	.L1:
 	mov rcx, [rbp+16]
 	mov rbx, [rcx+0]
 	mov rcx, 0x2
 	cmp rbx, rcx
 	sete bl
 	test bl, bl
-	je .L4
-	sub rsp, 32
-	mov rbx, STR8
+	je .L3
+	sub rsp, 16
+	mov rbx, STR7
 	mov [rsp+0], rbx
 	mov rcx, [rbp+16]
-	mov rbx, [rcx+0]
+	lea rcx, [rcx+8]
+	mov rbx, [rcx]
 	mov [rsp+8], rbx
+	call println
+	add rsp, 16
+	jmp .L2
+	.L3:
+	mov rcx, [rbp+16]
+	mov rbx, [rcx+0]
+	mov rcx, 0x3
+	cmp rbx, rcx
+	sete bl
+	test bl, bl
+	je .L4
+	sub rsp, 16
+	mov rbx, STR8
+	mov [rsp+0], rbx
 	mov rbx, [rbp+16]
 	lea rbx, [rbx+8]
 	fld DWORD [rbx]
-	fstp QWORD [rsp+16]
+	fstp QWORD [rsp+8]
 	call println
-	add rsp, 32
+	add rsp, 16
 	jmp .L2
 	.L4:
-	sub rsp, 32
+	sub rsp, 16
 	mov rbx, STR9
 	mov [rsp+0], rbx
 	mov rcx, [rbp+16]
-	mov rbx, [rcx+0]
-	mov [rsp+8], rbx
-	mov rcx, [rbp+16]
 	lea rcx, [rcx+8]
 	movzx rbx, BYTE [rcx]
-	mov [rsp+16], rbx
+	mov [rsp+8], rbx
 	call println
-	add rsp, 32
+	add rsp, 16
 	.L2:
 	.L0:
 	leave
@@ -344,7 +332,7 @@ main:
 	call print_test
 	add rsp, 32
 	lea rbx, [rsp+0]
-	xor rcx, rcx
+	mov rcx, 0x1
 	mov [rbx+0], rcx
 	lea r8, [rbx+8]
 	mov rcx, STR15

@@ -37,6 +37,7 @@ int main(uint argc, char** argv){
                 // Orb and line connect orb to red sphere
                 DrawLine3D(Vector3{0.5, 0.5, 0.5}, Vector3{2.0, 1.0, 0.0}, GREEN);
                 DrawSphereWires(Vector3{2.0, 1.0, 0.0}, 0.25, 8, 8, DARKGREEN);
+                DrawSphere(Vector3{2.0, 1.0, 0.0}, 0.05, GREEN);
 
                 // 3D Grid
                 DrawGrid(32, 2.0);

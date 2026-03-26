@@ -16,1045 +16,6 @@ _start:
 	mov rdi, [rsp]
 	syscall
 
-global Clamp:function
-Clamp:
-	push rbp
-	mov rbp, rsp
-	fld DWORD [rbp+20]
-	fstp DWORD [rbp+16]
-	fld DWORD [rbp+24]
-	fld DWORD [rbp+20]
-	fcomip
-	fstp st0
-	setb bl
-	test bl, bl
-	je .L1
-	fld DWORD [rbp+24]
-	fstp DWORD [rbp+16]
-	jmp .L2
-	.L1:
-	.L2:
-	fld DWORD [rbp+28]
-	fld DWORD [rbp+20]
-	fcomip
-	fstp st0
-	seta bl
-	test bl, bl
-	je .L3
-	fld DWORD [rbp+28]
-	fstp DWORD [rbp+16]
-	jmp .L4
-	.L3:
-	.L4:
-	.L0:
-	leave
-	ret
-
-global Lerp:function
-Lerp:
-	push rbp
-	mov rbp, rsp
-	fld DWORD [rbp+20]
-	fld DWORD [rbp+28]
-	fld DWORD [rbp+24]
-	fld DWORD [rbp+20]
-	fsubp
-	fmulp
-	faddp
-	fstp DWORD [rbp+16]
-	.L0:
-	leave
-	ret
-
-global Normalize:function
-Normalize:
-	push rbp
-	mov rbp, rsp
-	fld DWORD [rbp+20]
-	fld DWORD [rbp+24]
-	fsubp
-	fld DWORD [rbp+28]
-	fld DWORD [rbp+24]
-	fsubp
-	fdivp
-	fstp DWORD [rbp+16]
-	.L0:
-	leave
-	ret
-
-global Remap:function
-Remap:
-	push rbp
-	mov rbp, rsp
-	fld DWORD [rbp+20]
-	fld DWORD [rbp+24]
-	fsubp
-	fld DWORD [rbp+28]
-	fld DWORD [rbp+24]
-	fsubp
-	fdivp
-	fld DWORD [rbp+36]
-	fld DWORD [rbp+32]
-	fsubp
-	fmulp
-	fld DWORD [rbp+32]
-	faddp
-	fstp DWORD [rbp+16]
-	.L0:
-	leave
-	ret
-
-global Wrap:function
-Wrap:
-	push rbp
-	mov rbp, rsp
-	fld DWORD [rbp+20]
-	fld DWORD [rbp+28]
-	fld DWORD [rbp+24]
-	fsubp
-	sub rsp, 16
-	fld DWORD [rbp+20]
-	fld DWORD [rbp+24]
-	fsubp
-	fld DWORD [rbp+28]
-	fld DWORD [rbp+24]
-	fsubp
-	fdivp
-	fstp DWORD [__FP_TMP]
-	movss xmm0, DWORD [__FP_TMP+0]
-	call floorf
-	movss DWORD [rsp+0], xmm0
-	fld DWORD [rsp+0]
-	add rsp, 16
-	fmulp
-	fsubp
-	fstp DWORD [rbp+16]
-	.L0:
-	leave
-	ret
-
-global Vector2Add:function
-Vector2Add:
-	push rbp
-	mov rbp, rsp
-	mov rbx, [rbp+16]
-	fld DWORD [rbp+24]
-	fld DWORD [rbp+32]
-	faddp
-	fstp DWORD [rbx+0]
-	mov rbx, [rbp+16]
-	fld DWORD [rbp+28]
-	fld DWORD [rbp+36]
-	faddp
-	fstp DWORD [rbx+4]
-	.L0:
-	leave
-	ret
-
-global Vector2AddValue:function
-Vector2AddValue:
-	push rbp
-	mov rbp, rsp
-	mov rbx, [rbp+16]
-	fld DWORD [rbp+24]
-	fld DWORD [rbp+32]
-	faddp
-	fstp DWORD [rbx+0]
-	mov rbx, [rbp+16]
-	fld DWORD [rbp+28]
-	fld DWORD [rbp+32]
-	faddp
-	fstp DWORD [rbx+4]
-	.L0:
-	leave
-	ret
-
-global Vector2Subtract:function
-Vector2Subtract:
-	push rbp
-	mov rbp, rsp
-	mov rbx, [rbp+16]
-	fld DWORD [rbp+24]
-	fld DWORD [rbp+32]
-	fsubp
-	fstp DWORD [rbx+0]
-	mov rbx, [rbp+16]
-	fld DWORD [rbp+28]
-	fld DWORD [rbp+36]
-	fsubp
-	fstp DWORD [rbx+4]
-	.L0:
-	leave
-	ret
-
-global Vector2SubtractValue:function
-Vector2SubtractValue:
-	push rbp
-	mov rbp, rsp
-	mov rbx, [rbp+16]
-	fld DWORD [rbp+24]
-	fld DWORD [rbp+32]
-	fsubp
-	fstp DWORD [rbx+0]
-	mov rbx, [rbp+16]
-	fld DWORD [rbp+28]
-	fld DWORD [rbp+32]
-	fsubp
-	fstp DWORD [rbx+4]
-	.L0:
-	leave
-	ret
-
-global Vector2Length:function
-Vector2Length:
-	push rbp
-	mov rbp, rsp
-	sub rsp, 16
-	fld DWORD [rbp+24]
-	fstp QWORD [__FP_TMP]
-	movsd xmm1, QWORD [__FP_TMP+0]
-	fld DWORD [rbp+20]
-	fstp QWORD [__FP_TMP]
-	movsd xmm0, QWORD [__FP_TMP+0]
-	call hypot
-	movsd QWORD [rsp+0], xmm0
-	fld QWORD [rsp+0]
-	add rsp, 16
-	fstp DWORD [rbp+16]
-	.L0:
-	leave
-	ret
-
-global Vector2LengthSqr:function
-Vector2LengthSqr:
-	push rbp
-	mov rbp, rsp
-	fld DWORD [rbp+20]
-	fld DWORD [rbp+20]
-	fmulp
-	fld DWORD [rbp+24]
-	fld DWORD [rbp+24]
-	fmulp
-	faddp
-	fstp DWORD [rbp+16]
-	.L0:
-	leave
-	ret
-
-global Vector2DotProduct:function
-Vector2DotProduct:
-	push rbp
-	mov rbp, rsp
-	fld DWORD [rbp+20]
-	fld DWORD [rbp+28]
-	fmulp
-	fld DWORD [rbp+24]
-	fld DWORD [rbp+32]
-	fmulp
-	faddp
-	fstp DWORD [rbp+16]
-	.L0:
-	leave
-	ret
-
-global Vector2Distance:function
-Vector2Distance:
-	push rbp
-	mov rbp, rsp
-	sub rsp, 16
-	fld DWORD [rbp+24]
-	fld DWORD [rbp+32]
-	fsubp
-	fstp QWORD [__FP_TMP]
-	movsd xmm1, QWORD [__FP_TMP+0]
-	fld DWORD [rbp+20]
-	fld DWORD [rbp+28]
-	fsubp
-	fstp QWORD [__FP_TMP]
-	movsd xmm0, QWORD [__FP_TMP+0]
-	call hypot
-	movsd QWORD [rsp+0], xmm0
-	fld QWORD [rsp+0]
-	add rsp, 16
-	fstp DWORD [rbp+16]
-	.L0:
-	leave
-	ret
-
-global Vector2DistanceSqr:function
-Vector2DistanceSqr:
-	push rbp
-	mov rbp, rsp
-	sub rsp, 16
-	fld DWORD [rbp+20]
-	fld DWORD [rbp+28]
-	fsubp
-	fstp DWORD [rsp+12]
-	fld DWORD [rbp+24]
-	fld DWORD [rbp+32]
-	fsubp
-	fstp DWORD [rsp+8]
-	fld DWORD [rsp+12]
-	fld DWORD [rsp+12]
-	fmulp
-	fld DWORD [rsp+8]
-	fld DWORD [rsp+8]
-	fmulp
-	faddp
-	fstp DWORD [rbp+16]
-	.L0:
-	leave
-	ret
-
-global Vector2Angle:function
-Vector2Angle:
-	push rbp
-	mov rbp, rsp
-	sub rsp, 16
-	fld DWORD [rbp+20]
-	fld DWORD [rbp+28]
-	fmulp
-	fld DWORD [rbp+24]
-	fld DWORD [rbp+32]
-	fmulp
-	faddp
-	fstp DWORD [rsp+12]
-	fld DWORD [rbp+20]
-	fld DWORD [rbp+32]
-	fmulp
-	fld DWORD [rbp+24]
-	fld DWORD [rbp+28]
-	fmulp
-	fsubp
-	fstp DWORD [rsp+8]
-	sub rsp, 16
-	fld DWORD [rsp+28]
-	fstp DWORD [__FP_TMP]
-	movss xmm1, DWORD [__FP_TMP+0]
-	fld DWORD [rsp+24]
-	fstp DWORD [__FP_TMP]
-	movss xmm0, DWORD [__FP_TMP+0]
-	call atan2f
-	movss DWORD [rsp+0], xmm0
-	fld DWORD [rsp+0]
-	add rsp, 16
-	fstp DWORD [rbp+16]
-	.L0:
-	leave
-	ret
-
-global Vector2LineAngle:function
-Vector2LineAngle:
-	push rbp
-	mov rbp, rsp
-	sub rsp, 16
-	fld DWORD [rbp+28]
-	fld DWORD [rbp+20]
-	fsubp
-	fstp DWORD [__FP_TMP]
-	movss xmm1, DWORD [__FP_TMP+0]
-	fld DWORD [rbp+32]
-	fld DWORD [rbp+24]
-	fsubp
-	fstp DWORD [__FP_TMP]
-	movss xmm0, DWORD [__FP_TMP+0]
-	call atan2f
-	movss DWORD [rsp+0], xmm0
-	fld DWORD [rsp+0]
-	add rsp, 16
-	fchs
-	fstp DWORD [rbp+16]
-	.L0:
-	leave
-	ret
-
-global Vector2Scale:function
-Vector2Scale:
-	push rbp
-	mov rbp, rsp
-	mov rbx, [rbp+16]
-	fld DWORD [rbp+24]
-	fld DWORD [rbp+32]
-	fmulp
-	fstp DWORD [rbx+0]
-	mov rbx, [rbp+16]
-	fld DWORD [rbp+28]
-	fld DWORD [rbp+32]
-	fmulp
-	fstp DWORD [rbx+4]
-	.L0:
-	leave
-	ret
-
-global Vector2Multiply:function
-Vector2Multiply:
-	push rbp
-	mov rbp, rsp
-	mov rbx, [rbp+16]
-	fld DWORD [rbp+24]
-	fld DWORD [rbp+32]
-	fmulp
-	fstp DWORD [rbx+0]
-	mov rbx, [rbp+16]
-	fld DWORD [rbp+28]
-	fld DWORD [rbp+36]
-	fmulp
-	fstp DWORD [rbx+4]
-	.L0:
-	leave
-	ret
-
-global Vector2Negate:function
-Vector2Negate:
-	push rbp
-	mov rbp, rsp
-	mov rbx, [rbp+16]
-	fld DWORD [rbp+24]
-	fchs
-	fstp DWORD [rbx+0]
-	mov rbx, [rbp+16]
-	fld DWORD [rbp+28]
-	fchs
-	fstp DWORD [rbx+4]
-	.L0:
-	leave
-	ret
-
-global Vector2Divide:function
-Vector2Divide:
-	push rbp
-	mov rbp, rsp
-	mov rbx, [rbp+16]
-	fld DWORD [rbp+24]
-	fld DWORD [rbp+32]
-	fdivp
-	fstp DWORD [rbx+0]
-	mov rbx, [rbp+16]
-	fld DWORD [rbp+28]
-	fld DWORD [rbp+36]
-	fdivp
-	fstp DWORD [rbx+4]
-	.L0:
-	leave
-	ret
-
-global Vector2Normalize:function
-Vector2Normalize:
-	push rbp
-	mov rbp, rsp
-	sub rsp, 16
-	mov rbx, [rbp+16]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+0]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+4]
-	sub rsp, 16
-	fld DWORD [rbp+28]
-	fstp QWORD [__FP_TMP]
-	movsd xmm1, QWORD [__FP_TMP+0]
-	fld DWORD [rbp+24]
-	fstp QWORD [__FP_TMP]
-	movsd xmm0, QWORD [__FP_TMP+0]
-	call hypot
-	movsd QWORD [rsp+0], xmm0
-	fld QWORD [rsp+0]
-	add rsp, 16
-	fstp DWORD [rsp+12]
-	fld QWORD [FP0]
-	fld DWORD [rsp+12]
-	fcomip
-	fstp st0
-	seta bl
-	test bl, bl
-	je .L1
-	sub rsp, 16
-	fld QWORD [FP1]
-	fld DWORD [rsp+28]
-	fdivp
-	fstp DWORD [rsp+12]
-	mov rbx, [rbp+16]
-	fld DWORD [rbp+24]
-	fld DWORD [rsp+12]
-	fmulp
-	fstp DWORD [rbx+0]
-	mov rbx, [rbp+16]
-	fld DWORD [rbp+28]
-	fld DWORD [rsp+12]
-	fmulp
-	fstp DWORD [rbx+4]
-	add rsp, 16
-	jmp .L2
-	.L1:
-	.L2:
-	.L0:
-	leave
-	ret
-
-global Vector2Transform:function
-Vector2Transform:
-	push rbp
-	mov rbp, rsp
-	sub rsp, 16
-	fld DWORD [rbp+24]
-	fstp DWORD [rsp+12]
-	fld DWORD [rbp+28]
-	fstp DWORD [rsp+8]
-	mov rbx, [rbp+16]
-	lea rcx, [rbp+32]
-	xor rsi, rsi
-	fld DWORD [rcx+rsi*4]
-	fld DWORD [rsp+12]
-	fmulp
-	lea rcx, [rbp+32]
-	mov rsi, 0x1
-	fld DWORD [rcx+rsi*4]
-	fld DWORD [rsp+8]
-	fmulp
-	faddp
-	lea rcx, [rbp+32]
-	mov rsi, 0x3
-	fld DWORD [rcx+rsi*4]
-	faddp
-	fstp DWORD [rbx+0]
-	mov rbx, [rbp+16]
-	lea rcx, [rbp+32]
-	mov rsi, 0x4
-	fld DWORD [rcx+rsi*4]
-	fld DWORD [rsp+12]
-	fmulp
-	lea rcx, [rbp+32]
-	mov rsi, 0x5
-	fld DWORD [rcx+rsi*4]
-	fld DWORD [rsp+8]
-	fmulp
-	faddp
-	lea rcx, [rbp+32]
-	mov rsi, 0x7
-	fld DWORD [rcx+rsi*4]
-	faddp
-	fstp DWORD [rbx+4]
-	.L0:
-	leave
-	ret
-
-global Vector2Lerp:function
-Vector2Lerp:
-	push rbp
-	mov rbp, rsp
-	mov rbx, [rbp+16]
-	fld DWORD [rbp+24]
-	fld DWORD [rbp+40]
-	fld DWORD [rbp+32]
-	fld DWORD [rbp+24]
-	fsubp
-	fmulp
-	faddp
-	fstp DWORD [rbx+0]
-	mov rbx, [rbp+16]
-	fld DWORD [rbp+28]
-	fld DWORD [rbp+40]
-	fld DWORD [rbp+36]
-	fld DWORD [rbp+28]
-	fsubp
-	fmulp
-	faddp
-	fstp DWORD [rbx+4]
-	.L0:
-	leave
-	ret
-
-global Vector2Reflect:function
-Vector2Reflect:
-	push rbp
-	mov rbp, rsp
-	sub rsp, 16
-	fld DWORD [rbp+24]
-	fld DWORD [rbp+32]
-	fmulp
-	fld DWORD [rbp+28]
-	fld DWORD [rbp+36]
-	fmulp
-	faddp
-	fstp DWORD [rsp+12]
-	mov rbx, [rbp+16]
-	fld DWORD [rbp+24]
-	fld QWORD [FP2]
-	fld DWORD [rbp+32]
-	fmulp
-	fld DWORD [rsp+12]
-	fmulp
-	fsubp
-	fstp DWORD [rbx+0]
-	mov rbx, [rbp+16]
-	fld DWORD [rbp+28]
-	fld QWORD [FP2]
-	fld DWORD [rbp+36]
-	fmulp
-	fld DWORD [rsp+12]
-	fmulp
-	fsubp
-	fstp DWORD [rbx+4]
-	.L0:
-	leave
-	ret
-
-global Vector2Min:function
-Vector2Min:
-	push rbp
-	mov rbp, rsp
-	mov rbx, [rbp+16]
-	sub rsp, 16
-	mov [rsp+0], rbx
-	fld DWORD [rbp+32]
-	fstp DWORD [__FP_TMP]
-	movss xmm1, DWORD [__FP_TMP+0]
-	fld DWORD [rbp+24]
-	fstp DWORD [__FP_TMP]
-	movss xmm0, DWORD [__FP_TMP+0]
-	call fminf
-	movss DWORD [rsp+0], xmm0
-	mov rbx, [rsp+0]
-	fld DWORD [rsp+0]
-	add rsp, 16
-	fstp DWORD [rbx+0]
-	mov rbx, [rbp+16]
-	sub rsp, 16
-	mov [rsp+0], rbx
-	fld DWORD [rbp+36]
-	fstp DWORD [__FP_TMP]
-	movss xmm1, DWORD [__FP_TMP+0]
-	fld DWORD [rbp+28]
-	fstp DWORD [__FP_TMP]
-	movss xmm0, DWORD [__FP_TMP+0]
-	call fminf
-	movss DWORD [rsp+0], xmm0
-	mov rbx, [rsp+0]
-	fld DWORD [rsp+0]
-	add rsp, 16
-	fstp DWORD [rbx+4]
-	.L0:
-	leave
-	ret
-
-global Vector2Max:function
-Vector2Max:
-	push rbp
-	mov rbp, rsp
-	mov rbx, [rbp+16]
-	sub rsp, 16
-	mov [rsp+0], rbx
-	fld DWORD [rbp+32]
-	fstp DWORD [__FP_TMP]
-	movss xmm1, DWORD [__FP_TMP+0]
-	fld DWORD [rbp+24]
-	fstp DWORD [__FP_TMP]
-	movss xmm0, DWORD [__FP_TMP+0]
-	call fmaxf
-	movss DWORD [rsp+0], xmm0
-	mov rbx, [rsp+0]
-	fld DWORD [rsp+0]
-	add rsp, 16
-	fstp DWORD [rbx+0]
-	mov rbx, [rbp+16]
-	sub rsp, 16
-	mov [rsp+0], rbx
-	fld DWORD [rbp+36]
-	fstp DWORD [__FP_TMP]
-	movss xmm1, DWORD [__FP_TMP+0]
-	fld DWORD [rbp+28]
-	fstp DWORD [__FP_TMP]
-	movss xmm0, DWORD [__FP_TMP+0]
-	call fmaxf
-	movss DWORD [rsp+0], xmm0
-	mov rbx, [rsp+0]
-	fld DWORD [rsp+0]
-	add rsp, 16
-	fstp DWORD [rbx+4]
-	.L0:
-	leave
-	ret
-
-global Vector2Rotate:function
-Vector2Rotate:
-	push rbp
-	mov rbp, rsp
-	sub rsp, 16
-	sub rsp, 16
-	fld DWORD [rbp+32]
-	fstp DWORD [__FP_TMP]
-	movss xmm0, DWORD [__FP_TMP+0]
-	call cosf
-	movss DWORD [rsp+0], xmm0
-	fld DWORD [rsp+0]
-	add rsp, 16
-	fstp DWORD [rsp+12]
-	sub rsp, 16
-	fld DWORD [rbp+32]
-	fstp DWORD [__FP_TMP]
-	movss xmm0, DWORD [__FP_TMP+0]
-	call sinf
-	movss DWORD [rsp+0], xmm0
-	fld DWORD [rsp+0]
-	add rsp, 16
-	fstp DWORD [rsp+8]
-	mov rbx, [rbp+16]
-	fld DWORD [rbp+24]
-	fld DWORD [rsp+12]
-	fmulp
-	fld DWORD [rbp+28]
-	fld DWORD [rsp+8]
-	fmulp
-	fsubp
-	fstp DWORD [rbx+0]
-	mov rbx, [rbp+16]
-	fld DWORD [rbp+24]
-	fld DWORD [rsp+8]
-	fmulp
-	fld DWORD [rbp+28]
-	fld DWORD [rsp+12]
-	fmulp
-	faddp
-	fstp DWORD [rbx+4]
-	.L0:
-	leave
-	ret
-
-global Vector2MoveTowards:function
-Vector2MoveTowards:
-	push rbp
-	mov rbp, rsp
-	sub rsp, 16
-	fld DWORD [rbp+32]
-	fld DWORD [rbp+24]
-	fsubp
-	fstp DWORD [rsp+12]
-	fld DWORD [rbp+36]
-	fld DWORD [rbp+28]
-	fsubp
-	fstp DWORD [rsp+8]
-	sub rsp, 16
-	fld DWORD [rsp+24]
-	fstp QWORD [__FP_TMP]
-	movsd xmm1, QWORD [__FP_TMP+0]
-	fld DWORD [rsp+28]
-	fstp QWORD [__FP_TMP]
-	movsd xmm0, QWORD [__FP_TMP+0]
-	call hypot
-	movsd QWORD [rsp+0], xmm0
-	fld QWORD [rsp+0]
-	add rsp, 16
-	fstp DWORD [rsp+4]
-	fld QWORD [FP0]
-	fld DWORD [rsp+4]
-	fcomip
-	fstp st0
-	sete bl
-	test bl, bl
-	jne .L3
-	fld QWORD [FP0]
-	fld DWORD [rbp+40]
-	fcomip
-	fstp st0
-	setae bl
-	test bl, bl
-	je .L4
-	fld DWORD [rbp+40]
-	fld DWORD [rsp+4]
-	fcomip
-	fstp st0
-	setbe bl
-	.L4:
-	.L3:
-	test bl, bl
-	je .L1
-	mov rbx, [rbp+16]
-	test rbx, rbx
-	je .L0
-	mov rdi, [rbp+16]
-	mov [rbx], rdi
-	jmp .L0
-	jmp .L2
-	.L1:
-	.L2:
-	mov rbx, [rbp+16]
-	fld DWORD [rbp+24]
-	fld DWORD [rsp+12]
-	fld DWORD [rsp+4]
-	fdivp
-	fld DWORD [rbp+40]
-	fmulp
-	faddp
-	fstp DWORD [rbx+0]
-	mov rbx, [rbp+16]
-	fld DWORD [rbp+28]
-	fld DWORD [rsp+8]
-	fld DWORD [rsp+4]
-	fdivp
-	fld DWORD [rbp+40]
-	fmulp
-	faddp
-	fstp DWORD [rbx+4]
-	.L0:
-	leave
-	ret
-
-global Vector2Invert:function
-Vector2Invert:
-	push rbp
-	mov rbp, rsp
-	fld QWORD [FP1]
-	fld DWORD [rbp+24]
-	fdivp
-	fisttp QWORD [__FP_TMP]
-	mov rbx, QWORD [__FP_TMP]
-	mov [rbp+16], rbx
-	fld QWORD [FP1]
-	fld DWORD [rbp+28]
-	fdivp
-	fisttp QWORD [__FP_TMP]
-	mov rbx, QWORD [__FP_TMP]
-	mov [rbp+16], rbx
-	.L0:
-	leave
-	ret
-
-global Vector2Clamp:function
-Vector2Clamp:
-	push rbp
-	mov rbp, rsp
-	mov rbx, [rbp+16]
-	sub rsp, 16
-	mov [rsp+0], rbx
-	sub rsp, 16
-	fld DWORD [rbp+24]
-	fstp DWORD [__FP_TMP]
-	movss xmm1, DWORD [__FP_TMP+0]
-	fld DWORD [rbp+32]
-	fstp DWORD [__FP_TMP]
-	movss xmm0, DWORD [__FP_TMP+0]
-	call fmaxf
-	movss DWORD [rsp+0], xmm0
-	fld DWORD [rsp+0]
-	add rsp, 16
-	fstp DWORD [__FP_TMP]
-	movss xmm1, DWORD [__FP_TMP+0]
-	fld DWORD [rbp+40]
-	fstp DWORD [__FP_TMP]
-	movss xmm0, DWORD [__FP_TMP+0]
-	call fminf
-	movss DWORD [rsp+0], xmm0
-	mov rbx, [rsp+0]
-	fld DWORD [rsp+0]
-	add rsp, 16
-	fstp DWORD [rbx+0]
-	mov rbx, [rbp+16]
-	sub rsp, 16
-	mov [rsp+0], rbx
-	sub rsp, 16
-	fld DWORD [rbp+28]
-	fstp DWORD [__FP_TMP]
-	movss xmm1, DWORD [__FP_TMP+0]
-	fld DWORD [rbp+36]
-	fstp DWORD [__FP_TMP]
-	movss xmm0, DWORD [__FP_TMP+0]
-	call fmaxf
-	movss DWORD [rsp+0], xmm0
-	fld DWORD [rsp+0]
-	add rsp, 16
-	fstp DWORD [__FP_TMP]
-	movss xmm1, DWORD [__FP_TMP+0]
-	fld DWORD [rbp+44]
-	fstp DWORD [__FP_TMP]
-	movss xmm0, DWORD [__FP_TMP+0]
-	call fminf
-	movss DWORD [rsp+0], xmm0
-	mov rbx, [rsp+0]
-	fld DWORD [rsp+0]
-	add rsp, 16
-	fstp DWORD [rbx+4]
-	.L0:
-	leave
-	ret
-
-global Vector2ClampValue:function
-Vector2ClampValue:
-	push rbp
-	mov rbp, rsp
-	sub rsp, 16
-	sub rsp, 16
-	fld DWORD [rbp+28]
-	fstp QWORD [__FP_TMP]
-	movsd xmm1, QWORD [__FP_TMP+0]
-	fld DWORD [rbp+24]
-	fstp QWORD [__FP_TMP]
-	movsd xmm0, QWORD [__FP_TMP+0]
-	call hypot
-	movsd QWORD [rsp+0], xmm0
-	fld QWORD [rsp+0]
-	add rsp, 16
-	fstp DWORD [rsp+12]
-	fld QWORD [FP0]
-	fld DWORD [rsp+12]
-	fcomip
-	fstp st0
-	seta bl
-	test bl, bl
-	je .L1
-	sub rsp, 16
-	fld QWORD [FP1]
-	fstp DWORD [rsp+12]
-	fld DWORD [rbp+32]
-	fld DWORD [rsp+28]
-	fcomip
-	fstp st0
-	setb bl
-	test bl, bl
-	je .L3
-	fld DWORD [rbp+32]
-	fld DWORD [rsp+28]
-	fdivp
-	fstp DWORD [rsp+12]
-	jmp .L4
-	.L3:
-	fld DWORD [rbp+36]
-	fld DWORD [rsp+28]
-	fcomip
-	fstp st0
-	seta bl
-	test bl, bl
-	je .L5
-	fld DWORD [rbp+36]
-	fld DWORD [rsp+28]
-	fdivp
-	fstp DWORD [rsp+12]
-	jmp .L4
-	.L5:
-	.L4:
-	mov rbx, [rbp+16]
-	fld DWORD [rbp+24]
-	fld DWORD [rsp+12]
-	fmulp
-	fstp DWORD [rbx+0]
-	mov rbx, [rbp+16]
-	fld DWORD [rbp+28]
-	fld DWORD [rsp+12]
-	fmulp
-	fstp DWORD [rbx+4]
-	add rsp, 16
-	jmp .L2
-	.L1:
-	.L2:
-	.L0:
-	leave
-	ret
-
-global Vector2Equals:function
-Vector2Equals:
-	push rbp
-	mov rbp, rsp
-	fld DWORD [rbp+28]
-	fld DWORD [rbp+20]
-	fsubp
-	fabs
-	fld QWORD [FP_PRECISION]
-	fcomip
-	fstp st0
-	setae bl
-	test bl, bl
-	je .L1
-	fld DWORD [rbp+32]
-	fld DWORD [rbp+24]
-	fsubp
-	fabs
-	fld QWORD [FP_PRECISION]
-	fcomip
-	fstp st0
-	setae bl
-	.L1:
-	mov [rbp+16], bl
-	.L0:
-	leave
-	ret
-
-global Vector2Refract:function
-Vector2Refract:
-	push rbp
-	mov rbp, rsp
-	sub rsp, 16
-	mov rbx, [rbp+16]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+0]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+4]
-	fld DWORD [rbp+24]
-	fld DWORD [rbp+32]
-	fmulp
-	fld DWORD [rbp+28]
-	fld DWORD [rbp+36]
-	fmulp
-	faddp
-	fstp DWORD [rsp+12]
-	fld QWORD [FP1]
-	fld DWORD [rbp+40]
-	fld DWORD [rbp+40]
-	fmulp
-	fld QWORD [FP1]
-	fld DWORD [rsp+12]
-	fld DWORD [rsp+12]
-	fmulp
-	fsubp
-	fmulp
-	fsubp
-	fstp DWORD [rsp+8]
-	fld QWORD [FP0]
-	fld DWORD [rsp+8]
-	fcomip
-	fstp st0
-	setae bl
-	test bl, bl
-	je .L1
-	sub rsp, 16
-	fld DWORD [rsp+24]
-	fstp QWORD [__FP_TMP]
-	movsd xmm0, QWORD [__FP_TMP+0]
-	call sqrtf
-	movss DWORD [rsp+0], xmm0
-	fld DWORD [rsp+0]
-	add rsp, 16
-	fstp DWORD [rsp+8]
-	mov rbx, [rbp+16]
-	fld DWORD [rbp+40]
-	fld DWORD [rbp+24]
-	fmulp
-	fld DWORD [rbp+40]
-	fld DWORD [rsp+12]
-	fmulp
-	fld DWORD [rsp+8]
-	faddp
-	fld DWORD [rbp+32]
-	fmulp
-	fsubp
-	fstp DWORD [rbx+0]
-	mov rbx, [rbp+16]
-	fld DWORD [rbp+40]
-	fld DWORD [rbp+28]
-	fmulp
-	fld DWORD [rbp+40]
-	fld DWORD [rsp+12]
-	fmulp
-	fld DWORD [rsp+8]
-	faddp
-	fld DWORD [rbp+36]
-	fmulp
-	fsubp
-	fstp DWORD [rbx+4]
-	jmp .L2
-	.L1:
-	.L2:
-	.L0:
-	leave
-	ret
-
 global main:function
 main:
 	push rbp
@@ -1070,7 +31,7 @@ main:
 	lea r8, [rbx+0]
 	fld QWORD [FP0]
 	fstp DWORD [r8+0]
-	fld QWORD [FP3]
+	fld QWORD [FP1]
 	fstp DWORD [r8+4]
 	mov DWORD [__FP_TMP], 0xc0a00000
 	fld DWORD [__FP_TMP]
@@ -1085,11 +46,11 @@ main:
 	lea r8, [rbx+24]
 	fld QWORD [FP0]
 	fstp DWORD [r8+0]
-	fld QWORD [FP1]
+	fld QWORD [FP2]
 	fstp DWORD [r8+4]
 	fld QWORD [FP0]
 	fstp DWORD [r8+8]
-	fld QWORD [FP4]
+	fld QWORD [FP3]
 	fstp DWORD [rbx+36]
 	xor ecx, ecx
 	mov [rbx+40], ecx
@@ -1139,13 +100,13 @@ main:
 	mov cl, 0xff
 	mov [rbx+3], cl
 	mov rdi, QWORD [__GP_TMP+0]
-	fld QWORD [FP1]
+	fld QWORD [FP2]
 	fstp DWORD [__FP_TMP]
 	movss xmm4, DWORD [__FP_TMP+0]
-	fld QWORD [FP1]
+	fld QWORD [FP2]
 	fstp DWORD [__FP_TMP]
 	movss xmm3, DWORD [__FP_TMP+0]
-	fld QWORD [FP1]
+	fld QWORD [FP2]
 	fstp DWORD [__FP_TMP]
 	movss xmm2, DWORD [__FP_TMP+0]
 	lea rbx, [__GP_TMP]
@@ -1168,15 +129,15 @@ main:
 	mov cl, 0xff
 	mov [rbx+3], cl
 	mov rdi, QWORD [__GP_TMP+0]
-	fld QWORD [FP5]
+	fld QWORD [FP4]
 	fstp DWORD [__FP_TMP]
 	movss xmm2, DWORD [__FP_TMP+0]
 	lea rbx, [__GP_TMP]
-	fld QWORD [FP6]
+	fld QWORD [FP5]
 	fstp DWORD [rbx+0]
-	fld QWORD [FP6]
+	fld QWORD [FP5]
 	fstp DWORD [rbx+4]
-	fld QWORD [FP6]
+	fld QWORD [FP5]
 	fstp DWORD [rbx+8]
 	movsd xmm1, QWORD [__GP_TMP+8]
 	movsd xmm0, QWORD [__GP_TMP+0]
@@ -1192,17 +153,17 @@ main:
 	mov [rbx+3], cl
 	mov rsi, QWORD [__GP_TMP+0]
 	mov rdi, 0x10
-	fld QWORD [FP1]
+	fld QWORD [FP2]
 	fstp DWORD [__FP_TMP]
 	movss xmm4, DWORD [__FP_TMP+0]
-	fld QWORD [FP6]
+	fld QWORD [FP5]
 	fstp DWORD [__FP_TMP]
 	movss xmm3, DWORD [__FP_TMP+0]
-	fld QWORD [FP5]
+	fld QWORD [FP4]
 	fstp DWORD [__FP_TMP]
 	movss xmm2, DWORD [__FP_TMP+0]
 	lea rbx, [__GP_TMP]
-	fld QWORD [FP2]
+	fld QWORD [FP6]
 	fstp DWORD [rbx+0]
 	mov DWORD [__FP_TMP], 0xbf000000
 	fld DWORD [__FP_TMP]
@@ -1223,20 +184,20 @@ main:
 	mov [rbx+3], cl
 	mov rdi, QWORD [__GP_TMP+0]
 	lea rbx, [__GP_TMP]
-	fld QWORD [FP2]
+	fld QWORD [FP6]
 	fstp DWORD [rbx+0]
-	fld QWORD [FP1]
+	fld QWORD [FP2]
 	fstp DWORD [rbx+4]
 	fld QWORD [FP0]
 	fstp DWORD [rbx+8]
 	movsd xmm3, QWORD [__GP_TMP+8]
 	movsd xmm2, QWORD [__GP_TMP+0]
 	lea rbx, [__GP_TMP]
-	fld QWORD [FP6]
+	fld QWORD [FP5]
 	fstp DWORD [rbx+0]
-	fld QWORD [FP6]
+	fld QWORD [FP5]
 	fstp DWORD [rbx+4]
-	fld QWORD [FP6]
+	fld QWORD [FP5]
 	fstp DWORD [rbx+8]
 	movsd xmm1, QWORD [__GP_TMP+8]
 	movsd xmm0, QWORD [__GP_TMP+0]
@@ -1253,20 +214,43 @@ main:
 	mov rdx, QWORD [__GP_TMP+0]
 	mov rsi, 0x8
 	mov rdi, 0x8
-	fld QWORD [FP5]
+	fld QWORD [FP4]
 	fstp DWORD [__FP_TMP]
 	movss xmm2, DWORD [__FP_TMP+0]
 	lea rbx, [__GP_TMP]
-	fld QWORD [FP2]
+	fld QWORD [FP6]
 	fstp DWORD [rbx+0]
-	fld QWORD [FP1]
+	fld QWORD [FP2]
 	fstp DWORD [rbx+4]
 	fld QWORD [FP0]
 	fstp DWORD [rbx+8]
 	movsd xmm1, QWORD [__GP_TMP+8]
 	movsd xmm0, QWORD [__GP_TMP+0]
 	call DrawSphereWires
+	lea rbx, [__GP_TMP]
+	xor cl, cl
+	mov [rbx+0], cl
+	mov cl, 0xe4
+	mov [rbx+1], cl
+	mov cl, 0x30
+	mov [rbx+2], cl
+	mov cl, 0xff
+	mov [rbx+3], cl
+	mov rdi, QWORD [__GP_TMP+0]
+	fld QWORD [FP7]
+	fstp DWORD [__FP_TMP]
+	movss xmm2, DWORD [__FP_TMP+0]
+	lea rbx, [__GP_TMP]
+	fld QWORD [FP6]
+	fstp DWORD [rbx+0]
 	fld QWORD [FP2]
+	fstp DWORD [rbx+4]
+	fld QWORD [FP0]
+	fstp DWORD [rbx+8]
+	movsd xmm1, QWORD [__GP_TMP+8]
+	movsd xmm0, QWORD [__GP_TMP+0]
+	call DrawSphere
+	fld QWORD [FP6]
 	fstp DWORD [__FP_TMP]
 	movss xmm0, DWORD [__FP_TMP+0]
 	mov rdi, 0x20
@@ -1302,6 +286,7 @@ main:
 extern IsMaterialValid:function
 extern putc:function
 extern SetWindowOpacity:function
+extern Vector2Invert:function
 extern DrawRing:function
 extern ImageCopy:function
 extern IsWindowHidden:function
@@ -1333,20 +318,24 @@ extern UnloadImage:function
 extern GenMeshCube:function
 extern GetSplinePointBasis:function
 extern ImageDrawTriangle:function
+extern Vector2Length:function
 extern SetAudioStreamPan:function
 extern sin:function
 extern cbrt:function
 extern GetCurrentMonitor:function
 extern ExportDataAsCode:function
+extern Vector2AddValue:function
 extern puts:function
 extern copysign:function
 extern IsGamepadButtonReleased:function
 extern IsGamepadButtonUp:function
 extern GenMeshCone:function
+extern Vector2DotProduct:function
 extern GetRayCollisionTriangle:function
 extern CheckCollisionCircles:function
 extern IsImageValid:function
 extern GetMusicTimePlayed:function
+extern Vector2ClampValue:function
 extern fminf:function
 extern LoadVrStereoConfig:function
 extern DrawPixel:function
@@ -1369,6 +358,7 @@ extern DrawText:function
 extern DrawBillboardRec:function
 extern IsAudioDeviceReady:function
 extern LoadWave:function
+extern Lerp:function
 extern log2:function
 extern SaveFileText:function
 extern ToggleFullscreen:function
@@ -1384,6 +374,7 @@ extern rename:function
 extern DrawSplineBezierQuadratic:function
 extern DrawRectangleGradientH:function
 extern DrawTriangleFan:function
+extern Vector2Negate:function
 extern hypotf:function
 extern IsWindowMinimized:function
 extern TextInsert:function
@@ -1420,6 +411,7 @@ extern acos:function
 extern SetWindowTitle:function
 extern GetFileNameWithoutExt:function
 extern DrawModelWiresEx:function
+extern Vector2DistanceSqr:function
 extern DrawRectangleGradientV:function
 extern PauseSound:function
 extern fflush:function
@@ -1431,22 +423,27 @@ extern atanf:function
 extern MemAlloc:function
 extern IsFileDropped:function
 extern ColorAlphaBlend:function
+extern Vector2SubtractValue:function
 extern DrawSplineBasis:function
 extern CheckCollisionBoxes:function
 extern GetGestureHoldDuration:function
+extern Vector2Refract:function
 extern GetWindowPosition:function
 extern ColorToInt:function
 extern SetSoundPitch:function
+extern Vector2Scale:function
 extern fseek:function
 extern CheckCollisionPointRec:function
 extern UpdateTextureRec:function
 extern TextFormat:function
 extern WaveCopy:function
 extern IsAudioStreamPlaying:function
+extern Vector2Add:function
 extern SetExitKey:function
 extern CodepointToUTF8:function
 extern StopSound:function
 extern sqrtf:function
+extern Vector2Distance:function
 extern GenImageCellular:function
 extern ImageResizeNN:function
 extern ImageDraw:function
@@ -1462,6 +459,7 @@ extern SetTextureWrap:function
 extern LoadFont:function
 extern DrawCircle3D:function
 extern LoadCodepoints:function
+extern Vector2Lerp:function
 extern fprintf:function
 extern SetWindowPosition:function
 extern GetScreenHeight:function
@@ -1546,6 +544,7 @@ extern SetShaderValueMatrix:function
 extern GetShapesTexture:function
 extern ImageResize:function
 extern SeekMusicStream:function
+extern Remap:function
 extern SetShaderValueV:function
 extern GetWorkingDirectory:function
 extern DrawTriangleStrip:function
@@ -1556,6 +555,7 @@ extern IsMouseButtonDown:function
 extern DrawRingLines:function
 extern DrawSplineCatmullRom:function
 extern LoadMusicStreamFromMemory:function
+extern Wrap:function
 extern DrawCapsule:function
 extern IsKeyPressedRepeat:function
 extern GenImageColor:function
@@ -1636,6 +636,7 @@ extern CloseAudioDevice:function
 extern PlayAutomationEvent:function
 extern SetGamepadMappings:function
 extern CheckCollisionBoxSphere:function
+extern Vector2Divide:function
 extern MaximizeWindow:function
 extern WaveFormat:function
 extern DrawRectangleRec:function
@@ -1661,6 +662,7 @@ extern DrawTextPro:function
 extern ImageTextEx:function
 extern ColorAlpha:function
 extern GetCodepoint:function
+extern Vector2Multiply:function
 extern fmod:function
 extern IsMouseButtonUp:function
 extern ClearBackground:function
@@ -1681,6 +683,7 @@ extern ResumeAudioStream:function
 extern ColorNormalize:function
 extern fscanf:function
 extern LoadRenderTexture:function
+extern Normalize:function
 extern copysignf:function
 extern EndMode2D:function
 extern DrawPoly:function
@@ -1690,6 +693,7 @@ extern hypot:function
 extern ImageDrawCircleLinesV:function
 extern UpdateTexture:function
 extern LoadFontEx:function
+extern Vector2Rotate:function
 extern SetTraceLogLevel:function
 extern DirectoryExists:function
 extern IsSoundValid:function
@@ -1716,16 +720,19 @@ extern ceil:function
 extern IsWindowFocused:function
 extern GetMonitorPosition:function
 extern DrawTextureNPatch:function
+extern Vector2LengthSqr:function
 extern ExportMeshAsCode:function
 extern ResumeMusicStream:function
 extern LoadAudioStream:function
 extern GetRenderWidth:function
+extern Vector2MoveTowards:function
 extern BeginShaderMode:function
 extern MemRealloc:function
 extern GetGestureDetected:function
 extern GetSplinePointBezierQuad:function
 extern ExportImageToMemory:function
 extern GetRayCollisionBox:function
+extern Vector2Transform:function
 extern EndDrawing:function
 extern DecodeDataBase64:function
 extern SetTextureFilter:function
@@ -1769,6 +776,7 @@ extern BeginDrawing:function
 extern LoadImagePalette:function
 extern ColorLerp:function
 extern UploadMesh:function
+extern Vector2Clamp:function
 extern printf:function
 extern EndMode3D:function
 extern DrawSplineSegmentBezierCubic:function
@@ -1842,6 +850,7 @@ extern fmax:function
 extern SetWindowMonitor:function
 extern DrawRectangleRoundedLinesEx:function
 extern UnloadSound:function
+extern Vector2Angle:function
 extern DrawCube:function
 extern SetSoundVolume:function
 extern StartAutomationEventRecording:function
@@ -1853,6 +862,7 @@ extern clearerr:function
 extern ImageColorContrast:function
 extern DrawTexturePro:function
 extern SetMasterVolume:function
+extern Vector2Equals:function
 extern asinf:function
 extern SetShaderValueTexture:function
 extern LoadTexture:function
@@ -1860,11 +870,13 @@ extern TextSplit:function
 extern TextToLower:function
 extern DrawCylinderWires:function
 extern DrawLineEx:function
+extern Vector2LineAngle:function
 extern GetClipboardText:function
 extern GetMouseWheelMove:function
 extern LoadImageAnimFromMemory:function
 extern GetTouchPointCount:function
 extern UnloadWave:function
+extern Vector2Normalize:function
 extern GenMeshPlane:function
 extern GetGesturePinchAngle:function
 extern GenImageGradientRadial:function
@@ -1909,9 +921,12 @@ extern round:function
 extern GetWorldToScreenEx:function
 extern ImageText:function
 extern LoadWaveSamples:function
+extern Vector2Min:function
 extern sqrt:function
 extern IsKeyUp:function
+extern Vector2Reflect:function
 extern UnloadDirectoryFiles:function
+extern Vector2Max:function
 extern acosf:function
 extern DrawSplineSegmentCatmullRom:function
 extern SetMaterialTexture:function
@@ -1921,6 +936,8 @@ extern SetPixelColor:function
 extern DrawTriangleStrip3D:function
 extern DrawCubeWiresV:function
 extern DrawBoundingBox:function
+extern Clamp:function
+extern Vector2Subtract:function
 extern roundf:function
 extern CloseWindow:function
 extern SetRandomSeed:function
@@ -1977,14 +994,16 @@ db "Hello world!",0
 FP0:
 dq 0.0
 FP1:
-dq 1.0
-FP2:
-dq 2.0
-FP3:
 dq 2.5
-FP4:
+FP2:
+dq 1.0
+FP3:
 dq 60.0
-FP5:
+FP4:
 dq 0.25
-FP6:
+FP5:
 dq 0.5
+FP6:
+dq 2.0
+FP7:
+dq 0.05

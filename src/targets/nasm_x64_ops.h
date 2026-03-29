@@ -194,7 +194,13 @@ x64_LOCATION_SV(offset, x64_OFFSET_ARGS, "[%s+%lu]", ptr->name, offset);
 
 // Copy memory
 const reg_mask allowed_copy_regs = ALL_REGS_EXCEPT(REG(2) | REG(4) | REG(5));
+const reg_mask affected_copy_regs = REG(2) | REG(4) | REG(5);
 #define GEN_COPY_MEMORY(addr, ...) \
+    reg_t* affected_regs[MAX_REGS];\
+    reg_t* replacement_regs[MAX_REGS];\
+    int n = get_mask_occup_regs(affected_copy_regs, true, registers, affected_regs);\
+    for(int i = 0; i < n; i++)\
+        replacement_regs[i] = transfer_reg(fptr, affected_regs[i], GET_MASK_REG(affected_regs[i]->size, allowed_copy_regs));\
     if(sz == 8){ HC_FPRINTF(fptr, "\tmov rdi, [" addr "]\n\tmov [%s], rdi\n",##__VA_ARGS__, dest->name); return; }\
     else if(sz == 4){ HC_FPRINTF(fptr, "\tmov edi, [" addr "]\n\tmov [%s], edi\n",##__VA_ARGS__, dest->name); return; }\
     else if(sz == 2){ HC_FPRINTF(fptr, "\tmov di, [" addr "]\n\tmov [%s], di\n",##__VA_ARGS__, dest->name); return; }\
@@ -203,7 +209,10 @@ const reg_mask allowed_copy_regs = ALL_REGS_EXCEPT(REG(2) | REG(4) | REG(5));
     if(sz % 8 == 0) op_size = 'q', sz /= 8;\
     else if(sz % 4 == 0) op_size = 'd', sz /= 4;\
     else if(sz % 2 == 0) op_size = 'w', sz /= 2;\
-    HC_FPRINTF(fptr,"\tcld\n\tmov rdi, %s\n\tlea rsi, [" addr "]\n\tmov rcx, %lu\n\trep movs%c\n", dest->name,##__VA_ARGS__, sz, op_size)
+    HC_FPRINTF(fptr,"\tcld\n\tmov rdi, %s\n\tlea rsi, [" addr "]\n\tmov rcx, %lu\n\trep movs%c\n", dest->name,##__VA_ARGS__, sz, op_size);\
+    for(int i = 0; i < n; i++)\
+        (void) transfer_reg(fptr, replacement_regs[i], affected_regs[i]);
+
 void gen_copy_global(HC_FILE fptr, reg_t* dest, const char* str, size_t strlen, size_t sz){ GEN_COPY_MEMORY("%.*s", (int)strlen, str); }
 void gen_copy_stack(HC_FILE fptr, reg_t* dest, size_t ptr, size_t sz){ GEN_COPY_MEMORY("rsp+%lu", ptr); }
 void gen_copy_arg(HC_FILE fptr, reg_t* dest, size_t ptr, size_t sz){ GEN_COPY_MEMORY("rbp+%lu", ptr); }

@@ -40,7 +40,7 @@ fibonacci: $(FIBONACCI)
 raylib: $(RAYLIB)
 	$<
 
-$(RAYLIB): programs/raylib/main.hc std/stdlib.o std/stdlib.hhc $(HCC)
+$(RAYLIB): programs/raylib/main.hc $(HCC)
 	$(HCC) -c -d $< -o $@
 	gcc -no-pie -nostdlib $@.o -o $@ -Lprograms/raylib -l:libraylib.a -lc -lm
 

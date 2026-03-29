@@ -601,18 +601,27 @@ node_stmt* parse_stmt(token_t** tokens, bool sc_necessary){
             }
         }
         return stmt;
-    }// else / loop statement
-    else if(token->type == tk_else || token->type == tk_loop){
+    }// else statement
+    else if(token->type == tk_else){
         (void) consume_token(tokens);
         stmt = (node_stmt*) ARENA_ALLOC(arena, node_scope);
-        stmt->scope = (node_scope){token->type, NULL, parse_stmt(tokens, true)};
+        stmt->scope = (node_scope){tk_else, NULL, parse_stmt(tokens, true)};
         if(!stmt->scope.stmts){
             print_context("Expected statement", token);
             return NULL;
         }
         return stmt;
-    }
-    // scope statement
+    }// loop statement
+    else if(token->type == tk_loop){
+        (void) consume_token(tokens);
+        stmt = (node_stmt*) ARENA_ALLOC(arena, node_scope);
+        stmt->scope = (node_scope){tk_loop, NULL, parse_scope(tokens)};
+        if(!stmt->scope.stmts){
+            print_context("Expected scope", token);
+            return NULL;
+        }
+        return stmt;
+    }// scope
     else if(token->type == tk_open_braces){
         stmt = (node_stmt*) ARENA_ALLOC(arena, node_scope);
         stmt->scope = (node_scope){tk_open_braces, NULL, parse_scope(tokens)};

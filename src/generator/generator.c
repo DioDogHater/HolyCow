@@ -20,6 +20,8 @@ static node_expr* global_var_values = NULL;
 
 // Get the size of a scope (the size of all variables inside)
 size_t get_scope_size(node_stmt* scope){
+    if(!scope || scope == (node_stmt*)(~0))
+        return 0;
     size_t total = 0;
     for(; scope; scope = scope->next){
         if(scope->type == tk_var_decl){
@@ -98,6 +100,7 @@ static void gen_free(HC_FILE fptr){
     }
     vector_destroy(structs);
     vector_destroy(unions);
+    vector_destroy(enums);
     HC_FCLOSE(fptr);
 }
 

@@ -1,0 +1,86 @@
+#include "defs.hhc"
+
+/* The largest number rand will return (same as INT_MAX).  */
+#define	RAND_MAX	2147483647
+
+/* We define these the same for all machines.
+ Changes from this to the outside world should be d*one in `_exit'.  */
+#define	EXIT_FAILURE	1	/* Failing exit status.  */
+#define	EXIT_SUCCESS	0	/* Successful exit status.  */
+
+LIBC_FUNC double atof (char* __nptr);
+LIBC_FUNC int32 atoi (char* __nptr);
+LIBC_FUNC int atol (char* __nptr);
+LIBC_FUNC double strtod (char* __nptr, char** __endptr);
+LIBC_FUNC float strtof (char* __nptr, char** __endptr);
+LIBC_FUNC double strtold (char* __nptr, char** __endptr);
+LIBC_FUNC int strtol (char* __nptr, char** __endptr, int32 __base);
+LIBC_FUNC uint strtoul (char* __nptr, char** __endptr, int32 __base);
+
+LIBC_FUNC int32 strfromd (char* __dest, uint __size, char* __format, double __f);
+LIBC_FUNC int32 strfromf (char* __dest, uint __size, char* __format, float __f);
+
+/* These are the functions that actually do things.  The `random', `srandom',
+ ` initstate' and `setstate'* functions are those from BSD Unices.
+ The `rand' and `srand' functions are required by the ANSI standard.
+ We provide both interfaces to the same random number generator.  */
+/* Return a random long integer between 0 and 2^31-1 inclusive.  */
+LIBC_FUNC int random ();
+
+/* Seed the random number generator with the given number.  */
+LIBC_FUNC void srandom (uint32 __seed);
+
+/* Initialize the random number generator to use state buffer STATEBUF,
+ o f length STATELEN, and seed it with SEED.  Optimal lengths are 8, 1*6,
+32, 64, 128 and 256, the bigger the better; values less than 8 will
+cause an error and values greater than 256 will be rounded down.  */
+LIBC_FUNC char* initstate (uint32 __seed, char* __statebuf, uint __statelen);
+
+/* Switch the random number generator to state buffer STATEBUF,
+ which should have been previously ini*tialized by `initstate'.  */
+LIBC_FUNC char* setstate (char* __statebuf);
+
+/* Allocate SIZE bytes of memory.  */
+LIBC_FUNC void* malloc (uint __size);
+
+/* Allocate NMEMB elements of SIZE bytes each, all initialized to 0.  */
+LIBC_FUNC void* calloc (uint __nmemb, uint __size);
+
+/* Re-allocate the previously allocated block
+ in PTR, making the new block SIZE bytes long. * */
+/* __attribute_malloc__ is not used, because if realloc returns
+ t he same pointer that was passed to it, aliasi*ng needs to be allowed
+ between objects pointed by the old and new pointers.  */
+LIBC_FUNC void* realloc (void* __ptr, uint __size);
+
+/* Free a block allocated by `malloc', `realloc' or `calloc'.  */
+LIBC_FUNC void free (void* __ptr);
+
+/* Abort execution and generate a core-dump.  */
+LIBC_FUNC void abort ();
+
+/* Register a function to be called when `exit' is called.  */
+//LIBC_FUNC int32 atexit (void* (__func)(void));
+
+/* Call all functions registered with `atexit' and `on_exit',
+ in the reverse of the order *in which they were registered,
+perform stdio cleanup, and terminate program execution with STATUS.  */
+LIBC_FUNC void exit (int32 __status);
+
+/* Return the value of envariable NAME, or NULL if it doesn't exist.  */
+LIBC_FUNC char* getenv (char *__name);
+
+/* Execute the given line as a shell command.
+ *
+ This function is a cancellation point *and therefore not marked with
+ __THROW.  */
+LIBC_FUNC int32 system (char *__command);
+
+//typedef int (*__compar_fn_t) (const void *, const void *);
+
+/* Sort NMEMB elements of BASE, of SIZE bytes each,
+ using COMPAR to perform th*e comparisons.  */
+//LIBC_FUNC void qsort (void* __base, uint __nmemb, uint __size, __compar_fn_t __compar);
+
+LIBC_FUNC int32 abs(int32 __x);
+LIBC_FUNC int labs (int __x);

@@ -1,7 +1,8 @@
 #include "../../libc/stdio.hhc"
+#include "../../libc/stdlib.hhc"
 #include "../../libc/math.hhc"
 #include "raylib.hhc"
-#include "raymath.hc"
+#include "raymath.hhc"
 
 double FP_PRECISION = EPSILON;
 
@@ -18,9 +19,13 @@ int main(uint argc, char** argv){
         CameraProjection.PERSPECTIVE  // perspective
     };
 
+    float angle = 0.5;
+
     loop{
         if(WindowShouldClose())
             break;
+
+        float delta = GetFrameTime();
 
         UpdateCamera(&cam, CameraMode.ORBITAL);
 
@@ -35,12 +40,18 @@ int main(uint argc, char** argv){
                 DrawCylinder(Vector3{2.0, -0.5, 0.0}, 0.25, 0.5, 1.0, 16, GRAY);
 
                 // Orb and line connect orb to red sphere
-                DrawLine3D(Vector3{0.5, 0.5, 0.5}, Vector3{2.0, 1.0, 0.0}, GREEN);
-                DrawSphereWires(Vector3{2.0, 1.0, 0.0}, 0.25, 8, 8, DARKGREEN);
-                DrawSphere(Vector3{2.0, 1.0, 0.0}, 0.05, GREEN);
+                Vector3 orb = Vector3{2.0, sinf(2.0 * GetTime()) * 0.1 + 1.0, 0.0};
+
+                DrawLine3D(Vector3{0.5, 0.5, 0.5}, orb, GREEN);
+                DrawSphereWires(orb, 0.25, 8, 8, DARKGREEN);
+                DrawSphere(orb, 0.05, GREEN);
 
                 // 3D Grid
                 DrawGrid(32, 2.0);
+
+                Vector3 v = Vector3Add(Vector3{0.5, 0.0, 0.0}, Vector3RotateByAxisAngle(Vector3{0.0, 0.0, 2.5}, Vector3{0.0, 1.0, 0.0}, angle));
+                angle += 5.0 * delta;
+                DrawSphere(v, 0.25, BLUE);
             EndMode3D();
 
             // FPS counter in top-left corner

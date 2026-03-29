@@ -16,6 +16,11 @@ static void x64_save_stack_XMM(HC_FILE fptr, size_t which, size_t offset, bool d
     HC_FPRINTF(fptr, "\tmovs%c %s [rsp+%lu], xmm%lu\n", dp?'d':'s', dp?"QWORD":"DWORD", offset, which);
 }
 
+// Save a XMM register in a QWORD / DWORD pointed to by register, with offset
+static void x64_save_ptr_XMM(HC_FILE fptr, size_t which, reg_t* ptr, size_t offset, bool dp){
+    HC_FPRINTF(fptr, "\tmovs%c %s [%s+%lu], xmm%lu\n", dp?'d':'s', dp?"QWORD":"DWORD", ptr->name, offset, which);
+}
+
 // Number of integer arguments that can be passed in registers
 #define SYSV_REG_ARGS 6
 
@@ -287,7 +292,7 @@ static void sysV_load_arg(HC_FILE fptr, size_t* int_idx, size_t* float_idx, size
     if(arg_type.ptr_depth || arg_type.data == DATA_INT)
         sysV_load_int_arg(fptr, --(*int_idx), stack_ptr, arg_expr, arg_type);
     else if(arg_type.data == DATA_FLOAT){
-        sysV_load_float_arg(fptr, --(*float_idx), stack_ptr, arg_expr, arg_type.size == 8);
+        sysV_load_float_arg(fptr, --(*float_idx), stack_ptr, arg_expr, var_arg || arg_type.size == 8);
         if(var_arg && *float_idx < SYSV_XMM_ARGS)
             gen_inc_reg(fptr, sysV_xmm_count);
     }else if(arg_type.data == DATA_STRUCT){
@@ -301,7 +306,7 @@ static void sysV_load_arg(HC_FILE fptr, size_t* int_idx, size_t* float_idx, size
             save_struct(fptr, stru, ptr, arg_expr);
             if(stru->size > 8){
                 if(xmm_stored[1])
-                    x64_load_global_XMM(fptr, --(*float_idx), "__GP_TMP", 8, 8, true);
+                    x64_load_global_XMM(fptr, --(*float_idx), "__GP_TMP", 8, 8, (stru->size - 8) == 8);
                 else
                     gen_load_global_offset(fptr, alloc_reg(sysV_reg_order[--(*int_idx)], false), "__GP_TMP", 8, 8);
             }
@@ -361,13 +366,15 @@ static void x64_move_ptr_bytes(HC_FILE fptr, reg_t* op, reg_t* ptr, size_t bytes
         gen_save_ptr(fptr, op->children->children, ptr);
     else if(bytes == 1)
         gen_save_ptr(fptr, op->children->children->children, ptr);
-    if(bytes == 3){
+    else if(bytes == 3){
         x64_move_ptr_bytes(fptr, op, ptr, 2);
         gen_shl_reg(fptr, op, 2 * 8);
+        gen_add_reg(fptr, ptr, 2);
         x64_move_ptr_bytes(fptr, op, ptr, 1);
     }else{  // bytes = 5, 6 or 7
         x64_move_ptr_bytes(fptr, op, ptr, 4);
         gen_shl_reg(fptr, op, 4 * 8);
+        gen_add_reg(fptr, ptr, 4);
         x64_move_ptr_bytes(fptr, op, ptr, bytes - 4);
     }
 }
@@ -384,6 +391,8 @@ size_t generate_cfunc_call(HC_FILE fptr, node_expr* expr, func_t* func, reg_t* s
     // (because a function can affect registers)
     int n = get_mask_occup_regs(ALL_REGS, true, registers, masked_regs);
     for(int i = 0; i < n; i++){
+        if(masked_regs[i] == struct_ptr)
+            continue;
         func_call_sz = ALIGN(func_call_sz, masked_regs[i]->size);
         func_call_sz += masked_regs[i]->size;
     }
@@ -394,10 +403,12 @@ size_t generate_cfunc_call(HC_FILE fptr, node_expr* expr, func_t* func, reg_t* s
     }
 
     // Save each occupied register on the stack
-    size_t arg_ptr = 8;
+    size_t arg_ptr = struct_ptr ? 8 : 0;
     if(struct_ptr)
         gen_save_stack(fptr, struct_ptr, func_call_sz - 8);
     for(int i = 0; i < n; i++){
+        if(masked_regs[i] == struct_ptr)
+            continue;
         arg_ptr = ALIGN(arg_ptr, masked_regs[i]->size);
         arg_ptr += masked_regs[i]->size;
         gen_save_stack(fptr, masked_regs[i], func_call_sz - arg_ptr);
@@ -426,6 +437,7 @@ size_t generate_cfunc_call(HC_FILE fptr, node_expr* expr, func_t* func, reg_t* s
 
     if(int_count)
         gen_move_reg(fptr, alloc_reg(sysV_reg_order[0], false), struct_ptr);
+    (void) alloc_reg(sysV_return_regs[0], false);
 
     // Load arguments
     size_t stack_sz_before = stack_sz;
@@ -442,21 +454,33 @@ size_t generate_cfunc_call(HC_FILE fptr, node_expr* expr, func_t* func, reg_t* s
     for(size_t i = 0; i < REGISTER_COUNT; i++)
         free_reg(&registers[i]);
 
-
-    arg_ptr = 8;
+    arg_ptr = struct_ptr ? 8 : 0;
 
     // Move the struct from the registers to memory
     if(struct_ptr && ret_in_regs){
-        gen_load_stack(fptr, struct_ptr, arg_ptr);
-        if(func->type.size <= 8)
-            x64_move_ptr_bytes(fptr, sysV_return_regs[0], struct_ptr, func->type.size);
-        else{
-            gen_save_ptr(fptr, sysV_return_regs[0], struct_ptr);
-            gen_add_reg(fptr, struct_ptr, 8);
-            x64_move_ptr_bytes(fptr, sysV_return_regs[1], struct_ptr, func->type.size - 8);
+        struct_ptr = GET_MASK_REG(8, ALL_REGS_EXCEPT(REG(0) | REG(3)));
+        gen_load_stack(fptr, struct_ptr, func_call_sz - arg_ptr);
+        if(func->type.size <= 8){
+            if(xmm_stored[0])
+                x64_save_ptr_XMM(fptr, 0, struct_ptr, 0, func->type.size == 8);
+            else
+                x64_move_ptr_bytes(fptr, sysV_return_regs[0], struct_ptr, func->type.size);
+        }else{
+            size_t xmm = 0, reg = 0;
+            if(xmm_stored[0])
+                x64_save_ptr_XMM(fptr, xmm++, struct_ptr, 0, true);
+            else
+                gen_save_ptr(fptr, sysV_return_regs[reg++], struct_ptr);
+            if(xmm_stored[1])
+                x64_save_ptr_XMM(fptr, xmm, struct_ptr, 8, (func->type.size - 8) == 8);
+            else{
+                if(reg)
+                    gen_add_reg(fptr, struct_ptr, 8);
+                x64_move_ptr_bytes(fptr, sysV_return_regs[reg], struct_ptr, func->type.size - 8);
+            }
         }
     }
-    if(!func->type.size);
+    else if(!SIZEOF_T(func->type));
     else if(func->type.ptr_depth || func->type.data == DATA_INT)
         gen_save_stack(fptr, sysV_return_regs[0], 0);
     else if(func->type.data == DATA_FLOAT)
@@ -464,11 +488,14 @@ size_t generate_cfunc_call(HC_FILE fptr, node_expr* expr, func_t* func, reg_t* s
 
     // Retrieve every register's old value off the stack
     for(int i = 0; i < n; i++){
+        if(masked_regs[i] == struct_ptr)
+            continue;
         arg_ptr = ALIGN(arg_ptr, masked_regs[i]->size);
         arg_ptr += masked_regs[i]->size;
         gen_load_stack(fptr, alloc_reg(masked_regs[i], false), func_call_sz - arg_ptr);
     }
 
+    HC_DEBUG_PRINT(func_call_sz, "%lu");
     return func_call_sz;
 }
 

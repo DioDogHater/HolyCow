@@ -1,9 +1,9 @@
 # The Holy Cow programming language
 is a language inspired by the ***C Programming Language***, ***Rust*** and
-***Holy C***, the legendary language created by *Terry A. Davis*. This is
-an attempt at making a more programmer-friendly C-like programming language
-without delving too much in complex concepts. A simpler and enjoyable C++
-is close to what I aim for.
+***Holy C***. This is an attempt at making a more programmer-friendly
+C-like programming language without delving too much in complicated systems.
+An easier to write C++ is close to what I aim for. Most features added to this
+language have the goal to reduce the time and effort necessary to write programs.
 <br></br>
 ### Code Quality
 *I know there are many parts in the compiler where I repeat the same similar code structure multiple times. Trust me, making a general solution for seemingly similar problems will make my compiler even less optimized and more complicated than it already is. That said, there is still a lot of room for improvement in readability and clarity. This is exceptionally true for the generator part of my compiler.*
@@ -31,7 +31,7 @@ I am currently writing detailed documentation of my language. I will add it to t
 <br></br>
 # Features
 This the end goal of how my language will look like.
-```
+```C
 // Comments are like in C (they start with "//")
 /* Multiple
    line comments
@@ -46,8 +46,9 @@ This the end goal of how my language will look like.
 - float (32 bit floating point number)
 - double (64 bit floating point number)
 - bool (boolean as a single byte, 1 = true, 0 = false)
-- string, type provided by standard library
-- pointer (type*), same as C syntax
+- string, type provided by the standard library
+
+Pointers are the same as in C.
 */
 
 string x = "Hello world!";
@@ -56,6 +57,7 @@ int16 my_variable = 0;
 // Preprocessor directives
 // Source files end with .hc
 // Header files end with .hhc
+// Not enforced, so choose what you like.
 #include "header_file.hhc"
 
 // Simple find & replace macro
@@ -80,8 +82,8 @@ constexpr float five_over_2 = 5 / 2;
 // In fact, you can make default values use variables that will be
 // defined in the scope where they are called, but that is not
 // recommended.
+
 void hello_world(string msg = "Default"){
-    // Displays a string on screen (can have formats)
     // "ln" -> adds a new line after printing
     println("%s", msg.str);
     
@@ -96,14 +98,15 @@ void hello_world(string msg = "Default"){
     }
     
     // If statements
-    if(value > 100){
+    if(value > -100){
         if(value < 150)
             @next;              // Goes to the next condition
-        println("%s", msg + "Huh?");
+        string s = msg + " Huh?";
+        println("%s", s.str);
     }else if(value == 0){       // <- @next will jump here
         println("Null.");
     }elif(value == 1){
-        println("")
+        println();      // Adds a newline
     }else{
         println("Bro...");
     }
@@ -131,21 +134,19 @@ void hello_world(string msg = "Default"){
         print("i = %i\n", i);
     }
     
-    // Print a new line
-    println();
-    
     // Repeat loop
     repeat(25){
         print(".");
     }
+    
+    // Add a newline
+    println();
     
     // Loop loop (infinite loop)
     loop{
         println("Hello world!");
         break;
     }
-    
-    println();
 }
 
 
@@ -153,6 +154,7 @@ void hello_world(string msg = "Default"){
 // You can give enum elements a specific value, but if they have
 // no value provided, they will simply have the last element's
 // value + 1.
+
 enum Values {
     first = -1,   // Give a specific value
     second,       // -1 + 1 = 0
@@ -171,6 +173,7 @@ enum Values {
 - Variants are unions, but with a built-in member that provides which member
   is currently stored in the variant object.
 */
+
 struct Color {
     uint8 r = 0;
     uint8 g = 0;
@@ -185,6 +188,7 @@ struct Color {
 
 // Here, since we put nothing between commas, we want to use default values for
 // the members g and b.
+
 Color red = Color{ 255, , , 0 };
 
 union Data {
@@ -196,6 +200,7 @@ union Data {
 
 // To construct a union:
 // union.member{ value (or nothing if default value is used) }
+
 Data data = Data.integer{ 50 };
 
 /*
@@ -208,6 +213,7 @@ Data data = Data.integer{ 50 };
     are defined to represent each member:
     Message.text, Message.integer, Message.color
 */
+
 variant Message {
     char text[256];
     uint integer;
@@ -215,6 +221,8 @@ variant Message {
 }
 
 // A variant is constructed like a union
+// Variants will only change their .type member when they are constructed
+
 Message msg = Message.color{ Color{255} }
 // Now, msg.type = Message.color
 

@@ -21,28 +21,13 @@ fibo_recursive:
 	push rbp
 	mov rbp, rsp
 	mov rbx, [rbp+24]
-	xor rcx, rcx
-	cmp rbx, rcx
-	sete bl
-	test bl, bl
-	je .L1
-	xor rbx, rbx
 	mov [rbp+16], rbx
-	jmp .L0
-	jmp .L2
-	.L1:
 	mov rbx, [rbp+24]
 	mov rcx, 0x1
 	cmp rbx, rcx
-	sete bl
+	setg bl
 	test bl, bl
-	je .L3
-	mov rbx, 0x1
-	mov [rbp+16], rbx
-	jmp .L0
-	jmp .L2
-	.L3:
-	.L2:
+	je .L1
 	sub rsp, 16
 	mov rbx, [rbp+24]
 	mov rcx, 0x1
@@ -63,7 +48,80 @@ fibo_recursive:
 	add rsp, 32
 	add rbx, rcx
 	mov [rbp+16], rbx
-	jmp .L0
+	jmp .L2
+	.L1:
+	.L2:
+	.L0:
+	leave
+	ret
+
+global fibo_recursive_cached:function
+fibo_recursive_cached:
+	push rbp
+	mov rbp, rsp
+	mov rbx, [rbp+24]
+	mov rcx, 0x1
+	cmp rbx, rcx
+	setle bl
+	test bl, bl
+	je .L1
+	mov rbx, [rbp+24]
+	mov [rbp+16], rbx
+	jmp .L2
+	.L1:
+	mov rbx, [rbp+24]
+	mov rcx, 0x2
+	sub rbx, rcx
+	mov rcx, QWORD [fibo_cache_size]
+	cmp rbx, rcx
+	setl bl
+	test bl, bl
+	je .L3
+	lea rbx, [fibo_cache]
+	mov rcx, [rbp+24]
+	mov rsi, 0x2
+	sub rcx, rsi
+	mov rsi, [rbx+rcx*8]
+	mov [rbp+16], rsi
+	jmp .L2
+	.L3:
+	sub rsp, 16
+	mov rbx, [rbp+24]
+	mov rcx, 0x1
+	sub rbx, rcx
+	mov [rsp+8], rbx
+	call fibo_recursive_cached
+	mov rbx, [rsp+0]
+	add rsp, 16
+	sub rsp, 32
+	mov [rsp+24], rbx
+	mov rcx, [rbp+24]
+	mov rsi, 0x2
+	sub rcx, rsi
+	mov [rsp+8], rcx
+	call fibo_recursive_cached
+	mov rbx, [rsp+24]
+	mov rcx, [rsp+0]
+	add rsp, 32
+	add rbx, rcx
+	mov [rbp+16], rbx
+	mov rbx, QWORD [fibo_cache_size]
+	mov rcx, 0x80
+	cmp rbx, rcx
+	setne bl
+	test bl, bl
+	je .L4
+	lea rbx, [fibo_cache]
+	mov rcx, QWORD [fibo_cache_size]
+	inc rcx
+	mov [fibo_cache_size], rcx
+	dec rcx
+	mov rsi, [rbp+16]
+	mov [rbx+rcx*8], rsi
+	jmp .L5
+	.L4:
+	.L5:
+	.L2:
 	.L0:
 	leave
 	ret
@@ -72,46 +130,41 @@ global fibo_iterative:function
 fibo_iterative:
 	push rbp
 	mov rbp, rsp
-	sub rsp, 32
+	sub rsp, 16
 	mov rbx, [rbp+24]
-	xor rcx, rcx
+	mov rcx, 0x1
 	cmp rbx, rcx
-	sete bl
+	setle bl
 	test bl, bl
 	je .L1
-	xor rbx, rbx
+	mov rbx, [rbp+24]
 	mov [rbp+16], rbx
 	jmp .L0
 	jmp .L2
 	.L1:
 	.L2:
 	xor rbx, rbx
-	mov [rsp+24], rbx
-	mov rbx, 0x1
-	mov [rsp+16], rbx
-	xor rbx, rbx
 	mov [rsp+8], rbx
+	mov rbx, 0x1
+	mov [rsp+0], rbx
 	mov rbx, [rbp+24]
 	mov rcx, 0x1
 	sub rbx, rcx
 	.L3:
 	test rbx, rbx
 	je .L5
-	mov rcx, [rsp+24]
-	mov rsi, [rsp+16]
-	add rcx, rsi
-	mov [rsp+8], rcx
-	mov rcx, [rsp+16]
-	mov [rsp+24], rcx
 	mov rcx, [rsp+8]
-	mov [rsp+16], rcx
+	mov rsi, [rsp+0]
+	add rcx, rsi
+	mov [rbp+16], rcx
+	mov rcx, [rsp+0]
+	mov [rsp+8], rcx
+	mov rcx, [rbp+16]
+	mov [rsp+0], rcx
 	.L4:
 	dec rbx
 	jmp .L3
 	.L5:
-	mov rbx, [rsp+16]
-	mov [rbp+16], rbx
-	jmp .L0
 	.L0:
 	leave
 	ret
@@ -120,7 +173,7 @@ global main:function
 main:
 	push rbp
 	mov rbp, rsp
-	sub rsp, 48
+	sub rsp, 64
 	sub rsp, 16
 	mov rbx, STR0
 	mov [rsp+0], rbx
@@ -129,24 +182,24 @@ main:
 	call print_str
 	add rsp, 16
 	sub rsp, 32
-	lea rbx, [rsp+48]
+	lea rbx, [rsp+64]
 	mov [rsp+8], rbx
 	mov rbx, 0x20
 	mov [rsp+16], rbx
 	call input
 	mov rbx, [rsp+0]
 	add rsp, 32
-	mov [rsp+8], rbx
+	mov [rsp+24], rbx
 	sub rsp, 32
-	lea rbx, [rsp+48]
+	lea rbx, [rsp+64]
 	mov [rsp+8], rbx
-	mov rbx, [rsp+40]
+	mov rbx, [rsp+56]
 	mov [rsp+16], rbx
 	call string_to_int
 	mov rbx, [rsp+0]
 	add rsp, 32
-	mov [rsp+0], rbx
-	mov rbx, [rsp+0]
+	mov [rsp+16], rbx
+	mov rbx, [rsp+16]
 	xor rcx, rcx
 	cmp rbx, rcx
 	setl bl
@@ -155,25 +208,24 @@ main:
 	sub rsp, 16
 	mov rbx, STR1
 	mov [rsp+0], rbx
-	mov rbx, 0xffffffffffffffff
-	mov [rsp+8], rbx
-	call print_str
+	call error
 	add rsp, 16
-	jmp .L0
 	jmp .L2
 	.L1:
 	.L2:
-	sub rsp, 32
-	mov rbx, STR2
-	mov [rsp+0], rbx
-	mov rbx, [rsp+32]
-	mov [rsp+8], rbx
 	sub rsp, 16
-	mov rbx, [rsp+48]
+	mov rbx, [rsp+32]
 	mov [rsp+8], rbx
 	call fibo_iterative
 	mov rbx, [rsp+0]
 	add rsp, 16
+	mov [rsp+8], rbx
+	sub rsp, 32
+	mov rbx, STR2
+	mov [rsp+0], rbx
+	mov rbx, [rsp+48]
+	mov [rsp+8], rbx
+	mov rbx, [rsp+40]
 	mov [rsp+16], rbx
 	call println
 	add rsp, 32
@@ -248,12 +300,18 @@ dq 0
 static __GP_TMP:data
 __GP_TMP:
 times 64 db 0
+global fibo_cache_size:data
+fibo_cache_size:
+dq 0
+global fibo_cache:data
+fibo_cache:
+times 1024 db 0
 
 
 section .rodata
 STR0:
 db "This program calculates the nth fibonacci number.",10,"Please enter n: ",0
 STR1:
-db "n must be >= 0",10,"",0
+db "n must be a positive number or 0.",0
 STR2:
 db "The %ith fibonacci number is %u",0

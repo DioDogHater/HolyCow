@@ -954,10 +954,10 @@ strequal:
 	mov rbx, 0xffffffffffffffff
 	mov [rsp+24], rbx
 	call strcmp
-	mov bl, [rsp+0]
+	movsx rbx, BYTE [rsp+0]
 	add rsp, 32
-	xor cl, cl
-	cmp bl, cl
+	xor rcx, rcx
+	cmp rbx, rcx
 	sete bl
 	mov [rbp+16], bl
 	.L0:
@@ -1232,9 +1232,9 @@ print_fixed:
 	push rbp
 	mov rbp, rsp
 	sub rsp, 48
-	mov ebx, [rbp+16]
-	xor ecx, ecx
-	cmp ebx, ecx
+	movsxd rbx, DWORD [rbp+16]
+	xor rcx, rcx
+	cmp rbx, rcx
 	setl bl
 	test bl, bl
 	je .L1
@@ -3147,7 +3147,7 @@ db "",10,"Expected %[ before %C to enclose text to center",10,"",0
 STR5:
 db "",10,"Expected %[ before %T to enclose text to truncate",10,"",0
 STR6:
-db "true ",0
+db "true",0
 STR7:
 db "false",0
 STR8:

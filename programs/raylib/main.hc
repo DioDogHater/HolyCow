@@ -49,6 +49,7 @@ int main(uint argc, char** argv){
                 // 3D Grid
                 DrawGrid(32, 2.0);
 
+                // Spinning sphere
                 Vector3 v = Vector3Add(Vector3{0.5, 0.0, 0.0}, Vector3RotateByAxisAngle(Vector3{0.0, 0.0, 2.5}, Vector3{0.0, 1.0, 0.0}, angle));
                 angle += 5.0 * delta;
                 DrawSphere(v, 0.25, BLUE);

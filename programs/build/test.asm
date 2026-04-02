@@ -71,9 +71,10 @@ frame:
 	mov rcx, 0x4
 	add rbx, rcx
 	mov [rsp+16], rbx
-	mov rcx, [rbp+16]
-	mov sil, [rcx]
-	test sil, sil
+	mov rbx, [rbp+16]
+	movzx rcx, BYTE [rbx]
+	xor rbx, rbx
+	cmp rcx, rbx
 	sete bl
 	test bl, bl
 	je .L6
@@ -187,7 +188,7 @@ print_msg:
 	push rbp
 	mov rbp, rsp
 	mov rcx, [rbp+16]
-	mov rbx, [rcx+0]
+	mov rbx, [rcx+8]
 	mov rcx, 0x1
 	cmp rbx, rcx
 	sete bl
@@ -197,7 +198,6 @@ print_msg:
 	mov rbx, STR6
 	mov [rsp+0], rbx
 	mov rcx, [rbp+16]
-	lea rcx, [rcx+8]
 	mov rbx, [rcx]
 	mov [rsp+8], rbx
 	call println
@@ -205,7 +205,7 @@ print_msg:
 	jmp .L2
 	.L1:
 	mov rcx, [rbp+16]
-	mov rbx, [rcx+0]
+	mov rbx, [rcx+8]
 	mov rcx, 0x2
 	cmp rbx, rcx
 	sete bl
@@ -215,7 +215,6 @@ print_msg:
 	mov rbx, STR7
 	mov [rsp+0], rbx
 	mov rcx, [rbp+16]
-	lea rcx, [rcx+8]
 	mov rbx, [rcx]
 	mov [rsp+8], rbx
 	call println
@@ -223,7 +222,7 @@ print_msg:
 	jmp .L2
 	.L3:
 	mov rcx, [rbp+16]
-	mov rbx, [rcx+0]
+	mov rbx, [rcx+8]
 	mov rcx, 0x3
 	cmp rbx, rcx
 	sete bl
@@ -233,7 +232,6 @@ print_msg:
 	mov rbx, STR8
 	mov [rsp+0], rbx
 	mov rbx, [rbp+16]
-	lea rbx, [rbx+8]
 	fld DWORD [rbx]
 	fstp QWORD [rsp+8]
 	call println
@@ -244,7 +242,6 @@ print_msg:
 	mov rbx, STR9
 	mov [rsp+0], rbx
 	mov rcx, [rbp+16]
-	lea rcx, [rcx+8]
 	movzx rbx, BYTE [rcx]
 	mov [rsp+8], rbx
 	call println
@@ -332,11 +329,40 @@ main:
 	call print_test
 	add rsp, 32
 	lea rbx, [rsp+0]
-	mov rcx, 0x1
-	mov [rbx+0], rcx
-	lea r8, [rbx+8]
 	mov rcx, STR15
-	mov [r8], rcx
+	mov [rbx], rcx
+	mov rcx, 0x1
+	mov [rbx+8], rcx
+	sub rsp, 16
+	lea rbx, [rsp+16]
+	mov [rsp+0], rbx
+	call print_msg
+	add rsp, 16
+	lea rbx, [rsp+0]
+	fld QWORD [FP2]
+	fstp DWORD [rbx]
+	mov rcx, 0x3
+	mov [rbx+8], rcx
+	sub rsp, 16
+	lea rbx, [rsp+16]
+	mov [rsp+0], rbx
+	call print_msg
+	add rsp, 16
+	lea rbx, [rsp+0]
+	mov rcx, 0x3039
+	mov [rbx], rcx
+	mov rcx, 0x2
+	mov [rbx+8], rcx
+	sub rsp, 16
+	lea rbx, [rsp+16]
+	mov [rsp+0], rbx
+	call print_msg
+	add rsp, 16
+	lea rbx, [rsp+0]
+	mov cl, 0x1
+	mov [rbx], cl
+	mov rcx, 0x4
+	mov [rbx+8], rcx
 	sub rsp, 16
 	lea rbx, [rsp+16]
 	mov [rsp+0], rbx
@@ -432,13 +458,13 @@ db "Blud",0
 STR5:
 db "test{%i, %i, test2{",34,"%s",34,", ",34,"%s",34,"}}",0
 STR6:
-db "msg{msg.text, ",34,"%s",34,"}",0
+db "msg{",34,"%s",34,"}",0
 STR7:
-db "msg{msg.integer, %i}",0
+db "msg{%i}",0
 STR8:
-db "msg{msg.number, %f}",0
+db "msg{%f}",0
 STR9:
-db "msg{msg.confirm, %b}",0
+db "msg{%b}",0
 STR10:
 db "%*f ~= %*f ± %f",0
 STR11:
@@ -457,3 +483,5 @@ FP0:
 dq 3.14159265359
 FP1:
 dq 3.14153
+FP2:
+dq 105.025

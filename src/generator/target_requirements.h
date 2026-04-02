@@ -64,6 +64,7 @@ void gen_pop_stack(HC_FILE, reg_t*);
 
 // Unary operations / simple instructions
 void gen_set_reg(HC_FILE, reg_t*, const char*, size_t);
+void gen_set_reg_raw(HC_FILE, reg_t*, uint64_t);
 void gen_clear_reg(HC_FILE, reg_t*);
 void gen_add_reg(HC_FILE, reg_t*, uint64_t);
 void gen_sub_reg(HC_FILE, reg_t*, uint64_t);

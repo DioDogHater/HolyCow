@@ -4,7 +4,7 @@ double FP_PRECISION = 0.0001;
 
 // Prints a frame around lines of text (with a title)
 void frame(char* title = "", ...count){
-    // Variable arguments
+    // Variable arguments (should all be strings)
     char** vargs = (char**) VARGS;
 
     // Length of longest string in frame
@@ -18,13 +18,15 @@ void frame(char* title = "", ...count){
         ++i;
     }
 
-    // Add 4 characters of padding
+    // Add 4 characters of padding (2 on both sides)
     max_len += 4;
 
     // Print top of frame
-    if(!*title){ println("+%*c+", max_len, '-'); }
+    if(*title == 0)
+        println("+%*c+", max_len, '-');
     // If there's a title, print it centered at the top
-    else{ println("+%[ %s %*C+", title, max_len, '-'); }
+    else
+        println("+%[ %s %*C+", title, max_len, '-');
     // Print each line of the frame
     repeat(count){
         println("|%[ %s%L|", *vargs, max_len);
@@ -47,22 +49,11 @@ struct test{
     test2 z;
 }
 
-union msg_contents {
+variant msg {
     char* text;
     uint integer;
     float number;
     bool confirm;
-}
-
-enum msg {
-    text,
-    integer,
-    number,
-    confirm
-}
-struct msg {
-    uint type;
-    msg_contents contents;
 }
 
 test get_test(){
@@ -80,13 +71,13 @@ void print_test(test t){
 
 void print_msg(msg* m){
     if(m.type == msg.text)
-        println("msg{msg.text, \"%s\"}", m.contents.text);
+        println("msg{\"%s\"}", m.text);
     else if(m.type == msg.integer)
-        println("msg{msg.integer, %i}", m.contents.integer);
+        println("msg{%i}", m.integer);
     else if(m.type == msg.number)
-        println("msg{msg.number, %f}", m.contents.number);
+        println("msg{%f}", m.number);
     else
-        println("msg{msg.confirm, %b}", m.contents.confirm);
+        println("msg{%b}", m.confirm);
 }
 
 int main(uint argc, char** argv){
@@ -102,6 +93,12 @@ int main(uint argc, char** argv){
     print_test(a);
     print_test(get_test());
 
-    msg m = msg{msg.text, msg_contents.integer{"Hello world!"}};
+    msg m = msg.text{ "Hello world!" };
+    print_msg(&m);
+    m = msg.number{ 105.025 };
+    print_msg(&m);
+    m = msg.integer{ 12345 };
+    print_msg(&m);
+    m = msg.confirm{ true };
     print_msg(&m);
 }

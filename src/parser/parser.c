@@ -507,7 +507,7 @@ node_stmt* parse_stmt(token_t** tokens, bool sc_necessary){
             stmt->var_decl = (node_var_decl) {tk_var_decl, NULL, token, identifier, expr};
         }
     }// Structs / class / unions
-    else if(token->type == tk_struct || token->type == tk_class || token->type == tk_union){
+    else if(token->type == tk_struct || token->type == tk_class || token->type == tk_union || token->type == tk_variant){
         (void) consume_token(tokens);
         stmt = (node_stmt*) ARENA_ALLOC(arena, node_struct_decl);
         stmt->struct_decl = (node_struct_decl){token->type, NULL, peek_token(tokens), NULL};

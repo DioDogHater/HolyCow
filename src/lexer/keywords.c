@@ -48,6 +48,7 @@ static struct keyword_pair keywords[] = {
     ALIAS_KW(@asm,asm),
     KEYWORD(struct),
     KEYWORD(union),
+    KEYWORD(variant),
     KEYWORD(class),
     KEYWORD(enum),
     KEYWORD(sizeof),

@@ -496,7 +496,7 @@ void print_format(char* fmt, uint* argv){
                 stdout_cursor = last + target;
             }
         }else if(*(fmt+1) == 'b'){
-            if(argv[argc++]){ print_str("true "); }
+            if(argv[argc++]){ print_str("true"); }
             else{ print_str("false"); }
         }else if(*(fmt+1) == 'F'){
             print_fixed((fixed)argv[argc++]);

@@ -1,6 +1,6 @@
 #include "../std/stdlib.hhc"
 
-char board[9];
+char board[3 * 3];
 char player = ' ';
 
 enum GameState {
@@ -20,7 +20,8 @@ void print_board(){
     uint i = 0;
     println("  A   B   C");
     repeat(3){
-        if(i){ println("  %*c", 10, '-'); }
+        if(i)
+            println("  %*c", 10, '-');
         println("%u %c | %c | %c", ++i, *ptr, *(++ptr), *(++ptr));
         ++ptr;
     }
@@ -30,28 +31,27 @@ bool check_win(char pl){
     uint i = 0;
     // Check for straight rows
     repeat(3){
-        if(board[i] == pl && board[i+1] == pl && board[i+2] == pl){
+        if(board[i] == pl && board[i+1] == pl && board[i+2] == pl)
             return true;
-        }
+
         // Go to next row
         i += 3;
     }
     i = 0;
     // Check for straight columns
     repeat(3){
-        if(board[i] == pl && board[3+i] == pl && board[6+i] == pl){
+        if(board[i] == pl && board[3+i] == pl && board[6+i] == pl)
             return true;
-        }
+
         // Go to the next column
         ++i;
     }
     // Check diagonals
-    if(board[0] == pl && board[4] == pl && board[8] == pl){
+    if(board[0] == pl && board[4] == pl && board[8] == pl)
         return true;
-    }
-    if(board[2] == pl && board[4] == pl && board[6] == pl){
+    if(board[2] == pl && board[4] == pl && board[6] == pl)
         return true;
-    }
+
     return false;
 }
 
@@ -78,8 +78,10 @@ int main(uint argc, char** argv){
     loop{
         if(state == GameState.TURN){
             // Switch player
-            if(player == 'X'){ player = 'O'; }
-            else{ player = 'X'; }
+            if(player == 'X')
+                player = 'O';
+            else
+                player = 'X';
 
             // Display new board and turn
             print_board();
@@ -88,7 +90,7 @@ int main(uint argc, char** argv){
         }else if(state == GameState.GAME){
             // Get input
             int n = input(buffer, 16);
-            if(*buffer == 'q'){ break; }
+            if(*buffer == 'q') break;
             if(n != 2 || !is_num(*buffer) || !is_alpha(*(buffer+1))){
                 println("Invalid input! Enter the row number + column letter.\nEX: 2C");
                 continue;
@@ -110,9 +112,12 @@ int main(uint argc, char** argv){
 
             // Set the coordinate to the player's symbol
             board[row*3+col] = player;
-            if(check_win(player)){ state = GameState.END; }
-            else if(check_tie()){ state = GameState.END; }
-            else{ state = GameState.TURN; }
+            if(check_win(player))
+                state = GameState.END;
+            else if(check_tie())
+                state = GameState.END;
+            else
+                state = GameState.TURN;
         }else{
             print_board();
             println("\n<< GAME OVER! >>\n- Play again? (y/n) -");
@@ -120,13 +125,10 @@ int main(uint argc, char** argv){
             if(to_lower(input_char()) == 'y'){
                 init();
                 state = GameState.TURN;
-            }else{
+            }else
                 break;
-            }
         }
     }
 
     println("Thank you for playing! :)");
-
-    return 0;
 }

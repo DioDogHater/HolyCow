@@ -4,38 +4,85 @@
 // My function calling system sucks performance wise for now
 // Might not help that this recursive algorithm is already unoptimized
 uint fibo_recursive(int n){
-    if(n == 0){
-        return 0;
-    }else if(n == 1){
-        return 1;
-    }
-    return fibo_recursive(n-1) + fibo_recursive(n-2);
+    // Base cases of n=0, n=1 -> 0, 1
+    @return = n;
+
+    // Use recursion to calculate last 2 numbers in the sequence
+    if(n > 1)
+        @return = fibo_recursive(n-1) + fibo_recursive(n-2);
 }
 
-// Iterative solution (way faster)
-uint fibo_iterative(int n){
-    if(n == 0){
-        return 0;
+// Recursive solution, with caching
+// Way faster, but trades time complexity with space complexity
+
+#define FIBO_MAX_CACHE 128          // Maximum cache size
+uint fibo_cache_size = 0;           // Cache size (number of values already cached)
+uint fibo_cache[FIBO_MAX_CACHE];    // Actual cache memory (global)
+
+uint fibo_recursive_cached(int n){
+    // Base cases n=0, n=1 -> 0, 1
+    // Since base cases dont need to be computed,
+    // we can avoid caching them.
+    if(n <= 1)
+        @return = n;
+
+    // Check if we have already cached the answer.
+    // (Since we ignore n=0, n=1, caching starts at n=2)
+    else if(n - 2 < fibo_cache_size)
+        @return = fibo_cache[n - 2];
+
+    // Otherwise, we compute this case for the first time.
+    else{
+        @return = fibo_recursive_cached(n - 1) + fibo_recursive_cached(n - 2);
+
+        // We cache it only if we didn't reach max cache size.
+        // Since fibo_cache_size will only be incremented everytime we get a bigger n-2,
+        // we can assume that fibo_cache_size = n-2, because both grow at the same time.
+        if(fibo_cache_size != FIBO_MAX_CACHE)
+            fibo_cache[fibo_cache_size++] = @return;
     }
+}
+
+// Iterative solution (fastest, but uglier)
+uint fibo_iterative(int n){
+    // Base cases n=0, n=1 -> 0, 1
+    if(n <= 1)
+        return n;
+
+    // Temporary variables
     uint a = 0;
     uint b = 1;
-    uint tmp = 0;
+
+    // Normally, a third variable "tmp" is used, but instead
+    // I used the built-in @return variable to optimize space.
+
+    // Repeat n - 1 times the algorithm, because the n=1 case
+    // is already done in the setup (a=0, b=1)
     repeat(n - 1){
-        tmp = a + b;
+        @return = a + b;
         a = b;
-        b = tmp;
+        b = @return;
     }
-    return b;
 }
 
+// Change this macro to change the function used to compute
+// the fibonacci sequence.
+#define FIBONACCI fibo_iterative
+
 int main(uint argc, char** argv){
-    char buffer[32];
+    // Ask for input
     print_str("This program calculates the nth fibonacci number.\nPlease enter n: ");
+
+    // Get input
+    char buffer[32];
     uint len = input(buffer, 32);
     int n = string_to_int(buffer, len);
-    if(n < 0){
-        print_str("n must be >= 0\n");
-        return;
-    }
-    println("The %ith fibonacci number is %u", n, fibo_iterative(n));
+
+    // Verify input
+    if(n < 0)
+        error("n must be a positive number or 0.");
+
+    // Compute and print
+    uint fib = FIBONACCI(n);
+    println("The %ith fibonacci number is %u", n, fib);
 }

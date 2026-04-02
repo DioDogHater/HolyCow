@@ -1,0 +1,123 @@
+#include "defs.hhc"
+
+/* Copy N bytes of SRC to DEST.  */
+LIBC_FUNC void *memcpy (void * __dest, void * __src, size_t __n);
+
+/* Copy N bytes of SRC to DEST, guaranteeing
+correct behavior for overlapping strings.  */
+LIBC_FUNC void *memmove (void *__dest, void *__src, size_t __n);
+
+/* Set N bytes of S to C.  */
+LIBC_FUNC void *memset (void *__s, int32 __c, size_t __n);
+
+/* Compare N bytes of S1 and S2.  */
+LIBC_FUNC int32 memcmp (void *__s1, void *__s2, size_t __n);
+
+/* Compare N bytes of S1 and S2.  Return zero if S1 and S2 are equal.
+Return some non-zero value otherwise.
+
+Essentially __memcmpeq has the exact same semantics as memcmp
+except the return value is less constrained.  memcmp is always a
+correct implementation of __memcmpeq.  As well !!memcmp, -memcmp,
+or bcmp are correct implementations.
+
+__memcmpeq is meant to be used by compilers when memcmp return is
+only used for its boolean value.
+
+__memcmpeq is declared only for use by compilers.  Programs should
+continue to use memcmp.  */
+LIBC_FUNC int32 __memcmpeq (void *__s1, void *__s2, size_t __n);
+
+/* Search N bytes of S for C.  */
+LIBC_FUNC void *memchr (void *__s, int32 __c, size_t __n);
+
+/* Search N bytes of S for the final occurrence of C.  */
+LIBC_FUNC void *memrchr (void *__s, int32 __c, size_t __n);
+
+/* Copy SRC to DEST.  */
+LIBC_FUNC char *strcpy (char * __dest, char * __src);
+
+/* Copy no more than N characters of SRC to DEST.  */
+LIBC_FUNC char *strncpy (char * __dest, char * __src, size_t __n);
+
+/* Append SRC onto DEST.  */
+LIBC_FUNC char *strcat (char * __dest, char * __src);
+
+/* Append no more than N characters from SRC onto DEST.  */
+LIBC_FUNC char *strncat (char * __dest, char * __src, size_t __n);
+
+/* Compare S1 and S2.  */
+LIBC_FUNC int32 strcmp (char *__s1, char *__s2);
+
+/* Compare N characters of S1 and S2.  */
+LIBC_FUNC int32 strncmp (char *__s1, char *__s2, size_t __n);
+
+/* Compare the collated forms of S1 and S2.  */
+LIBC_FUNC int32 strcoll (char *__s1, char *__s2);
+
+/* Put a transformation of SRC int32o no more than N bytes of DEST.  */
+LIBC_FUNC size_t strxfrm (char * __dest, char * __src, size_t __n);
+
+/* Duplicate S, returning an identical malloc'd string.  */
+LIBC_FUNC char *strdup (char *__s);
+
+/* Return a malloc'd copy of at most N bytes of STRING.  The
+resultant string is termina*ted even if no null terminator
+appears before STRING[N]. */
+LIBC_FUNC char *strndup (char *__string, size_t __n);
+
+/* Find the first occurrence of C in S.  */
+LIBC_FUNC char *strchr (char *__s, int32 __c);
+
+/* Find the last occurrence of C in S.  */
+LIBC_FUNC char *strrchr (char *__s, int32 __c);
+
+/* This function is similar to `strchr'.  But it returns a point32er to
+the closing NUL byte in case C is not found in S.  */
+LIBC_FUNC char *strchrnul (char *__s, int32 __c);
+
+/* Return the length of the initial segment of S which
+consists entirely of characters not in REJECT.  */
+LIBC_FUNC size_t strcspn (char *__s, char *__reject);
+
+/* Return the length of the initial segment of S which
+consists entirely of characters in ACCEPT.  */
+LIBC_FUNC size_t strspn (char *__s, char *__accept);
+
+/* Find the first occurrence in S of any character in ACCEPT.  */
+LIBC_FUNC char *strpbrk (char *__s, char *__accept);
+
+/* Find the first occurrence of NEEDLE in HAYSTACK.  */
+LIBC_FUNC char *strstr (char *__haystack, char *__needle);
+
+/* Divide S int32o tokens separated by characters in DELIM.  */
+LIBC_FUNC char *strtok (char * __s, char * __delim);
+
+/* Divide S int32o tokens separated by characters in DELIM.  Information
+ passed between calls are stored in SAVE_PTR.  */
+LIBC_FUNC char *__strtok_r (char * __s, char * __delim, char ** __save_ptr);
+
+/* Find the first occurrence of NEEDLE in HAYSTACK.
+ NEEDLE is NEEDLELEN bytes long;              *
+ HAYSTACK is HAYSTACKLEN bytes long.  */
+LIBC_FUNC void *memmem (void *__haystack, size_t __haystacklen, void *__needle, size_t __needlelen);
+
+/* Copy N bytes of SRC to DEST, return point32er to bytes after the
+ last written byte.  */
+LIBC_FUNC void *mempcpy (void * __dest, void * __src, size_t __n);
+
+/* Return the length of S.  */
+LIBC_FUNC size_t strlen (char *__s);
+
+/* Return a string describing the meaning of the `errno' code in ERRNUM.  */
+LIBC_FUNC char *strerror (int32 __errnum);
+
+/* Return the next DELIM-delimited token from *STRINGP,
+ terminating it with a '\0', and upd*ate *STRINGP to point32 past it.  */
+LIBC_FUNC char *strsep (char ** __stringp, char * __delim);
+
+/* Sautee STRING briskly.  */
+LIBC_FUNC char *strfry (char *__string);
+
+/* Frobnicate N bytes of S.  */
+LIBC_FUNC void *memfrob (void *__s, size_t __n);

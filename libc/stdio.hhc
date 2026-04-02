@@ -2,8 +2,6 @@
 
 // Opaque definition of a file IO stream
 struct FILE;
-#define size_t uint64
-#define ssize_t int64
 
 /* The possibilities for the third argument to `setvbuf'.  */
 #define _IOFBF 0		/* Fully buffered.  */

@@ -49,15 +49,15 @@ print_board:
 	mov [rsp+0], rbx
 	call println
 	add rsp, 16
-	mov bl, 0x3
+	mov rbx, 0x3
 	.L1:
-	test bl, bl
+	test rbx, rbx
 	je .L3
 	mov rcx, [rsp+0]
 	test rcx, rcx
 	je .L4
 	sub rsp, 32
-	mov [rsp+31], bl
+	mov [rsp+24], rbx
 	mov rcx, STR1
 	mov [rsp+0], rcx
 	mov rcx, 0xa
@@ -65,13 +65,13 @@ print_board:
 	mov rcx, 0x2d
 	mov [rsp+16], rcx
 	call println
-	mov bl, [rsp+31]
+	mov rbx, [rsp+24]
 	add rsp, 32
 	jmp .L5
 	.L4:
 	.L5:
 	sub rsp, 48
-	mov [rsp+47], bl
+	mov [rsp+40], rbx
 	mov rcx, STR2
 	mov [rsp+0], rcx
 	mov rcx, [rsp+48]
@@ -92,13 +92,13 @@ print_board:
 	movzx rsi, BYTE [rcx]
 	mov [rsp+32], rsi
 	call println
-	mov bl, [rsp+47]
+	mov rbx, [rsp+40]
 	add rsp, 48
 	mov rcx, [rsp+8]
 	inc rcx
 	mov [rsp+8], rcx
 	.L2:
-	dec bl
+	dec rbx
 	jmp .L1
 	.L3:
 	.L0:
@@ -112,9 +112,9 @@ check_win:
 	sub rsp, 16
 	xor rbx, rbx
 	mov [rsp+8], rbx
-	mov bl, 0x3
+	mov rbx, 0x3
 	.L1:
-	test bl, bl
+	test rbx, rbx
 	je .L3
 	lea rcx, [board]
 	mov rsi, [rsp+8]
@@ -157,14 +157,14 @@ check_win:
 	add rcx, rsi
 	mov [rsp+8], rcx
 	.L2:
-	dec bl
+	dec rbx
 	jmp .L1
 	.L3:
 	xor rbx, rbx
 	mov [rsp+8], rbx
-	mov bl, 0x3
+	mov rbx, 0x3
 	.L8:
-	test bl, bl
+	test rbx, rbx
 	je .L10
 	lea rcx, [board]
 	mov rsi, [rsp+8]
@@ -206,7 +206,7 @@ check_win:
 	inc rcx
 	mov [rsp+8], rcx
 	.L9:
-	dec bl
+	dec rbx
 	jmp .L8
 	.L10:
 	lea rbx, [board]
@@ -287,9 +287,9 @@ check_tie:
 	sub rsp, 16
 	lea rbx, [board]
 	mov [rsp+8], rbx
-	mov bl, 0x9
+	mov rbx, 0x9
 	.L1:
-	test bl, bl
+	test rbx, rbx
 	je .L3
 	mov rcx, [rsp+8]
 	mov sil, [rcx]
@@ -308,7 +308,7 @@ check_tie:
 	inc rcx
 	mov [rsp+8], rcx
 	.L2:
-	dec bl
+	dec rbx
 	jmp .L1
 	.L3:
 	mov bl, 0x1
@@ -586,9 +586,6 @@ main:
 	mov [rsp+0], rbx
 	call println
 	add rsp, 16
-	xor rbx, rbx
-	mov [rbp+16], rbx
-	jmp .L0
 	.L0:
 	leave
 	ret

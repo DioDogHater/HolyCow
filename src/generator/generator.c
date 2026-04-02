@@ -275,6 +275,14 @@ bool save_union(HC_FILE fptr, union_t* unio, reg_t* ptr, node_expr* value){
             if(!save_union(fptr, unio, ptr, value->uconstruct.elem))
                 return false;
         }
+        if(unio->is_variant){
+            enum_t* enu = get_enum(unio->str, unio->strlen);
+            int64_t val;
+            get_enum_val(enu, value->uconstruct.member->str, value->uconstruct.member->strlen, &val);
+            reg_t* tmp = GET_FREE_REG(unio->align);
+            gen_set_reg_raw(fptr, tmp, val);
+            gen_save_offset(fptr, tmp, ptr, unio->size - unio->align);
+        }
         return true;
     }
     return save_memory(fptr, unio->size, ptr, value);
@@ -715,14 +723,9 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
         gen_alloc_stack(fptr, func_call_sz);
     stack_sz += func_call_sz;
 
-    if(!func->type.ptr_depth && (func->type.data == DATA_STRUCT || func->type.data == DATA_UNION)){
-        if(struct_ptr) gen_save_stack(fptr, free_reg(struct_ptr), 0);
-        else{
-            reg_t* tmp = GET_FREE_REG(target_address_size);
-            gen_clear_reg(fptr, tmp);
-            gen_save_stack(fptr, tmp, 0);
-        }
-    }
+    if(!func->type.ptr_depth && (func->type.data == DATA_STRUCT || func->type.data == DATA_UNION))
+        gen_save_stack(fptr, free_reg(struct_ptr), 0);
+
 
     // Save each occupied register on the stack
     size_t arg_ptr = 0;
@@ -1315,9 +1318,29 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
             }
         }else if(obj_type.data == DATA_UNION){
             union_t* unio = get_union_tk(obj_type.repr);
+            reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(sz), sign);
+
+            if(unio->is_variant && expr->access.member->strlen == 4 && strncmp(expr->access.member->str, "type", 4) == 0){
+                reg_t* ptr;
+                if(obj_type.ptr_depth)
+                    ptr = generate_expr(fptr, expr->access.obj, obj_type, NULL);
+                else{
+                    ptr = alloc_reg(GET_FREE_REG(target_address_size), false);
+                    if(!get_expr_address(fptr, ptr, expr->access.obj))
+                        fail_gen_expr(fptr);
+                }
+                if(sz <= unio->align)
+                    gen_load_offset(fptr, tmp, ptr, unio->size - unio->align);
+                else
+                    gen_loadx_offset(fptr, tmp, ptr, unio->size - unio->align, unio->align, false);
+                (void) free_reg(ptr);
+                return tmp;
+            }
+
             node_stmt* member = get_union_member(unio, expr->access.member->str, expr->access.member->strlen);
             if(!member)
                 fail_gen_expr(fptr);
+
             type_t member_type;
             if(member->type == tk_var_decl) member_type = type_from_tk(member->var_decl.var_type);
             else if(sz != target_address_size){
@@ -1327,7 +1350,7 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
                 member_type = type_from_tk(member->arr_decl.elem_type);
                 member_type.repr++;
             }
-            reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(sz), sign);
+
             if(obj_type.ptr_depth || expr->access.obj->type == tk_deref || expr->access.obj->type == tk_open_bracket || expr->access.obj->type == tk_dot){
                 reg_t* ptr;
                 if(obj_type.ptr_depth)
@@ -1688,6 +1711,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
         stmt->type != tk_arr_decl &&
         stmt->type != tk_struct &&
         stmt->type != tk_union &&
+        stmt->type != tk_variant &&
         stmt->type != tk_class &&
         stmt->type != tk_enum &&
         stmt->type != tk_asm){
@@ -2425,7 +2449,8 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
         else
             *last_def = new_struct;
         return true;
-    }case tk_union:{
+    }case tk_union:
+    case tk_variant:{
         if(fn_type.data){
             print_context("Cannot declare union type in function", stmt->struct_decl.identifier);
             return false;
@@ -2448,7 +2473,8 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             return false;
         }
 
-        union_t unio = {str, strlen, 0, 0, stmt->struct_decl.members};
+        enum_t variant_enum = (enum_t){str, strlen, NULL};
+        union_t unio = {str, strlen, 0, 0, (stmt->type == tk_variant), stmt->struct_decl.members};
         for(node_stmt* ptr = stmt->struct_decl.members; ptr; ptr = ptr->next){
             if(ptr->type == tk_var_decl){
                 type_t var_type = type_from_tk(ptr->var_decl.var_type);
@@ -2467,6 +2493,19 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
                 if(flags_from_tk(ptr->var_decl.var_type)){
                     print_context("Cannot give modifiers to union members", ptr->var_decl.var_type);
                     return false;
+                }
+
+                if(stmt->type == tk_variant){
+                    if(ptr->var_decl.identifier->strlen == 4 && strncmp(ptr->var_decl.identifier->str, "type", 4) == 0){
+                        print_context("Cannot define a member with the name \"type\" in a variant", ptr->var_decl.identifier);
+                        return false;
+                    }
+                    node_expr* val = (node_expr*) ARENA_ALLOC(arena, node_term);
+                    val->term = (node_term){tk_identifier, NULL,  ptr->var_decl.identifier->str, ptr->var_decl.identifier->strlen};
+                    if(!variant_enum.vals)
+                        variant_enum.vals = val;
+                    else
+                        APPEND_LIST(variant_enum.vals, val);
                 }
 
                 unio.size = MAX(unio.size, size);
@@ -2500,6 +2539,19 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
                     return false;
                 }
 
+                if(stmt->type == tk_variant){
+                    if(ptr->arr_decl.identifier->strlen == 4 && strncmp(ptr->arr_decl.identifier->str, "type", 4) == 0){
+                        print_context("Cannot define a member with the name \"type\" in a variant", ptr->var_decl.identifier);
+                        return false;
+                    }
+                    node_expr* val = (node_expr*) ARENA_ALLOC(arena, node_term);
+                    val->term = (node_term){tk_identifier, NULL,  ptr->arr_decl.identifier->str, ptr->arr_decl.identifier->strlen};
+                    if(!variant_enum.vals)
+                        variant_enum.vals = val;
+                    else
+                        APPEND_LIST(variant_enum.vals, val);
+                }
+
                 unio.size = MAX(unio.size, size * elem_count);
                 unio.align = MAX(unio.align, align);
             }else{
@@ -2510,6 +2562,22 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
 
         if(unio.align)
             unio.size = ALIGN(unio.size, unio.align);
+
+        if(stmt->type == tk_variant){
+            enum_t* enu = get_enum(unio.str, unio.strlen);
+            if(enu){
+                print_context_ex("Enum type is already defined with the same name", unio.str, unio.strlen);
+                print_context_ex("Last defined here", enu->str, enu->strlen);
+                return false;
+            }
+            if(!variant_enum.vals){
+                print_context_ex("Variants must provide at least one possible value", unio.str, unio.strlen);
+                return false;
+            }
+            vector_append(enums, &variant_enum);
+            unio.align = MAX(unio.align, 1);
+            unio.size += unio.align;
+        }
 
         if(!last_def)
             vector_append(unions, &unio);
@@ -2528,14 +2596,14 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             print_context_ex("Last definition", last_def->str, last_def->strlen);
             return false;
         }
-        {
-            var_t* var = get_var(enu.str, enu.strlen);
-            if(var){
-                print_context_ex("Variable has the same name", enu.str, enu.strlen);
-                print_context_ex("Variable defined here", var->str, var->strlen);
-                return false;
-            }
+
+        var_t* var = get_var(enu.str, enu.strlen);
+        if(var){
+            print_context_ex("Variable has the same name", enu.str, enu.strlen);
+            print_context_ex("Variable defined here", var->str, var->strlen);
+            return false;
         }
+
         vector_append(enums, &enu);
         return true;
     }case tk_assign:
@@ -2555,7 +2623,17 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             type = (type_t){8, GET_DUMMY_TYPE(int64), true, DATA_INT, 8, 0};
         if(stmt->expr.expr->type == tk_func_call){
             func_t* func = NULL;
-            size_t func_call_sz = generate_func_call(fptr, stmt->expr.expr, &func, NULL);
+            size_t func_call_sz = 0;
+            reg_t* struct_ptr = NULL;
+            if(!type.ptr_depth && (type.data == DATA_STRUCT || type.data == DATA_UNION)){
+                struct_ptr = alloc_reg(GET_MASK_REG(target_address_size, allowed_copy_regs), false);
+                func_call_sz = type.size;
+                gen_alloc_stack(fptr, type.size);
+                gen_load_stack_ptr(fptr, struct_ptr, 0);
+            }
+            func_call_sz += generate_func_call(fptr, stmt->expr.expr, &func, struct_ptr);
+            if(struct_ptr)
+                (void) free_reg(struct_ptr);
             if(func_call_sz)
                 gen_dealloc_stack(fptr, func_call_sz);
             stack_sz -= func_call_sz;
@@ -2672,8 +2750,6 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             }else if(fn_type.data == DATA_STRUCT || fn_type.data == DATA_UNION){
                 reg_t* ptr = alloc_reg(GET_MASK_REG(target_address_size, allowed_copy_regs), false);
                 gen_load_arg(fptr, ptr, 0);
-                gen_cmpz_reg(fptr, ptr);
-                gen_cond_jump(fptr, tk_cmp_eq, 0, false);
                 if(fn_type.data == DATA_STRUCT){
                     struct_t* stru = get_struct_tk(fn_type.repr);
                     if(!save_struct(fptr, stru, ptr, stmt->ret.expr))
@@ -2820,7 +2896,18 @@ static bool generate_constant(HC_FILE fptr, type_t target_type, node_expr* expr)
             print_context("Expected valid scalar member", expr->uconstruct.member);
             return false;
         }
-        return generate_constant(fptr, type_from_tk(member->var_decl.var_type), expr->uconstruct.elem);
+        type_t member_type = type_from_tk(member->var_decl.var_type);
+        if(!generate_constant(fptr, member_type, expr->uconstruct.elem))
+            return false;
+        size_t pad = unio->size - SIZEOF_T(member_type) - ((unio->is_variant) ? unio->align : 0);
+        if(pad)
+            gen_declare_mem(fptr, pad);
+        if(unio->is_variant){
+            enum_t* enu = get_enum(unio->str, unio->strlen);
+            int64_t val;
+            get_enum_val(enu, member->var_decl.identifier->str, member->var_decl.identifier->strlen, &val);
+            gen_declare_int(fptr, val, unio->align);
+        }
     }
     return true;
 }

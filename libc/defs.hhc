@@ -1,2 +1,6 @@
 #define LIBC_FUNC @cfunc
 
+#define NULL (void*)0
+#define size_t uint64
+#define ssize_t int64
+

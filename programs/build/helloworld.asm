@@ -103,7 +103,7 @@ main:
 	mov [rsp+0], rbx
 	mov rbx, 0x5
 	mov [rsp+8], rbx
-	mov rbx, 0x1e
+	mov rbx, 0x14
 	mov [rsp+16], rbx
 	call println
 	add rsp, 32
@@ -322,7 +322,7 @@ db "%c %i",0
 STR1:
 db "Hello world!",0
 STR2:
-db "%A5 chars from start%A30 chars",0
+db "%A5 chars%A20 chars",0
 STR3:
 db "[%[Aligned left%L]",0
 STR4:

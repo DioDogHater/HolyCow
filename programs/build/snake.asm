@@ -421,17 +421,17 @@ get_direction:
 	sub rsp, 32
 	xor rbx, rbx
 	mov [rsp+8], rbx
-	lea rbx, [rsp+40]
+	lea rbx, [rsp+48]
 	mov [rsp+16], rbx
-	mov rbx, 0x18
+	mov rbx, 0x10
 	mov [rsp+24], rbx
 	call read
 	mov rbx, [rsp+0]
 	add rsp, 32
-	mov [rsp+0], rbx
+	mov [rsp+8], rbx
 	xor bl, bl
 	mov [rbp+16], bl
-	mov rbx, [rsp+0]
+	mov rbx, [rsp+8]
 	xor rcx, rcx
 	cmp rbx, rcx
 	setle bl
@@ -441,13 +441,15 @@ get_direction:
 	jmp .L2
 	.L1:
 	.L2:
-	lea rbx, [rsp+8]
-	mov rcx, [rsp+0]
+	lea rbx, [rsp+16]
+	mov rcx, [rsp+8]
 	mov rsi, 0x1
 	sub rcx, rsi
 	mov sil, [rbx+rcx*1]
-	mov bl, 0x77
-	cmp sil, bl
+	mov [rsp+7], sil
+	mov bl, [rsp+7]
+	mov cl, 0x77
+	cmp bl, cl
 	sete bl
 	test bl, bl
 	je .L5
@@ -464,13 +466,9 @@ get_direction:
 	mov [rbx+4], ecx
 	jmp .L4
 	.L3:
-	lea rbx, [rsp+8]
-	mov rcx, [rsp+0]
-	mov rsi, 0x1
-	sub rcx, rsi
-	mov sil, [rbx+rcx*1]
-	mov bl, 0x73
-	cmp sil, bl
+	mov bl, [rsp+7]
+	mov cl, 0x73
+	cmp bl, cl
 	sete bl
 	test bl, bl
 	je .L7
@@ -487,13 +485,9 @@ get_direction:
 	mov [rbx+4], ecx
 	jmp .L4
 	.L6:
-	lea rbx, [rsp+8]
-	mov rcx, [rsp+0]
-	mov rsi, 0x1
-	sub rcx, rsi
-	mov sil, [rbx+rcx*1]
-	mov bl, 0x61
-	cmp sil, bl
+	mov bl, [rsp+7]
+	mov cl, 0x61
+	cmp bl, cl
 	sete bl
 	test bl, bl
 	je .L9
@@ -510,13 +504,9 @@ get_direction:
 	mov [rbx+4], ecx
 	jmp .L4
 	.L8:
-	lea rbx, [rsp+8]
-	mov rcx, [rsp+0]
-	mov rsi, 0x1
-	sub rcx, rsi
-	mov sil, [rbx+rcx*1]
-	mov bl, 0x64
-	cmp sil, bl
+	mov bl, [rsp+7]
+	mov cl, 0x64
+	cmp bl, cl
 	sete bl
 	test bl, bl
 	je .L11
@@ -533,13 +523,9 @@ get_direction:
 	mov [rbx+4], ecx
 	jmp .L4
 	.L10:
-	lea rbx, [rsp+8]
-	mov rcx, [rsp+0]
-	mov rsi, 0x1
-	sub rcx, rsi
-	mov sil, [rbx+rcx*1]
-	mov bl, 0x71
-	cmp sil, bl
+	mov bl, [rsp+7]
+	mov cl, 0x71
+	cmp bl, cl
 	sete bl
 	test bl, bl
 	je .L12
@@ -702,9 +688,9 @@ draw_game:
 	add rsp, 32
 	lea rbx, [snake]
 	mov [rsp+24], rbx
-	mov ebx, DWORD [last_direction+0]
-	xor ecx, ecx
-	cmp ebx, ecx
+	movsxd rbx, DWORD [last_direction+0]
+	xor rcx, rcx
+	cmp rbx, rcx
 	setg bl
 	test bl, bl
 	je .L1
@@ -720,9 +706,9 @@ draw_game:
 	mov [rbx+rcx*1], sil
 	jmp .L2
 	.L1:
-	mov ebx, DWORD [last_direction+0]
-	xor ecx, ecx
-	cmp ebx, ecx
+	movsxd rbx, DWORD [last_direction+0]
+	xor rcx, rcx
+	cmp rbx, rcx
 	setl bl
 	test bl, bl
 	je .L3
@@ -738,9 +724,9 @@ draw_game:
 	mov [rbx+rcx*1], sil
 	jmp .L2
 	.L3:
-	mov ebx, DWORD [last_direction+4]
-	xor ecx, ecx
-	cmp ebx, ecx
+	movsxd rbx, DWORD [last_direction+4]
+	xor rcx, rcx
+	cmp rbx, rcx
 	setl bl
 	test bl, bl
 	je .L4
@@ -831,8 +817,13 @@ draw_game:
 	mov [rbx+rcx*1], sil
 	lea rbx, [rsp+32]
 	mov [rsp+8], rbx
-	sub rsp, 32
+	sub rsp, 16
 	mov rbx, STR0
+	mov [rsp+0], rbx
+	call print
+	add rsp, 16
+	sub rsp, 32
+	mov rbx, STR1
 	mov [rsp+0], rbx
 	mov rbx, 0x20
 	mov [rsp+8], rbx
@@ -846,7 +837,7 @@ draw_game:
 	je .L12
 	sub rsp, 32
 	mov [rsp+24], rbx
-	mov rcx, STR1
+	mov rcx, STR2
 	mov [rsp+0], rcx
 	mov rcx, 0x20
 	mov [rsp+8], rcx
@@ -864,7 +855,7 @@ draw_game:
 	jmp .L10
 	.L12:
 	sub rsp, 32
-	mov rbx, STR2
+	mov rbx, STR1
 	mov [rsp+0], rbx
 	mov rbx, 0x20
 	mov [rsp+8], rbx
@@ -920,8 +911,8 @@ main:
 	fstp DWORD [rsp+8]
 	xor bl, bl
 	mov [rsp+7], bl
-	.L1:
 	sub rsp, 16
+	.L1:
 	call draw_game
 	sub rsp, 16
 	call time
@@ -981,9 +972,9 @@ main:
 	add ecx, esi
 	mov [rbx+4], ecx
 	lea rcx, [snake]
-	mov ebx, [rcx+0]
-	xor ecx, ecx
-	cmp ebx, ecx
+	movsxd rbx, DWORD [rcx+0]
+	xor rcx, rcx
+	cmp rbx, rcx
 	setl bl
 	test bl, bl
 	jne .L9
@@ -996,9 +987,9 @@ main:
 	test bl, bl
 	jne .L8
 	lea rsi, [snake]
-	mov ecx, [rsi+4]
-	xor esi, esi
-	cmp ecx, esi
+	movsxd rcx, DWORD [rsi+4]
+	xor rsi, rsi
+	cmp rcx, rsi
 	setl bl
 	.L8:
 	test bl, bl
@@ -1082,27 +1073,51 @@ main:
 	mov rsi, QWORD [snake_length]
 	mov rdi, 0x2
 	sub rsi, rdi
+	mov r8, rcx
+	mov r9, rsi
 	mov rdi, [rcx+rsi*8]
 	mov [rbx], rdi
+	sub rsp, 16
+	mov [rsp+8], r8
+	mov [rsp+0], r9
 	call generate_food
+	mov r8, [rsp+8]
+	mov r9, [rsp+0]
+	add rsp, 16
 	jmp .L17
 	.L16:
 	.L17:
-	sub rsp, 16
+	sub rsp, 32
+	mov [rsp+24], r8
+	mov [rsp+16], r9
 	fld QWORD [FP3]
 	fstp QWORD [rsp+0]
 	call sleep
-	add rsp, 16
+	mov r8, [rsp+24]
+	mov r9, [rsp+16]
+	add rsp, 32
 	mov bl, [rsp+23]
 	test bl, bl
 	je .L19
-	sub rsp, 16
+	sub rsp, 32
+	mov [rsp+24], r8
+	mov [rsp+16], r9
 	mov rbx, STR4
 	mov [rsp+0], rbx
 	call print
-	add rsp, 16
+	mov r8, [rsp+24]
+	mov r9, [rsp+16]
+	add rsp, 32
+	sub rsp, 16
+	mov [rsp+8], r8
+	mov [rsp+0], r9
 	call flush_stdout
-	sub rsp, 32
+	mov r8, [rsp+8]
+	mov r9, [rsp+0]
+	add rsp, 16
+	sub rsp, 48
+	mov [rsp+40], r8
+	mov [rsp+32], r9
 	xor rbx, rbx
 	mov [rsp+8], rbx
 	xor rbx, rbx
@@ -1110,31 +1125,55 @@ main:
 	mov rbx, 0x40
 	mov [rsp+24], rbx
 	call read
-	add rsp, 32
+	mov r8, [rsp+40]
+	mov r9, [rsp+32]
+	add rsp, 48
+	sub rsp, 16
+	mov [rsp+8], r8
+	mov [rsp+0], r9
 	call block_stdin
-	sub rsp, 32
+	mov r8, [rsp+8]
+	mov r9, [rsp+0]
+	add rsp, 16
+	sub rsp, 48
+	mov [rsp+40], r8
+	mov [rsp+32], r9
 	xor rbx, rbx
 	mov [rsp+8], rbx
 	xor rbx, rbx
 	mov [rsp+16], rbx
-	lea rbx, [rsp+120]
+	lea rbx, [rsp+136]
 	mov [rsp+24], rbx
 	call tcsetattr
-	add rsp, 32
-	sub rsp, 16
+	mov r8, [rsp+40]
+	mov r9, [rsp+32]
+	add rsp, 48
+	sub rsp, 32
+	mov [rsp+24], r8
+	mov [rsp+16], r9
 	fld QWORD [FP4]
 	fstp QWORD [rsp+0]
 	call sleep
-	add rsp, 16
-	sub rsp, 16
-	sub rsp, 16
+	mov r8, [rsp+24]
+	mov r9, [rsp+16]
+	add rsp, 32
+	sub rsp, 32
+	mov [rsp+24], r8
+	mov [rsp+16], r9
+	sub rsp, 32
+	mov [rsp+24], r8
+	mov [rsp+16], r9
 	call input_char
+	mov r8, [rsp+24]
+	mov r9, [rsp+16]
 	mov bl, [rsp+0]
-	add rsp, 16
+	add rsp, 32
 	mov [rsp+1], bl
 	call to_lower
+	mov r8, [rsp+24]
+	mov r9, [rsp+16]
 	mov bl, [rsp+0]
-	add rsp, 16
+	add rsp, 32
 	mov cl, 0x79
 	cmp bl, cl
 	setne bl
@@ -1144,25 +1183,41 @@ main:
 	jmp .L22
 	.L21:
 	.L22:
+	sub rsp, 16
+	mov [rsp+8], r8
+	mov [rsp+0], r9
 	call init_game
+	mov r8, [rsp+8]
+	mov r9, [rsp+0]
+	add rsp, 16
 	xor bl, bl
 	mov [rsp+23], bl
+	sub rsp, 16
+	mov [rsp+8], r8
+	mov [rsp+0], r9
 	call nonblock_stdin
-	sub rsp, 32
+	mov r8, [rsp+8]
+	mov r9, [rsp+0]
+	add rsp, 16
+	sub rsp, 48
+	mov [rsp+40], r8
+	mov [rsp+32], r9
 	xor rbx, rbx
 	mov [rsp+8], rbx
 	xor rbx, rbx
 	mov [rsp+16], rbx
-	lea rbx, [rsp+64]
+	lea rbx, [rsp+80]
 	mov [rsp+24], rbx
 	call tcsetattr
-	add rsp, 32
+	mov r8, [rsp+40]
+	mov r9, [rsp+32]
+	add rsp, 48
 	jmp .L20
 	.L19:
 	.L20:
-	add rsp, 16
 	jmp .L1
 	.L2:
+	add rsp, 16
 	.L0:
 	leave
 	ret
@@ -1253,11 +1308,11 @@ times 8 db 0
 
 section .rodata
 STR0:
-db "",0x1b,"[2J",0x1b,"[H+%*c+",0
+db "",0x1b,"[2J",0x1b,"[H",0
 STR1:
-db "|%*s|",0
-STR2:
 db "+%*c+",0
+STR2:
+db "|%*s|",0
 STR3:
 db "SCORE: %04%APress q to quit.",0
 STR4:

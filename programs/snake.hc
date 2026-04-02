@@ -44,30 +44,34 @@ vec2 food;
 
 // Get the player's direction using input
 bool get_direction(){
-    char input[24];
-    int sz = read(STDIN, input, 24);
+    char input[16];
+    int sz = read(STDIN, input, 16);
+
     @return = false;
     if(sz <= 0)
         return;
-    if(input[sz-1] == 'w' && !last_direction.y)
+
+    char c = input[sz-1];
+
+    if(c == 'w' && !last_direction.y)
         last_direction = vec2{0, -1};
-    else if(input[sz-1] == 's' && !last_direction.y)
+    else if(c == 's' && !last_direction.y)
         last_direction = vec2{0, 1};
-    else if(input[sz-1] == 'a' && !last_direction.x)
+    else if(c == 'a' && !last_direction.x)
         last_direction = vec2{-1, 0};
-    else if(input[sz-1] == 'd' && !last_direction.x)
+    else if(c == 'd' && !last_direction.x)
         last_direction = vec2{1, 0};
-    else if(input[sz-1] == 'q')
+    else if(c == 'q')
         @return = true;
 }
 
 // Give food a random position
-// If food is on a snake's body part, try again
-// Repeat until food is no longer colliding with snake
 void generate_food(){
     food = vec2{randint(0, Game.width), randint(0, Game.height)};
     vec2* body = snake;
     for(uint i = 0; i < snake_length; ++i){
+        // If food is on a snake's body part, try again
+        // Repeat until food is no longer colliding with snake
         if(food.x == body.x && food.y == body.y){
             food = vec2{randint(0, Game.width), randint(0, Game.height)};
             body = snake;
@@ -113,12 +117,14 @@ void draw_game(){
         body += sizeof(vec2);
         last_body += sizeof(vec2);
     }
+
     // Put a 'o' where the food is
     screen[food.x + food.y * Game.width] = 'o';
 
     // Draw the screen, line by line
     char* ptr = screen;
-    println("\x1b[2J\x1b[H+%*c+", Game.width, '=');
+    print("\x1b[2J\x1b[H");     // Clear the screen
+    println("+%*c+", Game.width, '=');
     repeat(Game.height){
         println("|%*s|", Game.width, ptr);
         ptr += Game.width;
@@ -134,6 +140,7 @@ int main(uint argc, char** argv){
     tcgetattr(STDIN, &old_term);
 
     // Setup the new TTY
+    // This will make the terminal give input instantly
     new_term = old_term;
     new_term.c_lflag = new_term.c_lflag & ~(ICANON | ECHO);
     tcsetattr(STDIN, TCSANOW, &new_term);

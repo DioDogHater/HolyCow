@@ -19,4 +19,10 @@
 #define DIR_SEP  '/'
 #endif
 
+#define APPEND_LIST(list, elem) do{\
+    typeof(elem) last = list;\
+    for(; last->next; last = last->next);\
+    last->next = elem;\
+}while(0);
+
 #endif

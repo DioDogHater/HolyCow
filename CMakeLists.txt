@@ -30,7 +30,7 @@ src/generator/evaluator.c
 src/generator/generator.c
 )
 
-# Currently available target
+# Currently available targets
 # - TARGET_x64_Linux -> x64 Linux
 
 # Change the target here

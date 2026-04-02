@@ -13,7 +13,6 @@ token_t dummy_types[] = {
     DUMMY_TYPE(uint64),
     DUMMY_TYPE(float),
     DUMMY_TYPE(double),
-    DUMMY_TYPE(string),
     DUMMY_TYPE(bool),
     DUMMY_TYPE(void)
 };
@@ -176,17 +175,7 @@ type_t typeof_expr(node_expr* expr){
             max = (type_t){1, GET_DUMMY_TYPE(uint8), false, DATA_INT, 1, expr->type == tk_str_lit};
             break;
         case tk_int_lit:{
-            const char* str = expr->term.str;
-            size_t strlen = expr->term.strlen;
-            uint64_t r = eval_int_lit(&expr->term);
-            if(r < (1 << 7))
-                max = (type_t){1, GET_DUMMY_TYPE(int8), true, DATA_INT, 1, 0};
-            else if(r < (1 << 15))
-                max = (type_t){2, GET_DUMMY_TYPE(int16), true, DATA_INT, 2, 0};
-            else if(r < (1 << 31))
-                max = (type_t){4, GET_DUMMY_TYPE(int32), true, DATA_INT, 4, 0};
-            else
-                max = (type_t){8, GET_DUMMY_TYPE(int64), true, DATA_INT, 8, 0};
+            max = (type_t){8, GET_DUMMY_TYPE(int64), true, DATA_INT, 8, 0};
             break;
         }case tk_float_lit:{
             max = (type_t){8, GET_DUMMY_TYPE(double), true, DATA_FLOAT, 8, 0};
@@ -256,6 +245,8 @@ type_t typeof_expr(node_expr* expr){
                 max = member->type;
             }else{
                 union_t* unio = get_union(obj_type.repr->str, obj_type.repr->strlen);
+                if(unio->is_variant && expr->access.member->strlen == 4 && strncmp(expr->access.member->str, "type", 4) == 0)
+                    return (type_t){unio->align, GET_DUMMY_TYPE(uint64), false, DATA_INT, unio->align, 0};
                 node_stmt* member = get_union_member(unio, expr->access.member->str, expr->access.member->strlen);
                 if(!member){
                     print_context("Is not a member of union", expr->access.member);

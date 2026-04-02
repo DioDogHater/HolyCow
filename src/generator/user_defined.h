@@ -67,7 +67,8 @@ typedef struct{
     const char* str;
     size_t strlen;
     size_t size;
-    size_t align;
+    unsigned int align;
+    bool is_variant;       // Will be padded between align and members
     node_stmt* members;
 } union_t;
 extern vector_t unions[1];
@@ -79,7 +80,7 @@ union_t* get_union_tk(token_t*);
 // Find a union's member
 node_stmt* get_union_member(union_t*, const char*, size_t);
 
-typedef struct{
+typedef struct enum_t {
     const char* str;
     size_t strlen;
     node_expr* vals;

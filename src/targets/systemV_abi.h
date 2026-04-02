@@ -495,7 +495,6 @@ size_t generate_cfunc_call(HC_FILE fptr, node_expr* expr, func_t* func, reg_t* s
         gen_load_stack(fptr, alloc_reg(masked_regs[i], false), func_call_sz - arg_ptr);
     }
 
-    HC_DEBUG_PRINT(func_call_sz, "%lu");
     return func_call_sz;
 }
 

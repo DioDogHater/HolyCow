@@ -32,7 +32,7 @@ void print_numbers(...count){
         // Ints handled with pointers are not scaled
         // by the size of the pointer's contents!
         // Do not do something like ptr++ if ptr's type
-        // is something other than uint8*, int8* or char*
+        // is something other than uint8*, int8*, char* or bool*.
         vargs += 8;
         c = ',';
     }
@@ -48,7 +48,7 @@ int main(uint argc, char** argv){
     // %A lets you align the cursor to be n characters after
     // the start of the line
     // Use %*A to replace spaces with another char
-    println("%A5 chars from start%A30 chars", 5, 30);
+    println("%A5 chars%A20 chars", 5, 20);
 
     // %[ ... %L / %R lets you align text left / right for a certain space
     // Aligning left fills the gap after the text
@@ -62,7 +62,7 @@ int main(uint argc, char** argv){
     println("[%[Centered%C]", 20);
 
     // %[ ... %T / %*T lets you truncate text
-    // It basically lets you cut the text if it's too long to a certain length
+    // It lets you cut the text if it's too long to a certain length
     // %T cuts at the end, but %*T cuts at the start
     println("%[This is way too long and I want it short%T", 20);
     println("%[This is way too long and I want it short%*T", 20);

@@ -17,7 +17,6 @@ enum{
     tk_uint64,
     tk_float,
     tk_double,
-    tk_string,
     tk_bool,
     tk_void,
     tk_public,
@@ -88,6 +87,7 @@ enum{
     tk_asm,            // @asm("...")
     tk_struct,
     tk_union,
+    tk_variant,
     tk_class,
     tk_enum,
     tk_sizeof,         // sizeof(...)

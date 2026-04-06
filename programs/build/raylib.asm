@@ -1236,6 +1236,7 @@ extern stderr:data
 global FP_PRECISION:data
 FP_PRECISION:
 dq 0.0000010000
+times 0 db 0
 
 
 section .rodata

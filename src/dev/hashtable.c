@@ -39,10 +39,10 @@ bool hashtable_grow(hashtable_t* table, size_t size){
     return true;
 }
 
-bool hashtable_set(hashtable_t* table, const void* pair){
+void* hashtable_set(hashtable_t* table, const void* pair){
     if(!table || !table->size || !table->sets || !table->hashing_func){
         HC_ERR("HASHTABLE : Invalid table");
-        return false;
+        return NULL;
     }
     size_t hash = table->hashing_func(pair) % table->size;
     //HC_PRINT("hashtable_set : hash = %lu\n", hash);
@@ -51,7 +51,7 @@ bool hashtable_set(hashtable_t* table, const void* pair){
         set->pairs = (uint8_t*) HC_MALLOC(table->pair_size * HASHTABLE_MAX_SET_SIZE);
         if(!set->pairs){
             HC_ERR("HASHTABLE : Failed to allocate %lu bytes", table->pair_size * HASHTABLE_MAX_SET_SIZE);
-            return false;
+            return NULL;
         }
     }
     if(set->size == HASHTABLE_MAX_SET_SIZE){
@@ -59,10 +59,11 @@ bool hashtable_set(hashtable_t* table, const void* pair){
             return false;
         return hashtable_set(table, pair);
     }else{
-        memcpy(set->pairs + table->pair_size * set->size, pair, table->pair_size);
+        void* ptr = set->pairs + table->pair_size * set->size;
+        memcpy(ptr, pair, table->pair_size);
         set->size++;
+        return ptr;
     }
-    return true;
 }
 
 void* hashtable_get(hashtable_t* table, const void* key){

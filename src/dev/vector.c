@@ -1,6 +1,8 @@
 #include "libs.h"
 #include "types.h"
 
+static arena_t* vector_arena = NULL;
+
 bool vector_alloc(vector_t* vector, size_t size){
     if(!vector){
         HC_ERR("VECTOR : Invalid vector");
@@ -9,7 +11,10 @@ bool vector_alloc(vector_t* vector, size_t size){
     if((ssize_t)vector->memsize - (ssize_t)vector->size < (ssize_t)size){
         if(vector->memsize){
             if(!vector->next){
-                vector->next = HC_MALLOC(sizeof(vector_t));
+                if(vector_arena)
+                    vector->next = ARENA_ALLOC(vector_arena, vector_t);
+                else
+                    vector->next = HC_MALLOC(sizeof(vector_t));
                 if(!vector->next){
                     HC_ERR("VECTOR : Failed to allocate %lu bytes",sizeof(vector_t));
                     return false;
@@ -20,7 +25,10 @@ bool vector_alloc(vector_t* vector, size_t size){
             return vector_alloc(vector->next, size - (vector->memsize - vector->size));
         }else{
             vector->memsize = size + VECTOR_INIT_SIZE;
-            vector->data = HC_MALLOC(vector->_data_size * vector->memsize);
+            if(vector_arena)
+                vector->data = arena_alloc(vector_arena, vector->_data_size * vector->memsize);
+            else
+                vector->data = HC_MALLOC(vector->_data_size * vector->memsize);
             if(!vector->data){
                 HC_ERR("VECTOR : Failed to allocate %lu bytes", vector->_data_size * size);
                 return false;
@@ -67,14 +75,14 @@ void* vector_back(vector_t* vector){
     return vector_traverse(vector, vector_size(vector) - 1);
 }
 
-bool vector_append(vector_t* vector, const void* elem){
+void* vector_append(vector_t* vector, const void* elem){
     if(!vector || !vector_alloc(vector, 1))
-        return false;
+        return NULL;
     void* ptr = vector_back(vector);
     if(!ptr)
         return false;
     memcpy(ptr, elem, vector->_data_size);
-    return true;
+    return ptr;
 }
 
 bool vector_popback(vector_t* vector){
@@ -87,7 +95,7 @@ bool vector_popback(vector_t* vector){
     else if(vector->size)
         vector->size--;
     else{
-        HC_ERR("VECTOR : Tried popping null vector");
+        HC_ERR("VECTOR : Tried popping empty vector");
         return false;
     }
     return true;
@@ -96,7 +104,7 @@ bool vector_popback(vector_t* vector){
 void vector_destroy(vector_t* vector){
     if(!vector)
         HC_ERR("VECTOR : Invalid vector");
-    else{
+    else if(!vector_arena){
         if(vector->next){
             vector_destroy(vector->next);
             HC_FREE(vector->next);
@@ -106,3 +114,5 @@ void vector_destroy(vector_t* vector){
         *vector = (vector_t) _NEW_VECTOR(0);
     }
 }
+
+void vector_set_arena(arena_t* a){ vector_arena = a; }

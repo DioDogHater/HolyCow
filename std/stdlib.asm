@@ -1385,7 +1385,7 @@ print_double:
 	leave
 	ret
 
-global left_align_stdout:function
+static left_align_stdout:function
 left_align_stdout:
 	push rbp
 	mov rbp, rsp
@@ -1445,7 +1445,7 @@ left_align_stdout:
 	leave
 	ret
 
-global right_align_stdout:function
+static right_align_stdout:function
 right_align_stdout:
 	push rbp
 	mov rbp, rsp
@@ -1527,7 +1527,7 @@ right_align_stdout:
 	leave
 	ret
 
-global center_stdout:function
+static center_stdout:function
 center_stdout:
 	push rbp
 	mov rbp, rsp
@@ -3131,6 +3131,7 @@ times 2048 db 0
 global stdout_cursor:data
 stdout_cursor:
 dq 0
+times 0 db 0
 
 
 section .rodata

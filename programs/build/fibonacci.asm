@@ -72,12 +72,12 @@ fibo_recursive_cached:
 	mov rbx, [rbp+24]
 	mov rcx, 0x2
 	sub rbx, rcx
-	mov rcx, QWORD [fibo_cache_size]
+	mov rcx, QWORD [fibo+0]
 	cmp rbx, rcx
 	setl bl
 	test bl, bl
 	je .L3
-	lea rbx, [fibo_cache]
+	lea rbx, [fibo+8]
 	mov rcx, [rbp+24]
 	mov rsi, 0x2
 	sub rcx, rsi
@@ -105,16 +105,16 @@ fibo_recursive_cached:
 	add rsp, 32
 	add rbx, rcx
 	mov [rbp+16], rbx
-	mov rbx, QWORD [fibo_cache_size]
-	mov rcx, 0x80
+	mov rbx, QWORD [fibo+0]
+	mov rcx, 0x100
 	cmp rbx, rcx
 	setne bl
 	test bl, bl
 	je .L4
-	lea rbx, [fibo_cache]
-	mov rcx, QWORD [fibo_cache_size]
+	lea rbx, [fibo+8]
+	mov rcx, QWORD [fibo+0]
 	inc rcx
-	mov [fibo_cache_size], rcx
+	mov [fibo+0], rcx
 	dec rcx
 	mov rsi, [rbp+16]
 	mov [rbx+rcx*8], rsi
@@ -216,7 +216,7 @@ main:
 	sub rsp, 16
 	mov rbx, [rsp+32]
 	mov [rsp+8], rbx
-	call fibo_iterative
+	call fibo_recursive_cached
 	mov rbx, [rsp+0]
 	add rsp, 16
 	mov [rsp+8], rbx
@@ -300,12 +300,10 @@ dq 0
 static __GP_TMP:data
 __GP_TMP:
 times 64 db 0
-global fibo_cache_size:data
-fibo_cache_size:
+global fibo:data
+fibo:
 dq 0
-global fibo_cache:data
-fibo_cache:
-times 1024 db 0
+times 2048 db 0
 
 
 section .rodata

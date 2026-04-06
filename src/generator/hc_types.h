@@ -31,7 +31,12 @@ enum{
     FLAG_CFUNC    = 0x20,
 
     // If a function is defined, this flag will be set
-    FLAG_FDEF     = 0x40
+    FLAG_FDEF     = 0x40,
+
+    // Flag given to members and methods inherited
+    // If a private member is inherited, it cannot be accessed by child class
+    // If a method is inherited, it can be overriden (replaced)
+    FLAG_INHERITED= 0x80
 };
 
 typedef struct{

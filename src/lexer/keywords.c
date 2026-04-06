@@ -51,6 +51,7 @@ static struct keyword_pair keywords[] = {
     KEYWORD(variant),
     KEYWORD(class),
     KEYWORD(enum),
+    KEYWORD(module),
     KEYWORD(sizeof),
     KEYWORD(typeof),
     ALIAS_KW(@stack_alloc,stack_alloc)

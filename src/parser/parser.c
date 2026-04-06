@@ -506,8 +506,31 @@ node_stmt* parse_stmt(token_t** tokens, bool sc_necessary){
             stmt = (node_stmt*) ARENA_ALLOC(arena, node_var_decl);
             stmt->var_decl = (node_var_decl) {tk_var_decl, NULL, token, identifier, expr};
         }
-    }// Structs / class / unions
-    else if(token->type == tk_struct || token->type == tk_class || token->type == tk_union || token->type == tk_variant){
+    }// Constexpr
+    else if(token->type == tk_constexpr){
+        (void) consume_token(tokens);
+        stmt = (node_stmt*) ARENA_ALLOC(arena, node_constexpr);
+        token_t* t = consume_token(tokens);
+        if(!t || (t->type != tk_int64 && t->type != tk_float)){
+            print_context("Constexpr type must be either \"int\" or \"float\"", t);
+            return NULL;
+        }
+        token_t* ident = consume_token(tokens);
+        if(!ident || ident->type != tk_identifier){
+            print_context("Expected identifier", *tokens);
+            return NULL;
+        }
+        if(!consume_tk_type(tokens, tk_assign)){
+            print_context("Expected assignment =", *tokens);
+            return NULL;
+        }
+        stmt->const_decl = (node_constexpr){tk_constexpr, NULL, (t->type == tk_int64), ident, parse_expr(tokens, 0)};
+        if(!stmt->const_decl.expr){
+            print_context("Expected valid expression", *tokens);
+            return NULL;
+        }
+    }// Struct / class / union / variant / module declaration
+    else if(token->type == tk_struct || token->type == tk_class || token->type == tk_union || token->type == tk_variant || token->type == tk_module){
         (void) consume_token(tokens);
         stmt = (node_stmt*) ARENA_ALLOC(arena, node_struct_decl);
         stmt->struct_decl = (node_struct_decl){token->type, NULL, peek_token(tokens), NULL};
@@ -519,7 +542,7 @@ node_stmt* parse_stmt(token_t** tokens, bool sc_necessary){
             return stmt;
         stmt->struct_decl.members = parse_scope(tokens);
         if(!stmt->struct_decl.members || stmt->struct_decl.members == (node_stmt*)(~0)){
-            print_context("Expected braces containing valid members.", stmt->struct_decl.identifier);
+            print_context("Expected something inside braces", stmt->struct_decl.identifier);
             return NULL;
         }
         return stmt;

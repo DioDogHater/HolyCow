@@ -36,6 +36,50 @@ void frame(char* title = "", ...count){
     println("+%*c+", max_len, '-');
 }
 
+variant msg_data {
+    char* text;
+    int integer;
+    float number;
+    bool confirm;
+}
+
+class msg {
+    // Can only be changed inside msg's methods
+    // but can be read / pointed to from anywhere. (@peek)
+    private @peek msg_data data = msg_data.integer{ 0 };
+
+    // Setters
+    void set_text(char* txt){
+        this.data = msg_data.text{ txt };
+    }
+    void set_integer(int i){
+        this.data = msg_data.integer{ i };
+    }
+    void set_number(float n){
+        this.data = msg_data.number{ n };
+    }
+    void set_confirm(bool b){
+        this.data = msg_data.confirm{ b };
+    }
+
+    void print(){
+        // Members of a class can be accessed with the "this"
+        // variable in its methods. "this" is a pointer to the
+        // object calling the method.
+
+        if(this.data.type == msg_data.text)
+            println("msg{\"%s\"}", this.data.text);
+        else if(this.data.type == msg_data.integer)
+            println("msg{%i}", this.data.integer);
+        else if(this.data.type == msg_data.number)
+            println("msg{%f}", this.data.number);
+        else if(this.data.type == msg_data.confirm)
+            println("msg{%b}", this.data.confirm);
+        else
+            println("msg{INVALID}");
+    }
+}
+
 struct test;
 
 struct test2{
@@ -49,35 +93,33 @@ struct test{
     test2 z;
 }
 
-variant msg {
-    char* text;
-    uint integer;
-    float number;
-    bool confirm;
-}
+// More procedural approach to objects, while still
+// retaining the organisation and encapsulation aspects of classes
+module test {
+    void greet(){
+        println("Hello world!");
+    }
 
-test get_test(){
-    @return.x = 10;
-    @return.y = 5;
-    @return.z = test2{"Diddy", "Blud"};
+    test get(){
+        // When a function returns a struct,
+        // @return is a pointer to the returned struct
+        @return.x = 12345;
+        @return.y = 256;
+        @return.z = test2{ "Foo", "Bar" };
+    }
 
-    // or
-    //return test{10, 5, test2{"Diddy", "Blud"}};
-}
+    // Yes, modules support encapsulation.
+    // Private and protected both make variables and functions
+    // only accessible from within the module itself.
+    private void print_test2(test2 t){
+        print("test2{\"%s\", \"%s\"}", t.msg1, t.msg2);
+    }
 
-void print_test(test t){
-    println("test{%i, %i, test2{\"%s\", \"%s\"}}", t.x, t.y, t.z.msg1, t.z.msg2);
-}
-
-void print_msg(msg* m){
-    if(m.type == msg.text)
-        println("msg{\"%s\"}", m.text);
-    else if(m.type == msg.integer)
-        println("msg{%i}", m.integer);
-    else if(m.type == msg.number)
-        println("msg{%f}", m.number);
-    else
-        println("msg{%b}", m.confirm);
+    void print(test t){
+        print("test{%u, %u, ", t.x, t.y);
+        test.print_test2(t.z);
+        println("}");
+    }
 }
 
 int main(uint argc, char** argv){
@@ -89,16 +131,19 @@ int main(uint argc, char** argv){
 
     frame("Foo tierlist", "1. Foo", "2. Bar", "3. Foo-bar");
 
-    test a = test{, 6, test2{"Hello world!", "Foo bar"}};
-    print_test(a);
-    print_test(get_test());
+    test a = test{6, , test2{"Hello world!", "Foo bar"}};
+    test.print(a);
+    test.print(test.get());
 
-    msg m = msg.text{ "Hello world!" };
-    print_msg(&m);
-    m = msg.number{ 105.025 };
-    print_msg(&m);
-    m = msg.integer{ 12345 };
-    print_msg(&m);
-    m = msg.confirm{ true };
-    print_msg(&m);
+    msg m = msg{};
+    m.print();
+
+    m.set_text("Hello world!");
+    m.print();
+
+    m.set_number(6.67);
+    m.print();
+
+    m.set_confirm(false);
+    m.print();
 }

@@ -138,56 +138,68 @@ frame:
 	leave
 	ret
 
-global get_test:function
-get_test:
+global msg.set_text:function
+msg.set_text:
 	push rbp
 	mov rbp, rsp
 	mov rbx, [rbp+16]
-	mov rcx, 0xa
-	mov [rbx+0], rcx
-	mov rbx, [rbp+16]
-	mov rcx, 0x5
-	mov [rbx+8], rcx
-	mov rbx, [rbp+16]
-	lea rbx, [rbx+16]
-	mov rcx, STR3
-	mov [rbx+0], rcx
-	mov rcx, STR4
+	lea rbx, [rbx+0]
+	mov rcx, [rbp+24]
+	mov [rbx], rcx
+	mov rcx, 0x1
 	mov [rbx+8], rcx
 	.L0:
 	leave
 	ret
 
-global print_test:function
-print_test:
+global msg.set_integer:function
+msg.set_integer:
 	push rbp
 	mov rbp, rsp
-	sub rsp, 48
-	mov rbx, STR5
-	mov [rsp+0], rbx
 	mov rbx, [rbp+16]
-	mov [rsp+8], rbx
-	mov rbx, [rbp+24]
-	mov [rsp+16], rbx
-	lea rcx, [rbp+16]
-	lea rcx, [rcx+16]
-	mov rbx, [rcx+0]
-	mov [rsp+24], rbx
-	lea rcx, [rbp+16]
-	lea rcx, [rcx+16]
-	mov rbx, [rcx+8]
-	mov [rsp+32], rbx
-	call println
-	add rsp, 48
+	lea rbx, [rbx+0]
+	mov rcx, [rbp+24]
+	mov [rbx], rcx
+	mov rcx, 0x2
+	mov [rbx+8], rcx
 	.L0:
 	leave
 	ret
 
-global print_msg:function
-print_msg:
+global msg.set_number:function
+msg.set_number:
+	push rbp
+	mov rbp, rsp
+	mov rbx, [rbp+16]
+	lea rbx, [rbx+0]
+	fld DWORD [rbp+24]
+	fstp DWORD [rbx]
+	mov rcx, 0x3
+	mov [rbx+8], rcx
+	.L0:
+	leave
+	ret
+
+global msg.set_confirm:function
+msg.set_confirm:
+	push rbp
+	mov rbp, rsp
+	mov rbx, [rbp+16]
+	lea rbx, [rbx+0]
+	mov cl, [rbp+24]
+	mov [rbx], cl
+	mov rcx, 0x4
+	mov [rbx+8], rcx
+	.L0:
+	leave
+	ret
+
+global msg.print:function
+msg.print:
 	push rbp
 	mov rbp, rsp
 	mov rcx, [rbp+16]
+	lea rcx, [rcx+0]
 	mov rbx, [rcx+8]
 	mov rcx, 0x1
 	cmp rbx, rcx
@@ -195,9 +207,10 @@ print_msg:
 	test bl, bl
 	je .L1
 	sub rsp, 16
-	mov rbx, STR6
+	mov rbx, STR3
 	mov [rsp+0], rbx
 	mov rcx, [rbp+16]
+	lea rcx, [rcx+0]
 	mov rbx, [rcx]
 	mov [rsp+8], rbx
 	call println
@@ -205,6 +218,7 @@ print_msg:
 	jmp .L2
 	.L1:
 	mov rcx, [rbp+16]
+	lea rcx, [rcx+0]
 	mov rbx, [rcx+8]
 	mov rcx, 0x2
 	cmp rbx, rcx
@@ -212,9 +226,10 @@ print_msg:
 	test bl, bl
 	je .L3
 	sub rsp, 16
-	mov rbx, STR7
+	mov rbx, STR4
 	mov [rsp+0], rbx
 	mov rcx, [rbp+16]
+	lea rcx, [rcx+0]
 	mov rbx, [rcx]
 	mov [rsp+8], rbx
 	call println
@@ -222,6 +237,7 @@ print_msg:
 	jmp .L2
 	.L3:
 	mov rcx, [rbp+16]
+	lea rcx, [rcx+0]
 	mov rbx, [rcx+8]
 	mov rcx, 0x3
 	cmp rbx, rcx
@@ -229,24 +245,124 @@ print_msg:
 	test bl, bl
 	je .L4
 	sub rsp, 16
-	mov rbx, STR8
+	mov rbx, STR5
 	mov [rsp+0], rbx
 	mov rbx, [rbp+16]
+	lea rbx, [rbx+0]
 	fld DWORD [rbx]
 	fstp QWORD [rsp+8]
 	call println
 	add rsp, 16
 	jmp .L2
 	.L4:
+	mov rcx, [rbp+16]
+	lea rcx, [rcx+0]
+	mov rbx, [rcx+8]
+	mov rcx, 0x4
+	cmp rbx, rcx
+	sete bl
+	test bl, bl
+	je .L5
 	sub rsp, 16
-	mov rbx, STR9
+	mov rbx, STR6
 	mov [rsp+0], rbx
 	mov rcx, [rbp+16]
+	lea rcx, [rcx+0]
 	movzx rbx, BYTE [rcx]
 	mov [rsp+8], rbx
 	call println
 	add rsp, 16
+	jmp .L2
+	.L5:
+	sub rsp, 16
+	mov rbx, STR7
+	mov [rsp+0], rbx
+	call println
+	add rsp, 16
 	.L2:
+	.L0:
+	leave
+	ret
+
+global test.greet:function
+test.greet:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 16
+	mov rbx, STR8
+	mov [rsp+0], rbx
+	call println
+	add rsp, 16
+	.L0:
+	leave
+	ret
+
+global test.get:function
+test.get:
+	push rbp
+	mov rbp, rsp
+	mov rbx, [rbp+16]
+	mov rcx, 0x3039
+	mov [rbx+0], rcx
+	mov rbx, [rbp+16]
+	mov rcx, 0x100
+	mov [rbx+8], rcx
+	mov rbx, [rbp+16]
+	lea rbx, [rbx+16]
+	mov rcx, STR9
+	mov [rbx+0], rcx
+	mov rcx, STR10
+	mov [rbx+8], rcx
+	.L0:
+	leave
+	ret
+
+global test.print_test2:function
+test.print_test2:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 32
+	mov rbx, STR11
+	mov [rsp+0], rbx
+	mov rbx, [rbp+16]
+	mov [rsp+8], rbx
+	mov rbx, [rbp+24]
+	mov [rsp+16], rbx
+	call print
+	add rsp, 32
+	.L0:
+	leave
+	ret
+
+global test.print:function
+test.print:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 32
+	mov rbx, STR12
+	mov [rsp+0], rbx
+	mov rbx, [rbp+16]
+	mov [rsp+8], rbx
+	mov rbx, [rbp+24]
+	mov [rsp+16], rbx
+	call print
+	add rsp, 32
+	sub rsp, 16
+	lea rbx, [rsp+0]
+	lea r8, [rbp+16]
+	lea r8, [r8+16]
+	cld
+	mov rdi, rbx
+	lea rsi, [r8]
+	mov rcx, 2
+	rep movsq
+	call test.print_test2
+	add rsp, 16
+	sub rsp, 16
+	mov rbx, STR13
+	mov [rsp+0], rbx
+	call println
+	add rsp, 16
 	.L0:
 	leave
 	ret
@@ -271,7 +387,7 @@ main:
 	test bl, bl
 	je .L1
 	sub rsp, 48
-	mov rbx, STR10
+	mov rbx, STR14
 	mov [rsp+0], rbx
 	mov rbx, 0xa
 	mov [rsp+8], rbx
@@ -289,27 +405,27 @@ main:
 	.L1:
 	.L2:
 	sub rsp, 48
-	mov rbx, STR11
+	mov rbx, STR15
 	mov [rsp+0], rbx
 	mov rbx, 0x3
 	mov [rsp+8], rbx
-	mov rbx, STR12
+	mov rbx, STR16
 	mov [rsp+16], rbx
-	mov rbx, STR13
+	mov rbx, STR17
 	mov [rsp+24], rbx
-	mov rbx, STR14
+	mov rbx, STR18
 	mov [rsp+32], rbx
 	call frame
 	add rsp, 48
 	lea rbx, [rsp+16]
-	xor rcx, rcx
-	mov [rbx+0], rcx
 	mov rcx, 0x6
+	mov [rbx+0], rcx
+	xor rcx, rcx
 	mov [rbx+8], rcx
 	lea r8, [rbx+16]
-	mov rcx, STR15
+	mov rcx, STR8
 	mov [r8+0], rcx
-	mov rcx, STR16
+	mov rcx, STR19
 	mov [r8+8], rcx
 	sub rsp, 32
 	lea rbx, [rsp+0]
@@ -318,55 +434,62 @@ main:
 	lea rsi, [rsp+48]
 	mov rcx, 4
 	rep movsq
-	call print_test
+	call test.print
 	add rsp, 32
 	sub rsp, 32
 	lea rbx, [rsp+0]
 	sub rsp, 16
 	mov [rsp+0], rbx
-	call get_test
+	call test.get
 	add rsp, 16
-	call print_test
+	call test.print
 	add rsp, 32
 	lea rbx, [rsp+0]
-	mov rcx, STR15
-	mov [rbx], rcx
-	mov rcx, 0x1
-	mov [rbx+8], rcx
-	sub rsp, 16
-	lea rbx, [rsp+16]
-	mov [rsp+0], rbx
-	call print_msg
-	add rsp, 16
-	lea rbx, [rsp+0]
-	fld QWORD [FP2]
-	fstp DWORD [rbx]
-	mov rcx, 0x3
-	mov [rbx+8], rcx
-	sub rsp, 16
-	lea rbx, [rsp+16]
-	mov [rsp+0], rbx
-	call print_msg
-	add rsp, 16
-	lea rbx, [rsp+0]
-	mov rcx, 0x3039
-	mov [rbx], rcx
+	lea r8, [rbx+0]
+	xor rcx, rcx
+	mov [r8], rcx
 	mov rcx, 0x2
-	mov [rbx+8], rcx
+	mov [r8+8], rcx
 	sub rsp, 16
 	lea rbx, [rsp+16]
 	mov [rsp+0], rbx
-	call print_msg
+	call msg.print
 	add rsp, 16
-	lea rbx, [rsp+0]
-	mov cl, 0x1
-	mov [rbx], cl
-	mov rcx, 0x4
-	mov [rbx+8], rcx
 	sub rsp, 16
 	lea rbx, [rsp+16]
 	mov [rsp+0], rbx
-	call print_msg
+	mov rbx, STR8
+	mov [rsp+8], rbx
+	call msg.set_text
+	add rsp, 16
+	sub rsp, 16
+	lea rbx, [rsp+16]
+	mov [rsp+0], rbx
+	call msg.print
+	add rsp, 16
+	sub rsp, 16
+	lea rbx, [rsp+16]
+	mov [rsp+0], rbx
+	fld QWORD [FP2]
+	fstp DWORD [rsp+8]
+	call msg.set_number
+	add rsp, 16
+	sub rsp, 16
+	lea rbx, [rsp+16]
+	mov [rsp+0], rbx
+	call msg.print
+	add rsp, 16
+	sub rsp, 16
+	lea rbx, [rsp+16]
+	mov [rsp+0], rbx
+	xor bl, bl
+	mov [rsp+8], bl
+	call msg.set_confirm
+	add rsp, 16
+	sub rsp, 16
+	lea rbx, [rsp+16]
+	mov [rsp+0], rbx
+	call msg.print
 	add rsp, 16
 	.L0:
 	leave
@@ -442,6 +565,9 @@ times 64 db 0
 global FP_PRECISION:data
 FP_PRECISION:
 dq 0.0001000000
+times 0 db 0
+global test:data
+test:
 
 
 section .rodata
@@ -452,36 +578,42 @@ db "+%[ %s %*C+",0
 STR2:
 db "|%[ %s%L|",0
 STR3:
-db "Diddy",0
-STR4:
-db "Blud",0
-STR5:
-db "test{%i, %i, test2{",34,"%s",34,", ",34,"%s",34,"}}",0
-STR6:
 db "msg{",34,"%s",34,"}",0
-STR7:
+STR4:
 db "msg{%i}",0
-STR8:
+STR5:
 db "msg{%f}",0
-STR9:
+STR6:
 db "msg{%b}",0
-STR10:
-db "%*f ~= %*f ± %f",0
-STR11:
-db "Foo tierlist",0
-STR12:
-db "1. Foo",0
-STR13:
-db "2. Bar",0
-STR14:
-db "3. Foo-bar",0
-STR15:
+STR7:
+db "msg{INVALID}",0
+STR8:
 db "Hello world!",0
+STR9:
+db "Foo",0
+STR10:
+db "Bar",0
+STR11:
+db "test2{",34,"%s",34,", ",34,"%s",34,"}",0
+STR12:
+db "test{%u, %u, ",0
+STR13:
+db "}",0
+STR14:
+db "%*f ~= %*f ± %f",0
+STR15:
+db "Foo tierlist",0
 STR16:
+db "1. Foo",0
+STR17:
+db "2. Bar",0
+STR18:
+db "3. Foo-bar",0
+STR19:
 db "Foo bar",0
 FP0:
 dq 3.14159265359
 FP1:
 dq 3.14153
 FP2:
-dq 105.025
+dq 6.67

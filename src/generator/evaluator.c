@@ -78,7 +78,7 @@ case name:{\
     if(!eval_##F##_expr(expr->bin_op.lhs, &lhs))\
         return false;\
     *result = op lhs;\
-    return true;\
+    break;\
 }
 #define EVAL_BIN_OP(name, op, F, T) \
 case name:{\
@@ -86,7 +86,7 @@ case name:{\
     if(!eval_##F##_expr(expr->bin_op.lhs, &lhs) || !eval_##F##_expr(expr->bin_op.rhs, &rhs))\
         return false;\
     *result = lhs op rhs;\
-    return true;\
+    break;\
 }
 
 #define EVAL_INT_EXPR(name, T) \
@@ -106,19 +106,36 @@ bool eval_##name##_expr(node_expr* expr, T* result){\
     switch(expr->type){\
     case tk_int_lit:\
         *result = eval_int_lit(&expr->term);\
-        return true;\
+        break;\
     case tk_char_lit:\
         *result = eval_char_lit(&expr->term);\
-        return true;\
+        break;\
     case tk_bool_lit:\
         *result = *expr->term.str == 't';\
-        return true;\
-    case tk_dot:{\
+        break;\
+    case tk_identifier:{\
+        constexpr_t* cons = get_constexpr(expr->term.str, expr->term.strlen);\
+        if(cons){\
+            *result = (cons->type == CONST_INT) ? (T) cons->i : (T) cons->f;\
+            break;\
+        }\
+        return false;\
+    }case tk_dot:{\
         if(expr->access.obj->type != tk_identifier)\
             return false;\
         enum_t* enu = get_enum(expr->access.obj->term.str, expr->access.obj->term.strlen);\
-        if(!enu) return false;\
-        return get_enum_val(enu, expr->access.member->str, expr->access.member->strlen, (int64_t*)result);\
+        module_t* mod = get_module(expr->access.obj->term.str, expr->access.obj->term.strlen);\
+        if(!enu && !mod) return false;\
+        if(enu)\
+            return get_enum_val(enu, expr->access.member->str, expr->access.member->strlen, (int64_t*)result);\
+        else if(mod){\
+            constexpr_t* cons = get_module_const(mod, expr->access.member->str, expr->access.member->strlen);\
+            if(cons){\
+                *result = (cons->type == CONST_INT) ? (T) cons->i : (T) cons->f;\
+                break;\
+            }\
+            return false;\
+        }\
     }\
     EVAL_UNARY_OP(tk_neg, -, name, T)\
     EVAL_UNARY_OP(tk_bin_flip, ~, name, T)\
@@ -135,8 +152,10 @@ bool eval_##name##_expr(node_expr* expr, T* result){\
     EVAL_BIN_OP(tk_or,  ||, name, T)\
     EVAL_BIN_OP(tk_shl, <<, name, T)\
     EVAL_BIN_OP(tk_shr, >>, name, T)\
+    default:\
+        return false;\
     }\
-    return false;\
+    return true;\
 }
 
 EVAL_INT_EXPR(int, int64_t)
@@ -148,14 +167,14 @@ case name:{\
     if(!eval_float_expr(expr->bin_op.lhs, &lhs) || !eval_float_expr(expr->bin_op.rhs, &rhs))\
         return false;\
     *result = lhs op rhs;\
-    return true;\
+    break;\
 }
 
 bool eval_float_expr(node_expr* expr, double* result){
     type_t expr_type = typeof_expr(expr);
     if(DATAOF_T(expr_type) == DATA_INT){
         int64_t integer;
-        if(eval_int_expr(expr, &integer))
+        if(!eval_int_expr(expr, &integer))
             return false;
         *result = (double) integer;
         return true;
@@ -164,17 +183,36 @@ bool eval_float_expr(node_expr* expr, double* result){
     switch(expr->type){
     case tk_float_lit:
         *result = eval_float_lit(&expr->term);
-        return true;
+        break;
     case tk_neg:{
         if(!eval_float_expr(expr->unary_op.lhs, result))
             return false;
         *result = -*result;
-        return true;
+        break;
+    }case tk_identifier:{
+        constexpr_t* cons = get_constexpr(expr->term.str, expr->term.strlen);
+        if(cons){
+            *result = (cons->type == CONST_INT) ? (double) cons->i : cons->f;
+            break;
+        }
+        return false;
+    }case tk_dot:{
+        module_t* mod = get_module(expr->access.obj->term.str, expr->access.obj->term.strlen);
+        if(mod){
+            constexpr_t* cons = get_module_const(mod, expr->access.member->str, expr->access.member->strlen);
+            if(cons){
+                *result = (cons->type == CONST_INT) ? (double) cons->i : cons->f;
+                break;
+            }
+        }
+        return false;
     }
     EVAL_FBIN_OP(tk_add, +)
     EVAL_FBIN_OP(tk_sub, -)
     EVAL_FBIN_OP(tk_mult, *)
     EVAL_FBIN_OP(tk_div, /)
+    default:
+        return false;
     }
-    return false;
+    return true;
 }

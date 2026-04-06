@@ -113,7 +113,7 @@ double atan2(double y, double x){
 }
 
 double round(double x){
-    set_rounding(FP_ROUND);
+    set_rounding(Rounding.round);
     @asm(
     "fld QWORD [rbp+24]
     frndint
@@ -121,7 +121,7 @@ double round(double x){
 }
 
 double floor(double x){
-    set_rounding(FP_FLOOR);
+    set_rounding(Rounding.floor);
     @asm(
     "fld QWORD [rbp+24]
     frndint
@@ -129,7 +129,7 @@ double floor(double x){
 }
 
 double ceil(double x){
-    set_rounding(FP_CEIL);
+    set_rounding(Rounding.ceil);
     @asm(
     "fld QWORD [rbp+24]
     frndint
@@ -418,7 +418,7 @@ void print_double(double x, uint digits){
     print_str(uint_to_string(fractional, buffer, digits+1, '0'));
 }
 
-void left_align_stdout(uint last, uint target, char fill = ' '){
+private void left_align_stdout(uint last, uint target, char fill = ' '){
     if(last == -1){
         print_str("\nExpected %[ before %L to enclose text to align left\n");
         exit(1);
@@ -428,7 +428,7 @@ void left_align_stdout(uint last, uint target, char fill = ' '){
     stdout_cursor = last + target;
 }
 
-void right_align_stdout(uint last, uint target, char fill = ' '){
+private void right_align_stdout(uint last, uint target, char fill = ' '){
     if(last == -1){
         print_str("\nExpected %[ before %R to enclose text to align right\n");
         exit(1);
@@ -440,7 +440,7 @@ void right_align_stdout(uint last, uint target, char fill = ' '){
     stdout_cursor = last + target;
 }
 
-void center_stdout(uint last, uint target, char fill = ' '){
+private void center_stdout(uint last, uint target, char fill = ' '){
     if(last == -1){
         print_str("\nExpected %[ before %C to enclose text to center\n");
         exit(1);

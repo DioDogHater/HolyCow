@@ -16,12 +16,13 @@ _start:
 	mov rdi, [rsp]
 	syscall
 
-global init:function
-init:
+global Board.reset:function
+Board.reset:
 	push rbp
 	mov rbp, rsp
 	sub rsp, 32
-	lea rbx, [board]
+	mov rcx, [rbp+16]
+	lea rbx, [rcx+0]
 	mov [rsp+0], rbx
 	mov bl, 0x20
 	mov [rsp+8], bl
@@ -29,84 +30,256 @@ init:
 	mov [rsp+16], rbx
 	call memset
 	add rsp, 32
-	mov bl, 0x20
-	mov [player], bl
+	mov rbx, [rbp+16]
+	mov cl, 0x20
+	mov [rbx+9], cl
 	.L0:
 	leave
 	ret
 
-global print_board:function
-print_board:
+global Board.change_turn:function
+Board.change_turn:
+	push rbp
+	mov rbp, rsp
+	mov rbx, [rbp+16]
+	mov rdi, [rbp+16]
+	mov sil, [rdi+9]
+	mov dil, 0x58
+	cmp sil, dil
+	sete sil
+	test sil, sil
+	je .L1
+	mov cl, 0x4f
+	jmp .L2
+	.L1:
+	mov cl, 0x58
+	.L2:
+	mov [rbx+9], cl
+	sub rsp, 32
+	mov [rsp+31], sil
+	mov rbx, STR0
+	mov [rsp+0], rbx
+	mov rcx, [rbp+16]
+	movzx rbx, BYTE [rcx+9]
+	mov [rsp+8], rbx
+	call println
+	mov sil, [rsp+31]
+	add rsp, 32
+	.L0:
+	leave
+	ret
+
+global Board.get:function
+Board.get:
+	push rbp
+	mov rbp, rsp
+	mov rcx, [rbp+24]
+	lea rbx, [rcx+0]
+	mov rax, [rbp+32]
+	mov rcx, 0x3
+	mul rcx
+	mov rcx, [rbp+40]
+	add rax, rcx
+	mov cl, [rbx+rax*1]
+	mov [rbp+16], cl
+	.L0:
+	leave
+	ret
+
+global Board.place:function
+Board.place:
+	push rbp
+	mov rbp, rsp
+	mov rbx, [rbp+32]
+	xor rcx, rcx
+	cmp rbx, rcx
+	setl bl
+	test bl, bl
+	jne .L5
+	mov rcx, [rbp+32]
+	mov rdi, 0x2
+	cmp rcx, rdi
+	setg bl
+	.L5:
+	test bl, bl
+	jne .L4
+	mov rcx, [rbp+40]
+	xor rdi, rdi
+	cmp rcx, rdi
+	setl bl
+	.L4:
+	test bl, bl
+	jne .L3
+	mov rcx, [rbp+40]
+	mov rdi, 0x2
+	cmp rcx, rdi
+	setg bl
+	.L3:
+	test bl, bl
+	je .L1
+	sub rsp, 32
+	mov [rsp+31], sil
+	mov rbx, STR1
+	mov [rsp+0], rbx
+	mov rbx, [rbp+32]
+	mov [rsp+8], rbx
+	mov rbx, [rbp+40]
+	mov [rsp+16], rbx
+	call println
+	mov sil, [rsp+31]
+	add rsp, 32
+	xor bl, bl
+	mov [rbp+16], bl
+	jmp .L0
+	jmp .L2
+	.L1:
+	.L2:
+	sub rsp, 48
+	mov [rsp+47], sil
+	mov rbx, [rbp+24]
+	mov [rsp+8], rbx
+	mov rbx, [rbp+32]
+	mov [rsp+16], rbx
+	mov rbx, [rbp+40]
+	mov [rsp+24], rbx
+	call Board.get
+	mov sil, [rsp+47]
+	mov bl, [rsp+0]
+	add rsp, 48
+	mov cl, 0x20
+	cmp bl, cl
+	setne bl
+	test bl, bl
+	je .L6
+	sub rsp, 32
+	mov [rsp+31], sil
+	mov rbx, STR2
+	mov [rsp+0], rbx
+	mov rbx, STR3
+	mov rcx, [rbp+32]
+	movzx rdi, BYTE [rbx+rcx*1]
+	mov [rsp+8], rdi
+	mov rbx, STR4
+	mov rcx, [rbp+40]
+	movzx rdi, BYTE [rbx+rcx*1]
+	mov [rsp+16], rdi
+	call println
+	mov sil, [rsp+31]
+	add rsp, 32
+	xor bl, bl
+	mov [rbp+16], bl
+	jmp .L0
+	jmp .L7
+	.L6:
+	.L7:
+	mov rcx, [rbp+24]
+	lea rbx, [rcx+0]
+	mov rax, [rbp+32]
+	mov rcx, 0x3
+	mul rcx
+	mov rcx, [rbp+40]
+	add rax, rcx
+	mov rdi, [rbp+24]
+	mov cl, [rdi+9]
+	mov [rbx+rax*1], cl
+	mov bl, 0x1
+	mov [rbp+16], bl
+	jmp .L0
+	.L0:
+	leave
+	ret
+
+global Board.print_board:function
+Board.print_board:
 	push rbp
 	mov rbp, rsp
 	sub rsp, 16
-	lea rbx, [board]
-	mov [rsp+8], rbx
-	xor rbx, rbx
-	mov [rsp+0], rbx
-	sub rsp, 16
-	mov rbx, STR0
+	mov [rsp+15], sil
+	mov rbx, STR5
 	mov [rsp+0], rbx
 	call println
+	mov sil, [rsp+15]
 	add rsp, 16
-	mov rbx, 0x3
+	sub rsp, 16
+	xor rbx, rbx
+	mov [rsp+8], rbx
 	.L1:
-	test rbx, rbx
+	mov rbx, [rsp+8]
+	mov rcx, 0x3
+	cmp rbx, rcx
+	setl bl
+	test bl, bl
 	je .L3
-	mov rcx, [rsp+0]
-	test rcx, rcx
+	mov rbx, [rsp+8]
+	xor rcx, rcx
+	cmp rbx, rcx
+	setg bl
+	test bl, bl
 	je .L4
 	sub rsp, 32
-	mov [rsp+24], rbx
-	mov rcx, STR1
-	mov [rsp+0], rcx
-	mov rcx, 0xa
-	mov [rsp+8], rcx
-	mov rcx, 0x2d
-	mov [rsp+16], rcx
+	mov [rsp+31], sil
+	mov rbx, STR6
+	mov [rsp+0], rbx
+	mov rbx, 0xa
+	mov [rsp+8], rbx
+	mov rbx, 0x2d
+	mov [rsp+16], rbx
 	call println
-	mov rbx, [rsp+24]
+	mov sil, [rsp+31]
 	add rsp, 32
 	jmp .L5
 	.L4:
 	.L5:
 	sub rsp, 48
-	mov [rsp+40], rbx
-	mov rcx, STR2
-	mov [rsp+0], rcx
-	mov rcx, [rsp+48]
-	inc rcx
-	mov [rsp+48], rcx
-	mov [rsp+8], rcx
-	mov rcx, [rsp+56]
-	movzx rsi, BYTE [rcx]
-	mov [rsp+16], rsi
-	mov rcx, [rsp+56]
-	inc rcx
-	mov [rsp+56], rcx
-	movzx rsi, BYTE [rcx]
-	mov [rsp+24], rsi
-	mov rcx, [rsp+56]
-	inc rcx
-	mov [rsp+56], rcx
-	movzx rsi, BYTE [rcx]
-	mov [rsp+32], rsi
+	mov [rsp+47], sil
+	mov rbx, STR7
+	mov [rsp+0], rbx
+	mov rbx, [rsp+56]
+	mov rcx, 0x1
+	add rbx, rcx
+	mov [rsp+8], rbx
+	mov rcx, [rbp+16]
+	lea rbx, [rcx+0]
+	mov rax, [rsp+56]
+	mov rcx, 0x3
+	mul rcx
+	movzx rcx, BYTE [rbx+rax*1]
+	mov [rsp+16], rcx
+	mov rcx, [rbp+16]
+	lea rbx, [rcx+0]
+	mov rax, [rsp+56]
+	mov rcx, 0x3
+	mul rcx
+	mov rcx, 0x1
+	add rax, rcx
+	movzx rcx, BYTE [rbx+rax*1]
+	mov [rsp+24], rcx
+	mov rcx, [rbp+16]
+	lea rbx, [rcx+0]
+	mov rax, [rsp+56]
+	mov rcx, 0x3
+	mul rcx
+	mov rcx, 0x2
+	add rax, rcx
+	movzx rcx, BYTE [rbx+rax*1]
+	mov [rsp+32], rcx
 	call println
-	mov rbx, [rsp+40]
+	mov sil, [rsp+47]
 	add rsp, 48
-	mov rcx, [rsp+8]
-	inc rcx
-	mov [rsp+8], rcx
 	.L2:
+	mov rbx, [rsp+8]
+	inc rbx
+	mov [rsp+8], rbx
 	dec rbx
 	jmp .L1
 	.L3:
+	add rsp, 16
 	.L0:
 	leave
 	ret
 
-global check_win:function
-check_win:
+global Board.check_win:function
+Board.check_win:
 	push rbp
 	mov rbp, rsp
 	sub rsp, 16
@@ -116,32 +289,35 @@ check_win:
 	.L1:
 	test rbx, rbx
 	je .L3
-	lea rcx, [board]
-	mov rsi, [rsp+8]
-	mov dil, [rcx+rsi*1]
-	mov cl, [rbp+17]
-	cmp dil, cl
+	mov rdi, [rbp+24]
+	lea rcx, [rdi+0]
+	mov rdi, [rsp+8]
+	mov r8b, [rcx+rdi*1]
+	mov cl, [rbp+32]
+	cmp r8b, cl
 	sete cl
 	test cl, cl
 	je .L7
-	lea rsi, [board]
-	mov rdi, [rsp+8]
-	mov r8, 0x1
-	add rdi, r8
-	mov r8b, [rsi+rdi*1]
-	mov sil, [rbp+17]
-	cmp r8b, sil
+	mov r8, [rbp+24]
+	lea rdi, [r8+0]
+	mov r8, [rsp+8]
+	mov r9, 0x1
+	add r8, r9
+	mov r9b, [rdi+r8*1]
+	mov dil, [rbp+32]
+	cmp r9b, dil
 	sete cl
 	.L7:
 	test cl, cl
 	je .L6
-	lea rsi, [board]
-	mov rdi, [rsp+8]
-	mov r8, 0x2
-	add rdi, r8
-	mov r8b, [rsi+rdi*1]
-	mov sil, [rbp+17]
-	cmp r8b, sil
+	mov r8, [rbp+24]
+	lea rdi, [r8+0]
+	mov r8, [rsp+8]
+	mov r9, 0x2
+	add r8, r9
+	mov r9b, [rdi+r8*1]
+	mov dil, [rbp+32]
+	cmp r9b, dil
 	sete cl
 	.L6:
 	test cl, cl
@@ -153,8 +329,8 @@ check_win:
 	.L4:
 	.L5:
 	mov rcx, [rsp+8]
-	mov rsi, 0x3
-	add rcx, rsi
+	mov rdi, 0x3
+	add rcx, rdi
 	mov [rsp+8], rcx
 	.L2:
 	dec rbx
@@ -166,32 +342,35 @@ check_win:
 	.L8:
 	test rbx, rbx
 	je .L10
-	lea rcx, [board]
-	mov rsi, [rsp+8]
-	mov dil, [rcx+rsi*1]
-	mov cl, [rbp+17]
-	cmp dil, cl
+	mov rdi, [rbp+24]
+	lea rcx, [rdi+0]
+	mov rdi, [rsp+8]
+	mov r8b, [rcx+rdi*1]
+	mov cl, [rbp+32]
+	cmp r8b, cl
 	sete cl
 	test cl, cl
 	je .L14
-	lea rsi, [board]
-	mov rdi, 0x3
-	mov r8, [rsp+8]
-	add rdi, r8
-	mov r8b, [rsi+rdi*1]
-	mov sil, [rbp+17]
-	cmp r8b, sil
+	mov r8, [rbp+24]
+	lea rdi, [r8+0]
+	mov r8, 0x3
+	mov r9, [rsp+8]
+	add r8, r9
+	mov r9b, [rdi+r8*1]
+	mov dil, [rbp+32]
+	cmp r9b, dil
 	sete cl
 	.L14:
 	test cl, cl
 	je .L13
-	lea rsi, [board]
-	mov rdi, 0x6
-	mov r8, [rsp+8]
-	add rdi, r8
-	mov r8b, [rsi+rdi*1]
-	mov sil, [rbp+17]
-	cmp r8b, sil
+	mov r8, [rbp+24]
+	lea rdi, [r8+0]
+	mov r8, 0x6
+	mov r9, [rsp+8]
+	add r8, r9
+	mov r9b, [rdi+r8*1]
+	mov dil, [rbp+32]
+	cmp r9b, dil
 	sete cl
 	.L13:
 	test cl, cl
@@ -209,28 +388,31 @@ check_win:
 	dec rbx
 	jmp .L8
 	.L10:
-	lea rbx, [board]
+	mov rcx, [rbp+24]
+	lea rbx, [rcx+0]
 	xor rcx, rcx
-	mov sil, [rbx+rcx*1]
-	mov bl, [rbp+17]
-	cmp sil, bl
+	mov dil, [rbx+rcx*1]
+	mov bl, [rbp+32]
+	cmp dil, bl
 	sete bl
 	test bl, bl
 	je .L18
-	lea rcx, [board]
-	mov rsi, 0x4
-	mov dil, [rcx+rsi*1]
-	mov cl, [rbp+17]
-	cmp dil, cl
+	mov rdi, [rbp+24]
+	lea rcx, [rdi+0]
+	mov rdi, 0x4
+	mov r8b, [rcx+rdi*1]
+	mov cl, [rbp+32]
+	cmp r8b, cl
 	sete bl
 	.L18:
 	test bl, bl
 	je .L17
-	lea rcx, [board]
-	mov rsi, 0x8
-	mov dil, [rcx+rsi*1]
-	mov cl, [rbp+17]
-	cmp dil, cl
+	mov rdi, [rbp+24]
+	lea rcx, [rdi+0]
+	mov rdi, 0x8
+	mov r8b, [rcx+rdi*1]
+	mov cl, [rbp+32]
+	cmp r8b, cl
 	sete bl
 	.L17:
 	test bl, bl
@@ -241,28 +423,31 @@ check_win:
 	jmp .L16
 	.L15:
 	.L16:
-	lea rbx, [board]
+	mov rcx, [rbp+24]
+	lea rbx, [rcx+0]
 	mov rcx, 0x2
-	mov sil, [rbx+rcx*1]
-	mov bl, [rbp+17]
-	cmp sil, bl
+	mov dil, [rbx+rcx*1]
+	mov bl, [rbp+32]
+	cmp dil, bl
 	sete bl
 	test bl, bl
 	je .L22
-	lea rcx, [board]
-	mov rsi, 0x4
-	mov dil, [rcx+rsi*1]
-	mov cl, [rbp+17]
-	cmp dil, cl
+	mov rdi, [rbp+24]
+	lea rcx, [rdi+0]
+	mov rdi, 0x4
+	mov r8b, [rcx+rdi*1]
+	mov cl, [rbp+32]
+	cmp r8b, cl
 	sete bl
 	.L22:
 	test bl, bl
 	je .L21
-	lea rcx, [board]
-	mov rsi, 0x6
-	mov dil, [rcx+rsi*1]
-	mov cl, [rbp+17]
-	cmp dil, cl
+	mov rdi, [rbp+24]
+	lea rcx, [rdi+0]
+	mov rdi, 0x6
+	mov r8b, [rcx+rdi*1]
+	mov cl, [rbp+32]
+	cmp r8b, cl
 	sete bl
 	.L21:
 	test bl, bl
@@ -280,21 +465,22 @@ check_win:
 	leave
 	ret
 
-global check_tie:function
-check_tie:
+global Board.check_tie:function
+Board.check_tie:
 	push rbp
 	mov rbp, rsp
 	sub rsp, 16
-	lea rbx, [board]
+	mov rcx, [rbp+24]
+	lea rbx, [rcx+0]
 	mov [rsp+8], rbx
 	mov rbx, 0x9
 	.L1:
 	test rbx, rbx
 	je .L3
 	mov rcx, [rsp+8]
-	mov sil, [rcx]
+	mov dil, [rcx]
 	mov cl, 0x20
-	cmp sil, cl
+	cmp dil, cl
 	sete cl
 	test cl, cl
 	je .L4
@@ -323,57 +509,44 @@ main:
 	push rbp
 	mov rbp, rsp
 	sub rsp, 16
-	call init
+	mov [rsp+15], sil
+	lea rbx, [game]
+	mov [rsp+0], rbx
+	call Board.reset
+	mov sil, [rsp+15]
+	add rsp, 16
 	sub rsp, 16
-	mov rbx, STR3
+	mov [rsp+15], sil
+	mov rbx, STR8
 	mov [rsp+0], rbx
 	call println
+	mov sil, [rsp+15]
 	add rsp, 16
 	.L1:
-	mov rbx, QWORD [state]
-	mov rcx, 0x1
-	cmp rbx, rcx
-	sete bl
-	test bl, bl
-	je .L3
-	mov bl, BYTE [player]
-	mov cl, 0x58
-	cmp bl, cl
-	sete bl
-	test bl, bl
-	je .L5
-	mov bl, 0x4f
-	mov [player], bl
-	jmp .L6
-	.L5:
-	mov bl, 0x58
-	mov [player], bl
-	.L6:
-	call print_board
 	sub rsp, 16
-	mov rbx, STR4
+	mov [rsp+15], sil
+	lea rbx, [game]
 	mov [rsp+0], rbx
-	movzx rbx, BYTE [player]
-	mov [rsp+8], rbx
-	call println
+	call Board.print_board
+	mov sil, [rsp+15]
 	add rsp, 16
-	mov rbx, 0x2
-	mov [state], rbx
-	jmp .L4
+	sub rsp, 16
+	mov [rsp+15], sil
+	lea rbx, [game]
+	mov [rsp+0], rbx
+	call Board.change_turn
+	mov sil, [rsp+15]
+	add rsp, 16
+	sub rsp, 48
 	.L3:
-	mov rbx, QWORD [state]
-	mov rcx, 0x2
-	cmp rbx, rcx
-	sete bl
-	test bl, bl
-	je .L7
 	sub rsp, 32
-	sub rsp, 32
+	mov [rsp+31], sil
 	lea rbx, [rsp+64]
 	mov [rsp+8], rbx
 	mov rbx, 0x10
 	mov [rsp+16], rbx
 	call input
+	mov sil, [rsp+31]
 	mov rbx, [rsp+0]
 	add rsp, 32
 	mov [rsp+24], rbx
@@ -383,209 +556,209 @@ main:
 	cmp cl, bl
 	sete bl
 	test bl, bl
-	je .L8
-	jmp .L2
-	jmp .L9
-	.L8:
-	.L9:
+	je .L5
+	jmp .L0
+	jmp .L6
+	.L5:
+	.L6:
 	mov rbx, [rsp+24]
 	mov rcx, 0x2
 	cmp rbx, rcx
 	setne bl
 	test bl, bl
-	jne .L13
+	jne .L10
 	sub rsp, 16
 	mov [rsp+15], bl
+	mov [rsp+14], sil
 	lea rcx, [rsp+48]
-	mov sil, [rcx]
-	mov [rsp+1], sil
+	xor rdi, rdi
+	mov r8b, [rcx+rdi*1]
+	mov [rsp+1], r8b
 	call is_num
 	mov bl, [rsp+15]
+	mov sil, [rsp+14]
 	mov cl, [rsp+0]
 	add rsp, 16
 	test cl, cl
 	sete bl
-	.L13:
+	.L10:
 	test bl, bl
-	jne .L12
+	jne .L9
 	sub rsp, 16
 	mov [rsp+15], bl
+	mov [rsp+14], sil
 	lea rcx, [rsp+48]
-	mov rsi, 0x1
-	add rcx, rsi
-	mov sil, [rcx]
-	mov [rsp+1], sil
+	mov rdi, 0x1
+	mov r8b, [rcx+rdi*1]
+	mov [rsp+1], r8b
 	call is_alpha
 	mov bl, [rsp+15]
+	mov sil, [rsp+14]
 	mov cl, [rsp+0]
 	add rsp, 16
 	test cl, cl
 	sete bl
-	.L12:
+	.L9:
 	test bl, bl
-	je .L10
+	je .L7
 	sub rsp, 16
-	mov rbx, STR5
+	mov [rsp+15], sil
+	mov rbx, STR9
 	mov [rsp+0], rbx
 	call println
+	mov sil, [rsp+15]
 	add rsp, 16
-	jmp .L1
-	jmp .L11
-	.L10:
-	.L11:
+	jmp .L3
+	jmp .L8
+	.L7:
+	.L8:
 	lea rcx, [rsp+32]
 	movzx rbx, BYTE [rcx]
 	mov rcx, 0x31
 	sub rbx, rcx
 	mov [rsp+16], rbx
 	sub rsp, 16
+	mov [rsp+15], sil
 	lea rbx, [rsp+48]
 	mov rcx, 0x1
-	add rbx, rcx
-	mov cl, [rbx]
-	mov [rsp+1], cl
-	call to_lower
+	mov dil, [rbx+rcx*1]
+	mov [rsp+1], dil
+	call to_upper
+	mov sil, [rsp+15]
 	movzx rbx, BYTE [rsp+0]
 	add rsp, 16
-	mov rcx, 0x61
+	mov rcx, 0x41
 	sub rbx, rcx
 	mov [rsp+8], rbx
-	mov rbx, [rsp+16]
-	xor rcx, rcx
-	cmp rbx, rcx
-	setl bl
-	test bl, bl
-	jne .L18
-	mov rcx, [rsp+16]
-	mov rsi, 0x2
-	cmp rcx, rsi
-	setg bl
-	.L18:
-	test bl, bl
-	jne .L17
-	mov rcx, [rsp+8]
-	xor rsi, rsi
-	cmp rcx, rsi
-	setl bl
-	.L17:
-	test bl, bl
-	jne .L16
-	mov rcx, [rsp+8]
-	mov rsi, 0x2
-	cmp rcx, rsi
-	setg bl
-	.L16:
-	test bl, bl
-	je .L14
-	sub rsp, 32
-	mov rbx, STR6
-	mov [rsp+0], rbx
-	mov rbx, [rsp+48]
+	sub rsp, 48
+	mov [rsp+47], sil
+	lea rbx, [game]
 	mov [rsp+8], rbx
-	mov rbx, [rsp+40]
+	mov rbx, [rsp+64]
 	mov [rsp+16], rbx
-	call println
-	add rsp, 32
-	jmp .L1
-	jmp .L15
-	.L14:
-	.L15:
-	lea rbx, [board]
-	mov rax, [rsp+16]
-	mov rcx, 0x3
-	mul rcx
-	mov rcx, [rsp+8]
-	add rax, rcx
-	mov cl, [rbx+rax*1]
-	mov bl, 0x20
-	cmp cl, bl
-	setne bl
-	test bl, bl
-	je .L19
-	sub rsp, 32
-	mov rbx, STR7
-	mov [rsp+0], rbx
-	mov rbx, [rsp+48]
-	mov [rsp+8], rbx
-	mov rbx, [rsp+40]
-	mov [rsp+16], rbx
-	call println
-	add rsp, 32
-	jmp .L1
-	jmp .L20
-	.L19:
-	.L20:
-	lea rbx, [board]
-	mov rax, [rsp+16]
-	mov rcx, 0x3
-	mul rcx
-	mov rcx, [rsp+8]
-	add rax, rcx
-	mov cl, BYTE [player]
-	mov [rbx+rax*1], cl
-	sub rsp, 16
-	mov bl, BYTE [player]
-	mov [rsp+1], bl
-	call check_win
+	mov rbx, [rsp+56]
+	mov [rsp+24], rbx
+	call Board.place
+	mov sil, [rsp+47]
 	mov bl, [rsp+0]
-	add rsp, 16
+	add rsp, 48
 	test bl, bl
-	je .L21
-	mov rbx, 0x3
-	mov [state], rbx
-	jmp .L22
-	.L21:
-	sub rsp, 16
-	call check_tie
-	mov bl, [rsp+0]
-	add rsp, 16
-	test bl, bl
-	je .L23
-	mov rbx, 0x3
-	mov [state], rbx
-	jmp .L22
-	.L23:
-	mov rbx, 0x1
-	mov [state], rbx
-	.L22:
-	add rsp, 32
+	je .L11
 	jmp .L4
-	.L7:
-	call print_board
+	jmp .L12
+	.L11:
+	.L12:
+	jmp .L3
+	.L4:
+	add rsp, 48
+	sub rsp, 32
+	mov [rsp+31], sil
+	lea rbx, [game]
+	mov [rsp+8], rbx
+	mov bl, 0x58
+	mov [rsp+16], bl
+	call Board.check_win
+	mov sil, [rsp+31]
+	mov bl, [rsp+0]
+	add rsp, 32
+	test bl, bl
+	je .L13
 	sub rsp, 16
-	mov rbx, STR8
+	mov [rsp+15], sil
+	mov rbx, STR10
 	mov [rsp+0], rbx
 	call println
+	mov sil, [rsp+15]
+	add rsp, 16
+	jmp .L14
+	.L13:
+	sub rsp, 32
+	mov [rsp+31], sil
+	lea rbx, [game]
+	mov [rsp+8], rbx
+	mov bl, 0x4f
+	mov [rsp+16], bl
+	call Board.check_win
+	mov sil, [rsp+31]
+	mov bl, [rsp+0]
+	add rsp, 32
+	test bl, bl
+	je .L15
+	sub rsp, 16
+	mov [rsp+15], sil
+	mov rbx, STR11
+	mov [rsp+0], rbx
+	call println
+	mov sil, [rsp+15]
+	add rsp, 16
+	jmp .L14
+	.L15:
+	sub rsp, 32
+	mov [rsp+31], sil
+	lea rbx, [game]
+	mov [rsp+8], rbx
+	call Board.check_tie
+	mov sil, [rsp+31]
+	mov bl, [rsp+0]
+	add rsp, 32
+	test bl, bl
+	je .L16
+	sub rsp, 16
+	mov [rsp+15], sil
+	mov rbx, STR12
+	mov [rsp+0], rbx
+	call println
+	mov sil, [rsp+15]
+	add rsp, 16
+	jmp .L14
+	.L16:
+	jmp .L1
+	.L14:
+	sub rsp, 16
+	mov [rsp+15], sil
+	lea rbx, [game]
+	mov [rsp+0], rbx
+	call Board.print_board
+	mov sil, [rsp+15]
 	add rsp, 16
 	sub rsp, 16
+	mov [rsp+15], sil
+	mov rbx, STR13
+	mov [rsp+0], rbx
+	call println
+	mov sil, [rsp+15]
+	add rsp, 16
 	sub rsp, 16
+	mov [rsp+15], sil
+	sub rsp, 16
+	mov [rsp+15], sil
 	call input_char
+	mov sil, [rsp+15]
 	mov bl, [rsp+0]
 	add rsp, 16
 	mov [rsp+1], bl
 	call to_lower
+	mov sil, [rsp+15]
 	mov bl, [rsp+0]
 	add rsp, 16
 	mov cl, 0x79
 	cmp bl, cl
 	sete bl
 	test bl, bl
-	je .L24
-	call init
-	mov rbx, 0x1
-	mov [state], rbx
-	jmp .L25
-	.L24:
+	je .L17
+	sub rsp, 16
+	mov [rsp+15], sil
+	lea rbx, [game]
+	mov [rsp+0], rbx
+	call Board.reset
+	mov sil, [rsp+15]
+	add rsp, 16
+	jmp .L18
+	.L17:
 	jmp .L2
-	.L25:
-	.L4:
+	.L18:
 	jmp .L1
 	.L2:
-	sub rsp, 16
-	mov rbx, STR9
-	mov [rsp+0], rbx
-	call println
-	add rsp, 16
 	.L0:
 	leave
 	ret
@@ -657,35 +830,39 @@ dq 0
 static __GP_TMP:data
 __GP_TMP:
 times 64 db 0
-global board:data
-board:
+global game:data
+game:
 times 9 db 0
-global player:data
-player:
 db 32
-global state:data
-state:
-dq 1
+times 6 db 0
 
 
 section .rodata
 STR0:
-db "  A   B   C",0
-STR1:
-db "  %*c",0
-STR2:
-db "%u %c | %c | %c",0
-STR3:
-db "Controls:",10,"Enter 'q' to leave.",10,"Enter the row number + column letter to choose a square to fill.",10,"",0
-STR4:
 db "TURN: %c",0
+STR1:
+db "Coordinates (%i, %i) are invalid!",0
+STR2:
+db "Coordinates %c%c are already taken!",0
+STR3:
+db "123",0
+STR4:
+db "ABC",0
 STR5:
-db "Invalid input! Enter the row number + column letter.",10,"EX: 2C",0
+db "  A   B   C",0
 STR6:
-db "(%i, %i) is not a valid coordinate!",0
+db "  %*c",0
 STR7:
-db "(%i, %i) is full!",0
+db "%u %c | %c | %c",0
 STR8:
-db "",10,"<< GAME OVER! >>",10,"- Play again? (y/n) -",0
+db "Controls:",10,"Enter 'q' to leave.",10,"Enter the row number + column letter to choose a square to fill.",10,"",0
 STR9:
-db "Thank you for playing! :)",0
+db "Invalid input! Enter the row number + column letter.",10,"Example: 2C",0
+STR10:
+db "",10,"== X wins! ==",0
+STR11:
+db "",10,"== O wins! ==",0
+STR12:
+db "",10,"==== TIE ====",0
+STR13:
+db "",10,"<< GAME OVER! >>",10,"- Play again? (y/n) -",0

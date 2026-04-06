@@ -15,9 +15,14 @@ uint fibo_recursive(int n){
 // Recursive solution, with caching
 // Way faster, but trades time complexity with space complexity
 
-#define FIBO_MAX_CACHE 128          // Maximum cache size
-uint fibo_cache_size = 0;           // Cache size (number of values already cached)
-uint fibo_cache[FIBO_MAX_CACHE];    // Actual cache memory (global)
+module fibo{
+    // Maximum number of cached results
+    // 256 * 8 bytes = 2 kB
+    constexpr int max_cache = 256;
+
+    uint cache_size = 0;           // Cache size (number of values already cached)
+    uint cache[fibo.max_cache];    // Actual cache memory
+}
 
 uint fibo_recursive_cached(int n){
     // Base cases n=0, n=1 -> 0, 1
@@ -28,18 +33,18 @@ uint fibo_recursive_cached(int n){
 
     // Check if we have already cached the answer.
     // (Since we ignore n=0, n=1, caching starts at n=2)
-    else if(n - 2 < fibo_cache_size)
-        @return = fibo_cache[n - 2];
+    else if(n - 2 < fibo.cache_size)
+        @return = fibo.cache[n - 2];
 
     // Otherwise, we compute this case for the first time.
     else{
         @return = fibo_recursive_cached(n - 1) + fibo_recursive_cached(n - 2);
 
         // We cache it only if we didn't reach max cache size.
-        // Since fibo_cache_size will only be incremented everytime we get a bigger n-2,
-        // we can assume that fibo_cache_size = n-2, because both grow at the same time.
-        if(fibo_cache_size != FIBO_MAX_CACHE)
-            fibo_cache[fibo_cache_size++] = @return;
+        // Since fibo.cache_size will only be incremented everytime we get a bigger n-2,
+        // we can assume that fibo.cache_size = n-2, because both grow at the same time.
+        if(fibo.cache_size != fibo.max_cache)
+            fibo.cache[fibo.cache_size++] = @return;
     }
 }
 
@@ -67,7 +72,7 @@ uint fibo_iterative(int n){
 
 // Change this macro to change the function used to compute
 // the fibonacci sequence.
-#define FIBONACCI fibo_iterative
+#define FIBONACCI fibo_recursive_cached
 
 int main(uint argc, char** argv){
     // Ask for input

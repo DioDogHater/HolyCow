@@ -179,6 +179,14 @@ typedef struct{
     node_expr* elem_count;
 } node_arr_decl;
 
+// tk_constexpr
+typedef struct{
+    NODE_STMT_BASE;
+    size_t is_integer;
+    token_t* identifier;
+    node_expr* expr;
+} node_constexpr;
+
 // tk_struct
 // tk_class
 // tk_union
@@ -271,6 +279,7 @@ typedef union node_stmt{
     node_func_decl func_decl;
     node_var_decl var_decl;
     node_arr_decl arr_decl;
+    node_constexpr const_decl;
     node_struct_decl struct_decl;
     node_enum_decl enum_decl;
     node_var_assign var_assign;

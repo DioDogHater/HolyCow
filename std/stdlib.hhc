@@ -2,7 +2,11 @@
 int main(uint argc, char** argv);
 
 // OS specific
-// struct FILE;
+class FILE {
+    void flush();
+    void write(uint8* src, uint sz);
+    void read(uint8* dest, uint sz);
+}
 // extern FILE* stdin;
 // extern FILE* stdout;
 // extern FILE* stderr;
@@ -46,14 +50,14 @@ char to_lower(char c);
 char to_upper(char c);
 
 // ======= Floating point arithmetic ===========
-#define FP_ROUND    0x00
-#define FP_FLOOR    0x04
-#define FP_CEIL     0x08
-#define FP_TRUNC    0x0C
+enum Rounding {
+    round = 0x00,   // round (closest)
+    floor = 0x04,   // floor (round down)
+    ceil = 0x08,    // ceiling (round up)
+    trunc = 0x0C    // truncate (cut decimals)
+}
 // Set the rounding to a specific mode for future operations
-// Rounding mode is not set by default !!!
-// Please ensure rounding mode before double / int operations
-void set_rounding(uint8 mode = FP_TRUNC);
+void set_rounding(uint8 mode = Rounding.trunc);
 // Square root
 double sqrt(double x);
 // x to the power p (exponentiation)
@@ -80,9 +84,24 @@ double trunc(double x);
 
 // ========= Fixed point arithmetic ============
 #define fixed int32
-#define FIXED_PRECISION  15
+#define FIXED_PRECISION 15
 #define FIXED_INT_MASK  0xFFFF8000
 #define FIXED_FRAC_MASK 0x00007FFF
+
+// TODO finish this later
+// class fixed {
+//     constexpr int precision = 15;
+//     constexpr int int_mask = 0xFFFF8000;
+//     constexpr int frac_mask = 0x00007FFF;
+//
+//     public int32 i;
+//
+//     static fixed from_int(int x);
+//     static fixed from_float(float x);
+//     static fixed from_string(char* str);
+//     void set_int(int x);
+//     void set_float(float x);
+// }
 
 // int -> fixed
 fixed int_to_fixed(int x);

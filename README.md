@@ -76,14 +76,14 @@ module test{
 
 // Constant expression
 // Evaluated at compile-time, isn't stored in an actual variable
-constexpr float five_over_2 = 5 / 2;
+constexpr float five_over_2 = 5.0 / 2.0;
 
-// Functions can have default values.
+// Function arguments can have default values.
 // In fact, you can make default values use variables that will be
 // defined in the scope where they are called, but that is not
 // recommended.
 
-void hello_world(string msg = "Default"){
+void hello_world(string msg = string{"Default"}){
     // "ln" -> adds a new line after printing
     println("%s", msg.str);
     
@@ -167,8 +167,10 @@ enum Values {
 // Values.first, Values.second, Values.third, Values.fourth, Values.fifth
 
 /*
-- Structures and unions are like C structs and unions, except their members
+- Structures are like C structs, except their members
   can have default values (peak feature imo) and they need a name.
+  
+- Unions are the same as C unions.
 
 - Variants are unions, but with a built-in member that provides which member
   is currently stored in the variant object.
@@ -186,22 +188,21 @@ struct Color {
 // A member, if given no value, will either use its default value or will simply
 // stay uninitialized.
 
-// Here, since we put nothing between commas, we want to use default values for
-// the members g and b.
+// By putting nothing between commas, we use default values
 
-Color red = Color{ 255, , , 0 };
+Color red = Color{ 255, , , 255 };
 
 union Data {
-    uint integer;
-    double number;
-    bool boolean;
-    void* pointer;
+    uint8 small;
+    uint16 medium;
+    uint32 big;
+    uint64 huge;
 }
 
 // To construct a union:
-// union.member{ value (or nothing if default value is used) }
+// union.member{ value }
 
-Data data = Data.integer{ 50 };
+Data data = Data.medium{ 50 };
 
 /*
     The built-in member holding the currently stored member is
@@ -223,7 +224,7 @@ variant Message {
 // A variant is constructed like a union
 // Variants will only change their .type member when they are constructed
 
-Message msg = Message.color{ Color{255} }
+Message msg = Message.color{ Color{255} };
 // Now, msg.type = Message.color
 
 /*

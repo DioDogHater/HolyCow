@@ -9,8 +9,12 @@ static const char* x64_sz_names[9] = {"Unkown", "BYTE", "WORD", "Unknown", "DWOR
 
 void gen_alloc_stack(HC_FILE fptr, size_t size){ HC_FPRINTF(fptr, "\tsub rsp, %lu\n", size); }
 void gen_dealloc_stack(HC_FILE fptr, size_t size){ HC_FPRINTF(fptr, "\tadd rsp, %lu\n", size); }
-void gen_start_func(HC_FILE fptr, const char* func_name, size_t strlen, bool priv){
-    HC_FPRINTF(fptr, "\n%s %.*s:function\n%.*s:\n\tpush rbp\n\tmov rbp, rsp\n", priv?"static":"global", (int)strlen, func_name, (int)strlen, func_name);
+void gen_start_func(HC_FILE fptr, const char* str, size_t strlen, bool priv){
+    HC_FPRINTF(fptr, "\n%s %.*s:function\n%.*s:\n\tpush rbp\n\tmov rbp, rsp\n", priv?"static":"global", (int)strlen, str, (int)strlen, str);
+}
+void gen_start_method(HC_FILE fptr, const char* pstr, size_t pstrlen, const char* str, size_t strlen){
+    HC_FPRINTF(fptr, "\nglobal %.*s.%.*s:function\n%.*s.%.*s:\n\tpush rbp\n\tmov rbp, rsp\n",
+               (int)pstrlen, pstr, (int)strlen, str, (int)pstrlen, pstr, (int)strlen, str);
 }
 void gen_return_func(HC_FILE fptr){ HC_FPRINTF(fptr, "\tleave\n\tret\n"); }
 void gen_push_stack(HC_FILE fptr, reg_t* op){
@@ -301,6 +305,9 @@ void gen_mod_regs(HC_FILE fptr, reg_t* op1, reg_t* op2){ gen_modulo(fptr, op1, o
 void gen_label(HC_FILE fptr, size_t label){ HC_FPRINTF(fptr, "\t.L%lu:\n", label); }
 void gen_jump(HC_FILE fptr, size_t label){ HC_FPRINTF(fptr, "\tjmp .L%lu\n", label); }
 void gen_call_func(HC_FILE fptr, const char* str, size_t strlen){ HC_FPRINTF(fptr, "\tcall %.*s\n", (int)strlen, str); }
+void gen_call_method(HC_FILE fptr, const char* pstr, size_t pstrlen, const char* str, size_t strlen){
+    HC_FPRINTF(fptr, "\tcall %.*s.%.*s\n", (int)pstrlen, pstr, (int)strlen, str);
+}
 void gen_call_extern_func(HC_FILE fptr, const char* str, size_t strlen){ HC_FPRINTF(fptr, "\tcall %.*s wrt ..plt\n", (int)strlen, str); }
 void gen_cmpz_reg(HC_FILE fptr, reg_t* reg){ HC_FPRINTF(fptr, "\ttest %s, %s\n", reg->name, reg->name); }
 void gen_compare(HC_FILE fptr, reg_t* lhs, reg_t* rhs){ HC_FPRINTF(fptr, "\tcmp %s, %s\n", lhs->name, rhs->name); }

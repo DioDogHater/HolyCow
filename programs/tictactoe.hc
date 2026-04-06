@@ -1,134 +1,137 @@
 #include "../std/stdlib.hhc"
 
-char board[3 * 3];
-char player = ' ';
+class Board {
+    char board[3 * 3];
+    char player = ' ';
 
-enum GameState {
-    TURN = 1,
-    GAME = 2,
-    END  = 3
-}
-uint state = GameState.TURN;
-
-void init(){
-    memset(board, ' ', 9);
-    player = ' ';
-}
-
-void print_board(){
-    char* ptr = board;
-    uint i = 0;
-    println("  A   B   C");
-    repeat(3){
-        if(i)
-            println("  %*c", 10, '-');
-        println("%u %c | %c | %c", ++i, *ptr, *(++ptr), *(++ptr));
-        ++ptr;
+    void reset(){
+        memset(this.board, ' ', 3 * 3);
+        this.player = ' ';
     }
-}
 
-bool check_win(char pl){
-    uint i = 0;
-    // Check for straight rows
-    repeat(3){
-        if(board[i] == pl && board[i+1] == pl && board[i+2] == pl)
+    void change_turn(){
+        this.player = (this.player == 'X') ? 'O' : 'X';
+        println("TURN: %c", this.player);
+    }
+
+    char get(int row, int col){
+        @return = this.board[row*3+col];
+    }
+
+    // Returns true if success, false if coordinate is invalid / taken
+    bool place(int row, int col){
+        if(row < 0 or row > 2 or col < 0 or col > 2){
+            println("Coordinates (%i, %i) are invalid!", row, col);
+            return false;
+        }
+
+        if(this.get(row, col) != ' '){
+            println("Coordinates %c%c are already taken!", "123"[row], "ABC"[col]);
+            return false;
+        }
+
+        this.board[row*3+col] = this.player;
+        return true;
+    }
+
+    void print_board(){
+        println("  A   B   C");
+        for(int i = 0; i < 3; i++){
+            if(i > 0)
+                println("  %*c", 10, '-');
+            println("%u %c | %c | %c", i+1, this.board[i*3], this.board[i*3+1], this.board[i*3+2]);
+        }
+    }
+
+    bool check_win(char pl){
+        uint i = 0;
+        // Check for straight rows
+        repeat(3){
+            if(this.board[i] == pl && this.board[i+1] == pl && this.board[i+2] == pl)
+                return true;
+
+            // Go to next row
+            i += 3;
+        }
+        i = 0;
+        // Check for straight columns
+        repeat(3){
+            if(this.board[i] == pl && this.board[3+i] == pl && this.board[6+i] == pl)
+                return true;
+
+            // Go to the next column
+            ++i;
+        }
+        // Check diagonals
+        if(this.board[0] == pl && this.board[4] == pl && this.board[8] == pl)
+            return true;
+        if(this.board[2] == pl && this.board[4] == pl && this.board[6] == pl)
             return true;
 
-        // Go to next row
-        i += 3;
+        return false;
     }
-    i = 0;
-    // Check for straight columns
-    repeat(3){
-        if(board[i] == pl && board[3+i] == pl && board[6+i] == pl)
-            return true;
 
-        // Go to the next column
-        ++i;
+    bool check_tie(){
+        // If any piece in the board is empty
+        // we can say that the board is not full
+        char* ptr = this.board;
+        repeat(3 * 3){
+            if(*ptr == ' ')
+                return false;
+            ++ptr;
+        }
+        return true;
     }
-    // Check diagonals
-    if(board[0] == pl && board[4] == pl && board[8] == pl)
-        return true;
-    if(board[2] == pl && board[4] == pl && board[6] == pl)
-        return true;
-
-    return false;
 }
 
-bool check_tie(){
-    char* ptr = board;
-    // If any piece in the board is empty
-    // we can say that the board is not full
-    repeat(9){
-        if(*ptr == ' '){ return false; }
-        ++ptr;
-    }
-    return true;
-}
+Board game = Board{};
 
 int main(uint argc, char** argv){
-    char buffer[16];
-
     // Initialize the game
-    init();
+    game.reset();
 
     println("Controls:\nEnter 'q' to leave.\nEnter the row number + column letter to choose a square to fill.\n");
 
     // Game loop
     loop{
-        if(state == GameState.TURN){
-            // Switch player
-            if(player == 'X')
-                player = 'O';
-            else
-                player = 'X';
+        game.print_board();
+        game.change_turn();
 
-            // Display new board and turn
-            print_board();
-            println("TURN: %c", player);
-            state = GameState.GAME;
-        }else if(state == GameState.GAME){
-            // Get input
+        // Input loop (will repeat until input is valid)
+        loop{
+            char buffer[16];
             int n = input(buffer, 16);
-            if(*buffer == 'q') break;
-            if(n != 2 || !is_num(*buffer) || !is_alpha(*(buffer+1))){
-                println("Invalid input! Enter the row number + column letter.\nEX: 2C");
+
+            if(*buffer == 'q')
+                return;
+
+            if(n != 2 || !is_num(buffer[0]) || !is_alpha(buffer[1])){
+                println("Invalid input! Enter the row number + column letter.\nExample: 2C");
                 continue;
             }
 
-            // Check if the row and column are ok
             int row = *buffer - '1';
-            int col = to_lower(*(buffer+1)) - 'a';
-            if(row < 0 || row > 2 || col < 0 || col > 2){
-                println("(%i, %i) is not a valid coordinate!", row, col);
-                continue;
-            }
-
-            // Check if the coordinate is empty
-            if(board[row*3+col] != ' '){
-                println("(%i, %i) is full!", row, col);
-                continue;
-            }
-
-            // Set the coordinate to the player's symbol
-            board[row*3+col] = player;
-            if(check_win(player))
-                state = GameState.END;
-            else if(check_tie())
-                state = GameState.END;
-            else
-                state = GameState.TURN;
-        }else{
-            print_board();
-            println("\n<< GAME OVER! >>\n- Play again? (y/n) -");
-
-            if(to_lower(input_char()) == 'y'){
-                init();
-                state = GameState.TURN;
-            }else
+            int col = to_upper(buffer[1]) - 'A';
+            if(game.place(row, col))
                 break;
         }
-    }
 
-    println("Thank you for playing! :)");
+        if(game.check_win('X'))
+            println("\n== X wins! ==");
+        else if(game.check_win('O'))
+            println("\n== O wins! ==");
+        else if(game.check_tie())
+            println("\n==== TIE ====");
+        else
+            continue;   // Skips the game over logic
+
+        game.print_board();
+        println("\n<< GAME OVER! >>\n- Play again? (y/n) -");
+
+        // If the user agrees, we reset the game and play again
+        if(to_lower(input_char()) == 'y')
+            game.reset();
+        else
+            break;
+    }
 }

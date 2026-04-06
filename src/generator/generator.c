@@ -144,7 +144,12 @@ static bool save_memory(HC_FILE fptr, size_t sz, reg_t* ptr, node_expr* value){
         else if(var->location == VAR_ARG)
             gen_copy_arg(fptr, ptr, var->stack_ptr, sz);
     }else if(value->type == tk_deref){
-        reg_t* src = EXPR_ONCE(value->unary_op.lhs, typeof_expr(value), NULL);
+        reg_t* src = EXPR_ONCE(value->unary_op.lhs, typeof_expr(value), GET_MASK_REG(target_address_size, allowed_copy_regs));
+        gen_copy_ptr(fptr, ptr, src, sz);
+    }else if(value->type == tk_dot){
+        reg_t* src = GET_MASK_REG(target_address_size, allowed_copy_regs);
+        if(!get_expr_address(fptr, src, value))
+            return false;
         gen_copy_ptr(fptr, ptr, src, sz);
     }else if(value->type == tk_open_bracket){
         reg_t* src = generate_expr(fptr, value->bin_op.lhs, typeof_expr(value), NULL);
@@ -188,13 +193,8 @@ bool save_struct(HC_FILE fptr, struct_t* stru, reg_t* ptr, node_expr* value){
             if(!args || args->type == tk_nothing){
                 if(default_args->type == tk_nothing){
                     default_args = default_args->next;
-                    continue; // New behavior (unitialized values)
+                    continue;
                 }
-                /*{ // OLD BEHAVIOR
-                    print_context_expr("In structure / class construction", value);
-                    print_context_ex("Expected value to be provided for member", member->str, member->strlen);
-                    return false;
-                }*/
                 arg_expr = default_args;
             }
 
@@ -288,6 +288,35 @@ bool save_union(HC_FILE fptr, union_t* unio, reg_t* ptr, node_expr* value){
     return save_memory(fptr, unio->size, ptr, value);
 }
 
+// Check if a member / method is private and cannot be accessed
+static bool check_private(size_t flags, node_expr* obj, bool write){
+    if((!(flags & FLAG_PEEK) || write) && ((flags & FLAG_PRIVATE) || (flags & FLAG_PROTECT))){
+        bool accessible = false;
+        if(!((flags & FLAG_INHERITED) && (flags & FLAG_PRIVATE)) && obj->type == tk_identifier){
+            var_t* var = get_var(obj->term.str, obj->term.strlen);
+            if(var && (var->flags & FLAG_INHERITED))
+                accessible = true;
+        }
+        if(!accessible){
+            print_context_expr("Cannot access private / protected member", obj);
+            return false;
+        }
+    }
+    return true;
+}
+
+// If we're inside a module, this will be set to current module
+static module_t* current_module = NULL;
+static bool check_module_private(size_t flags, module_t* mod, token_t* var, bool write){
+    if((!(flags & FLAG_PEEK) || write) && ((flags & FLAG_PRIVATE) || (flags & FLAG_PROTECT))){
+        if(((flags & FLAG_INHERITED) && (flags & FLAG_PRIVATE)) || current_module != mod){
+            print_context("Cannot access private / protected member", var);
+            return false;
+        }
+    }
+    return true;
+}
+
 // Get the address of a value
 bool get_expr_address(HC_FILE fptr, reg_t* tmp,  node_expr* expr){
     if(expr->type == tk_identifier){
@@ -320,6 +349,25 @@ bool get_expr_address(HC_FILE fptr, reg_t* tmp,  node_expr* expr){
         (void) free_reg(idx);
         return true;
     }else if(expr->type == tk_dot){
+        if(expr->access.obj->type == tk_identifier){
+            module_t* mod = get_module(expr->access.obj->term.str, expr->access.obj->term.strlen);
+            if(mod){
+                var_t* var = get_module_var(mod, expr->access.member->str, expr->access.member->strlen);
+                if(!var){
+                    print_context("Unknown variable in module", expr->access.member);
+                    return false;
+                }
+                if(var->location != VAR_STACK){
+                    print_context("Cannot get address to array, array is the address itself", expr->access.member);
+                    return false;
+                }
+                if(!check_module_private(var->flags, mod, expr->access.member, false))
+                    return false;
+                gen_load_global_offset_ptr(fptr, tmp, mod->str, mod->strlen, var->stack_ptr);
+                return true;
+            }
+        }
+
         type_t obj_type = typeof_expr(expr->access.obj);
         if(obj_type.ptr_depth > 1 || (obj_type.data != DATA_STRUCT && obj_type.data != DATA_UNION)){
             print_context_expr("Expected structure / class / union", expr->access.obj);
@@ -329,9 +377,11 @@ bool get_expr_address(HC_FILE fptr, reg_t* tmp,  node_expr* expr){
             struct_t* stru = get_struct_tk(obj_type.repr);
             var_t* member = get_member(stru, expr->access.member->str, expr->access.member->strlen);
             if(member->location == VAR_ARRAY){
-                print_context_expr("Cannot get address to array, array is the address itself", expr);
+                print_context("Cannot get address to array, array is the address itself", expr->access.member);
                 return false;
             }
+            if(!check_private(member->flags, expr->access.obj, false))
+                return false;
             if(obj_type.ptr_depth){
                 generate_expr(fptr, expr->access.obj, obj_type, free_reg(tmp));
                 gen_load_offset_ptr(fptr, tmp, tmp, member->stack_ptr);
@@ -471,6 +521,44 @@ bool save_expr(HC_FILE fptr, node_expr* expr, node_expr* value){
         (void) free_reg(idx);
         return true;
     }else if(expr->type == tk_dot){
+        // Module variable assignment
+        if(expr->access.obj->type == tk_identifier){
+            module_t* mod = get_module(expr->access.obj->term.str, expr->access.obj->term.strlen);
+            if(mod){
+                var_t* var = get_module_var(mod, expr->access.member->str, expr->access.member->strlen);
+                if(!var){
+                    print_context("Unknown variable in module", expr->access.member);
+                    return false;
+                }
+                if(var->location != VAR_STACK){
+                    print_context("Cannot give value to array, array is the address itself", expr->access.member);
+                    return false;
+                }
+                if(!check_module_private(var->flags, mod, expr->access.member, true))
+                    return false;
+                if(var->type.ptr_depth || var->type.data == DATA_INT)
+                    gen_save_global_offset(fptr, EXPR_ONCE(value, var->type, NULL), mod->str, mod->strlen, var->stack_ptr);
+                else if(var->type.data == DATA_FLOAT){
+                    if(!generate_float_expr(fptr, value))
+                        return false;
+                    gen_save_global_offset_float(fptr, mod->str, mod->strlen, var->stack_ptr, var->type.size == 8);
+                }else if(var->type.data == DATA_STRUCT || var->type.data == DATA_UNION){
+                    reg_t* tmp = alloc_reg(GET_MASK_REG(target_address_size, allowed_copy_regs), false);
+                    gen_load_global_offset_ptr(fptr, tmp, mod->str, mod->strlen, var->stack_ptr);
+                    if(var->type.data == DATA_STRUCT){
+                        struct_t* stru = get_struct_tk(var->type.repr);
+                        if(!save_struct(fptr, stru, tmp, value))
+                            return false;
+                    }else if(var->type.data == DATA_UNION){
+                        union_t* unio = get_union_tk(var->type.repr);
+                        if(!save_union(fptr, unio, tmp, value))
+                            return false;
+                    }
+                }
+                return true;
+            }
+        }
+
         // Member / attribute / union assignment
         type_t obj_type = typeof_expr(expr->access.obj);
         if(obj_type.ptr_depth > 1 || (obj_type.data != DATA_STRUCT && obj_type.data != DATA_UNION)){
@@ -484,6 +572,8 @@ bool save_expr(HC_FILE fptr, node_expr* expr, node_expr* value){
                 print_context_expr("Cannot give value to an array member", expr);
                 return false;
             }
+            if(!check_private(member->flags, expr->access.obj, true))
+                return false;
             if(obj_type.ptr_depth || expr->access.obj->type == tk_deref || expr->access.obj->type == tk_open_bracket || expr->access.obj->type == tk_dot){
                 reg_t* ptr;
                 if(obj_type.ptr_depth)
@@ -671,11 +761,41 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
     reg_t* masked_regs[MAX_REGS];
 
     // Get the function
-    if(expr->func.func->type != tk_identifier){
-        print_context_expr("Is not a callable function", expr);
-        fail_gen_expr(fptr);
+    type_t method = INVALID_TYPE;
+    module_t* module = NULL;
+    func_t* func = NULL;
+    if(expr->func.func->type == tk_identifier)
+        func = get_func(expr->func.func->term.str, expr->func.func->term.strlen);
+    else if(expr->func.func->type == tk_dot){
+        if(expr->func.func->access.obj->type == tk_identifier){
+            module_t* mod = get_module(expr->func.func->access.obj->term.str,
+                                       expr->func.func->access.obj->term.strlen);
+            if(mod){
+                func = get_module_func(mod, expr->func.func->access.member->str,
+                                       expr->func.func->access.member->strlen);
+                if(!func){
+                    print_context("Function does not exist in module", expr->func.func->access.member);
+                    fail_gen_expr(fptr);
+                }
+                if(!check_module_private(func->flags, mod, expr->func.func->access.member, false))
+                    fail_gen_expr(fptr);
+                module = mod;
+            }
+        }
+
+        if(!func){
+            type_t t = typeof_expr(expr->func.func->access.obj);
+            if(t.data != DATA_STRUCT || t.ptr_depth > 1){
+                print_context("Expected class to call method", expr->func.func->access.member);
+                fail_gen_expr(fptr);
+            }
+            method = t;
+            struct_t* stru = get_struct_tk(t.repr);
+            func = get_method(stru, expr->func.func->access.member->str, expr->func.func->access.member->strlen);
+            if(!check_private(func->flags, expr->func.func->access.obj, false))
+                fail_gen_expr(fptr);
+        }
     }
-    func_t* func = get_func(expr->func.func->term.str, expr->func.func->term.strlen);
     if(!func){
         print_context_expr("Unknown function", expr->func.func);
         fail_gen_expr(fptr);
@@ -687,6 +807,10 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
 
     // The amount of bytes allocated on the stack
     size_t func_call_sz = (func->type.ptr_depth || func->type.data == DATA_STRUCT || func->type.data == DATA_UNION) ? target_address_size : func->type.size;
+
+    // If we have to pass the "this" pointer
+    if(method.data)
+        func_call_sz = ALIGN(func_call_sz, target_address_size) + target_address_size;
 
     // Get the occupied registers to save on the stack
     // (because a function can affect registers)
@@ -739,6 +863,20 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
 
     // Generate each argument
     arg_ptr = (func->type.ptr_depth || func->type.data == DATA_STRUCT || func->type.data == DATA_UNION) ? target_address_size : func->type.size;
+
+    // We need to generate the "this" pointer if necessary
+    if(method.data){
+        arg_ptr = ALIGN(arg_ptr, target_address_size);
+        reg_t* tmp = GET_FREE_REG(target_address_size);
+        if(method.ptr_depth)
+            tmp = generate_expr(fptr, expr->func.func->access.obj, method, NULL);
+        else if(!get_expr_address(fptr, alloc_reg(tmp, false), expr->func.func->access.obj))
+            return false;
+        gen_save_stack(fptr, tmp, arg_ptr);
+        (void) free_reg(tmp);
+        arg_ptr += target_address_size;
+    }
+
     arg_expr = expr->func.args;
     for(node_var_decl* arg = &func->args->var_decl; arg; arg = &arg->next->var_decl){
         node_expr* next_arg = NULL;
@@ -763,8 +901,7 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
                 if(expr_type.ptr_depth || expr_type.data == DATA_INT){
                     reg_t* tmp = EXPR_ONCE(arg_expr, ((type_t){8, GET_DUMMY_TYPE(int64), true, DATA_INT, 8, 0}), NULL);
                     gen_save_stack(fptr, tmp, arg_ptr);
-                }
-                // Float value
+                }// Float value
                 else if(expr_type.data == DATA_FLOAT){
                     if(!generate_float_expr(fptr, arg_expr))
                         fail_gen_expr(fptr);
@@ -815,11 +952,11 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
             if(arg_type.data == DATA_STRUCT){
                 struct_t* stru = get_struct_tk(arg_type.repr);
                 if(!save_struct(fptr, stru, tmp, arg_expr))
-                    return false;
+                    fail_gen_expr(fptr);
             }else{
                 union_t* unio = get_union_tk(arg_type.repr);
                 if(!save_union(fptr, unio, tmp, arg_expr))
-                    return false;
+                    fail_gen_expr(fptr);
             }
             (void) free_reg(tmp);
         }else{
@@ -839,6 +976,10 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
     // Call the function
     if(func->flags & FLAG_EXTERN)
         gen_call_extern_func(fptr, func->str, func->strlen);
+    else if(method.data)
+        gen_call_method(fptr, method.repr->str, method.repr->strlen, func->str, func->strlen);
+    else if(module)
+        gen_call_method(fptr, module->str, module->strlen, func->str, func->strlen);
     else
         gen_call_func(fptr, func->str, func->strlen);
 
@@ -1244,6 +1385,27 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
         return elem;
     }
     case tk_dot:{
+        if(expr->access.obj->type == tk_identifier){
+            module_t* mod = get_module(expr->access.obj->term.str, expr->access.obj->term.strlen);
+            if(mod){
+                var_t* var = get_module_var(mod, expr->access.member->str, expr->access.member->strlen);
+                if(!var){
+                    print_context("Unknown variable in module", expr->access.member);
+                    fail_gen_expr(fptr);
+                }
+                if(!check_module_private(var->flags, mod, expr->access.member, true))
+                    fail_gen_expr(fptr);
+                reg_t* tmp = alloc_reg(GET_FREE_REG(sz), sign);
+                if(SIZEOF_T(var->type) < sz)
+                    gen_loadx_global_offset(fptr, tmp, mod->str, mod->strlen, var->stack_ptr, var->type.size, sign);
+                else if(var->location == VAR_ARRAY)
+                    gen_load_global_offset_ptr(fptr, tmp, mod->str, mod->strlen, var->stack_ptr);
+                else
+                    gen_load_global_offset(fptr, tmp, mod->str, mod->strlen, var->stack_ptr);
+                return tmp;
+            }
+        }
+
         type_t obj_type = typeof_expr(expr->access.obj);
         if(obj_type.ptr_depth > 1 || (obj_type.data != DATA_STRUCT && obj_type.data != DATA_UNION)){
             print_context_expr("Expected structure / class / union", expr->access.obj);
@@ -1254,6 +1416,10 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
             var_t* member = get_member(stru, expr->access.member->str, expr->access.member->strlen);
             if(!member)
                 fail_gen_expr(fptr);
+
+            if(!check_private(member->flags, expr->access.obj, false))
+                fail_gen_expr(fptr);
+
             if(member->location == VAR_ARRAY && sz != target_address_size){
                 print_context_expr("Cannot store address (array pointer) in smaller type", expr);
                 fail_gen_expr(fptr);
@@ -1612,6 +1778,24 @@ bool generate_float_expr(HC_FILE fptr, node_expr* expr){
         stack_sz -= func_call_sz;
         break;
     }case tk_dot:{
+        if(expr->access.obj->type == tk_identifier){
+            module_t* mod = get_module(expr->access.obj->term.str, expr->access.obj->term.strlen);
+            if(mod){
+                var_t* var = get_module_var(mod, expr->access.member->str, expr->access.member->strlen);
+                if(!var){
+                    print_context("Unknown variable in module", expr->access.member);
+                    return false;
+                }
+                if(var->location != VAR_STACK){
+                    print_context("Cannot give value to array, array is the address itself", expr->access.member);
+                    return false;
+                }
+                if(!check_module_private(var->flags, mod, expr->access.member, true))
+                    return false;
+                gen_load_global_offset_float(fptr, mod->str, mod->strlen, var->stack_ptr, var->type.size == 8);
+            }
+        }
+
         type_t obj_type = typeof_expr(expr->access.obj);
         if(obj_type.ptr_depth > 1 || (obj_type.data != DATA_STRUCT && obj_type.data != DATA_UNION)){
             print_context_expr("Expected structure / class / union", expr->access.obj);
@@ -1620,6 +1804,8 @@ bool generate_float_expr(HC_FILE fptr, node_expr* expr){
         if(obj_type.data == DATA_STRUCT){
             struct_t* stru = get_struct_tk(obj_type.repr);
             var_t* member = get_member(stru, expr->access.member->str, expr->access.member->strlen);
+            if(!check_private(member->flags, expr->access.obj, false))
+                return false;
             if(obj_type.ptr_depth || expr->access.obj->type == tk_deref || expr->access.obj->type == tk_open_bracket || expr->access.obj->type == tk_dot){
                 reg_t* ptr;
                 if(obj_type.ptr_depth)
@@ -1704,16 +1890,187 @@ bool generate_float_expr(HC_FILE fptr, node_expr* expr){
     return true;
 }
 
+bool generate_func(HC_FILE fptr, func_t* target, node_stmt* stmt, token_t* parent, token_t* this){
+    // Registrate the function
+    func_t func = (func_t){
+        stmt->func_decl.identifier->str,
+        stmt->func_decl.identifier->strlen,
+        stmt->func_decl.args,
+        flags_from_tk(stmt->func_decl.func_type),
+        type_from_tk(stmt->func_decl.func_type)
+    };
+
+    if(!func.type.data || (!func.type.ptr_depth && func.type.data != DATA_INT && !func.type.size)){
+        print_context("Type returned by function is invalid", stmt->func_decl.identifier);
+        return false;
+    }
+
+    if(stmt->func_decl.stmts)
+        func.flags |= FLAG_FDEF;
+
+    if(target->type.data != DATA_INVALID){
+        if(stmt->func_decl.stmts && (target->flags & FLAG_FDEF)){
+            print_context_ex("Redefining function here", func.str, func.strlen);
+            print_context_ex("First defined here", target->str, target->strlen);
+            return false;
+        }
+        bool same = ((func.flags & ~FLAG_FDEF) == (target->flags & ~FLAG_FDEF) &&
+        func.type.size == target->type.size &&
+        func.type.sign == target->type.sign &&
+        func.type.ptr_depth == target->type.ptr_depth &&
+        func.type.data == target->type.data);
+        node_var_decl* last_arg = &target->args->var_decl;
+        for(node_var_decl* arg = &func.args->var_decl; same && arg; arg = &arg->next->var_decl, last_arg = &last_arg->next->var_decl){
+            if((arg->type == tk_var_args) != (last_arg->type == tk_var_args)){
+                if(arg->type != tk_var_args)
+                    print_context("Var args not matching", arg->identifier);
+                else
+                    print_context("Var args not matching", last_arg->identifier);
+                same = false;
+                break;
+            }else if(arg->type == tk_var_args){
+                last_arg = NULL;
+                break;
+            }
+            type_t t1 = type_from_tk(arg->var_type), t2 = type_from_tk(last_arg->var_type);
+            if(!last_arg || t1.size != t2.size || t1.sign != t2.sign || t1.ptr_depth != t2.ptr_depth || t1.data != t2.data)
+                same = false;
+            if(last_arg->expr && !arg->expr)
+                arg->expr = last_arg->expr;
+        }
+        if(last_arg || !same){
+            print_context_ex("Function does not match previous definition", func.str, func.strlen);
+            print_context_ex("Previously defined here", target->str, target->strlen);
+            return false;
+        }
+        if(stmt->func_decl.stmts && !(target->flags & FLAG_FDEF))
+            *target = func;
+    }else
+        *target = func;
+
+    if(stmt->func_decl.stmts && (func.flags & FLAG_EXTERN || func.flags & FLAG_CFUNC)){
+        print_context("Cannot define an external function", stmt->func_decl.func_type);
+        return false;
+    }
+
+    // Check if all arguments are valid
+    for(node_var_decl* arg = &func.args->var_decl; arg; arg = &arg->next->var_decl){
+        if(arg->type == tk_var_args)
+            break;
+        type_t arg_type = type_from_tk(arg->var_type);
+        if(!SIZEOF_T(arg_type)){
+            print_context("Argument is 0 bytes big!", arg->identifier);
+            return false;
+        }
+    }
+
+    if(!stmt->func_decl.stmts)
+        return true;
+
+    // Setup the function
+    stack_sz = stack_ptr = 0;
+    label_count = 1;
+    if(parent)
+        gen_start_method(fptr, parent->str, parent->strlen, func.str, func.strlen);
+    else
+        gen_start_func(fptr, func.str, func.strlen, func.flags & FLAG_PRIVATE);
+
+    if(stmt->func_decl.stmts == (node_stmt*)(~0)){
+        gen_return_func(fptr);
+        return true;
+    }
+
+    // Setup the function scope
+    size_t arg_ptr = 0;
+    scope_t func_scope = gen_init_scope(fptr, stmt->func_decl.stmts);
+
+    // @return variable in the function scope
+    arg_ptr += (func.type.ptr_depth || func.type.data == DATA_STRUCT || func.type.data == DATA_UNION) ? target_address_size : func.type.size;
+    var_t return_var;
+    if(func.type.ptr_depth || func.type.data == DATA_STRUCT || func.type.data == DATA_UNION){
+        func.type.ptr_depth++;
+        return_var = (var_t){"@return", 7, 0, VAR_ARG, FLAG_NONE, func.type};
+        func.type.ptr_depth--;
+    }else
+        return_var = (var_t){"@return", 7, 0, VAR_ARG, FLAG_NONE, func.type};
+    vector_append(vars, &return_var);
+
+    if(this){
+        type_t this_type = type_from_tk(this);
+        this_type.ptr_depth = 1;
+        arg_ptr = ALIGN(arg_ptr, target_address_size);
+        var_t this_var = (var_t){"this", 4, arg_ptr, VAR_ARG, FLAG_INHERITED, this_type};
+        arg_ptr += target_address_size;
+        vector_append(vars, &this_var);
+    }
+
+    // Add arguments as variables
+    for(node_var_decl* arg = &func.args->var_decl; arg; arg = &arg->next->var_decl){
+        // Variable arguments start (@varg_start)
+        if(arg->type == tk_var_args){
+            arg_ptr = ALIGN(arg_ptr, 8);
+            if(((node_expr_stmt*)arg)->expr){
+                node_term vargc = ((node_expr_stmt*)arg)->expr->term;
+                var_t argc = (var_t){vargc.str, vargc.strlen, arg_ptr, VAR_ARG, 0, (type_t){8, GET_DUMMY_TYPE(uint64), false, DATA_INT, 8, 0}};
+                if(get_var(vargc.str, vargc.strlen)){
+                    print_context_ex("Another argument has the same name", vargc.str, vargc.strlen);
+                    return false;
+                }
+                vector_append(vars, &argc);
+                arg_ptr += 8;
+            }
+            var_t arg_var = (var_t){"@varg_start", 11, arg_ptr, VAR_ARG, FLAG_NONE, (type_t){8, GET_DUMMY_TYPE(int64), true, DATA_INT, 8, 0}};
+            vector_append(vars, &arg_var);
+            break;
+        }
+
+        type_t arg_type = type_from_tk(arg->var_type);
+
+        // Register argument as variable in function scope
+        size_t arg_align = ALIGNOF_T(arg_type);
+        arg_ptr = ALIGN(arg_ptr, arg_align);
+        if(flags_from_tk(arg->var_type)){
+            print_context("Cannot give modifiers to function arguments", arg->var_type);
+            return false;
+        }
+        var_t arg_var = (var_t){arg->identifier->str, arg->identifier->strlen, arg_ptr, VAR_ARG, FLAG_NONE, arg_type};
+        arg_ptr += SIZEOF_T(arg_type);
+        if(get_var(arg->identifier->str, arg->identifier->strlen)){
+            print_context("Another argument has the same name", arg->identifier);
+            return false;
+        }
+        vector_append(vars, &arg_var);
+    }
+
+    // Go through each statement
+    for(node_stmt* ptr = stmt->func_decl.stmts; ptr; ptr = ptr->next){
+        if(!generate_stmt(fptr, ptr, func.type, (scope_info){0,0,0,0,0}))
+            return false;
+    }
+
+    // Remove the variables in the scope
+    for(size_t i = vector_size(vars); i > func_scope.var_sz; i--)
+        vector_popback(vars);
+
+    // First label is dedicated to returns
+    gen_label(fptr, 0);
+    gen_return_func(fptr);
+
+    return true;
+}
+
 bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info parent){
     if(!fn_type.data &&
         stmt->type != tk_func_decl &&
         stmt->type != tk_var_decl &&
         stmt->type != tk_arr_decl &&
+        stmt->type != tk_constexpr &&
         stmt->type != tk_struct &&
         stmt->type != tk_union &&
         stmt->type != tk_variant &&
         stmt->type != tk_class &&
         stmt->type != tk_enum &&
+        stmt->type != tk_module &&
         stmt->type != tk_asm){
         HC_PRINT(BOLD "Sadly I can't tell you where the error is, but here is the invalid statement's type: %lu :(" RESET_ATTR "\n", stmt->type);
         HC_ERR("Cannot do more than declaring functions, variables, arrays or data structures outside a function!");
@@ -1729,158 +2086,18 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             print_context("Cannot declare function in another", stmt->func_decl.func_type);
             return false;
         }
-
-        // Check for last definition
-        func_t* last_def = get_func(stmt->func_decl.identifier->str, stmt->func_decl.identifier->strlen);
-
-        // Registrate the function
-        func_t func = (func_t){
-            stmt->func_decl.identifier->str,
-            stmt->func_decl.identifier->strlen,
-            stmt->func_decl.args,
-            flags_from_tk(stmt->func_decl.func_type),
-            type_from_tk(stmt->func_decl.func_type)
-        };
-        if(!func.type.data || (!func.type.ptr_depth && func.type.data != DATA_INT && !func.type.size)){
-            print_context("Type returned by function is invalid", stmt->func_decl.identifier);
+        func_t* target = get_func(stmt->func_decl.identifier->str, stmt->func_decl.identifier->strlen);
+        if(!target){
+            func_t func = (func_t){stmt->func_decl.identifier->str, stmt->func_decl.identifier->strlen};
+            func.type.data = DATA_INVALID;
+            target = hashtable_set(funcs, &func);
+        }
+        if(!generate_func(fptr, target, stmt, NULL, NULL))
+            return false;
+        if((target->flags & FLAG_PROTECT) || (target->flags & FLAG_STATIC) || (target->flags & FLAG_PEEK)){
+            print_context_ex("Only public, private, extern and @cfunc modifiers are allowed on functions", target->str, target->strlen);
             return false;
         }
-
-        if(stmt->func_decl.stmts)
-            func.flags |= FLAG_FDEF;
-
-        if(last_def){
-            if(stmt->func_decl.stmts && (last_def->flags & FLAG_FDEF)){
-                print_context_ex("Redefining function here", func.str, func.strlen);
-                print_context_ex("First defined here", last_def->str, last_def->strlen);
-                return false;
-            }
-            bool same = ((func.flags & ~FLAG_FDEF) == (last_def->flags & ~FLAG_FDEF) &&
-                        func.type.size == last_def->type.size &&
-                        func.type.sign == last_def->type.sign &&
-                        func.type.ptr_depth == last_def->type.ptr_depth &&
-                        func.type.data == last_def->type.data);
-            node_var_decl* last_arg = &last_def->args->var_decl;
-            for(node_var_decl* arg = &func.args->var_decl; same && arg; arg = &arg->next->var_decl, last_arg = &last_arg->next->var_decl){
-                if((arg->type == tk_var_args) != (last_arg->type == tk_var_args)){
-                    if(arg->type != tk_var_args)
-                        print_context("Var args not matching", arg->identifier);
-                    else
-                        print_context("Var args not matching", last_arg->identifier);
-                    same = false;
-                    break;
-                }else if(arg->type == tk_var_args){
-                    last_arg = NULL;
-                    break;
-                }
-                type_t t1 = type_from_tk(arg->var_type), t2 = type_from_tk(last_arg->var_type);
-                if(!last_arg || t1.size != t2.size || t1.sign != t2.sign || t1.ptr_depth != t2.ptr_depth || t1.data != t2.data)
-                    same = false;
-                if(last_arg->expr && !arg->expr)
-                    arg->expr = last_arg->expr;
-            }
-            if(last_arg || !same){
-                print_context_ex("Function does not match previous definition", func.str, func.strlen);
-                print_context_ex("Previously defined here", last_def->str, last_def->strlen);
-                return false;
-            }
-            if(stmt->func_decl.stmts && !(last_def->flags & FLAG_FDEF))
-                *last_def = func;
-        }else
-            hashtable_set(funcs, (const void*) &func);
-
-        if(stmt->func_decl.stmts && (func.flags & FLAG_EXTERN || func.flags & FLAG_CFUNC)){
-            print_context("Cannot define an external function", stmt->func_decl.func_type);
-            return false;
-        }
-
-        // Check if all arguments are valid
-        for(node_var_decl* arg = &func.args->var_decl; arg; arg = &arg->next->var_decl){
-            if(arg->type == tk_var_args)
-                break;
-            type_t arg_type = type_from_tk(arg->var_type);
-            if(!SIZEOF_T(arg_type)){
-                print_context("Argument is 0 bytes big!", arg->identifier);
-                return false;
-            }
-        }
-
-        if(!stmt->func_decl.stmts)
-            return true;
-        else if(stmt->func_decl.stmts == (node_stmt*)(~0)){
-            gen_start_func(fptr, stmt->func_decl.identifier->str, stmt->func_decl.identifier->strlen, func.flags & FLAG_PRIVATE);
-            gen_return_func(fptr);
-            return true;
-        }
-
-        // Setup the function
-        stack_sz = stack_ptr = 0;
-        label_count = 1;
-        gen_start_func(fptr, stmt->func_decl.identifier->str, stmt->func_decl.identifier->strlen, func.flags & FLAG_PRIVATE);
-
-        // Setup the function scope
-        size_t arg_ptr = 0;
-        scope_t func_scope = gen_init_scope(fptr, stmt->func_decl.stmts);
-
-        // @return variable in the function scope
-        arg_ptr += (func.type.ptr_depth || func.type.data == DATA_STRUCT || func.type.data == DATA_UNION) ? target_address_size : func.type.size;
-        var_t return_var;
-        if(func.type.ptr_depth || func.type.data == DATA_STRUCT || func.type.data == DATA_UNION){
-            func.type.ptr_depth++;
-            return_var = (var_t){"@return", 7, 0, VAR_ARG, FLAG_NONE, func.type};
-            func.type.ptr_depth--;
-        }else
-            return_var = (var_t){"@return", 7, 0, VAR_ARG, FLAG_NONE, func.type};
-        vector_append(vars, &return_var);
-
-        // Add arguments as variables
-        for(node_var_decl* arg = &func.args->var_decl; arg; arg = &arg->next->var_decl){
-            // Variable arguments start (@varg_start)
-            if(arg->type == tk_var_args){
-                arg_ptr = ALIGN(arg_ptr, 8);
-                if(((node_expr_stmt*)arg)->expr){
-                    node_term vargc = ((node_expr_stmt*)arg)->expr->term;
-                    var_t argc = (var_t){vargc.str, vargc.strlen, arg_ptr, VAR_ARG, 0, (type_t){8, GET_DUMMY_TYPE(uint64), false, DATA_INT, 8, 0}};
-                    if(get_var(vargc.str, vargc.strlen)){
-                        print_context_ex("Another argument has the same name", vargc.str, vargc.strlen);
-                        return false;
-                    }
-                    vector_append(vars, &argc);
-                    arg_ptr += 8;
-                }
-                var_t arg_var = (var_t){"@varg_start", 11, arg_ptr, VAR_ARG, FLAG_NONE, (type_t){8, GET_DUMMY_TYPE(int64), true, DATA_INT, 8, 0}};
-                vector_append(vars, &arg_var);
-                break;
-            }
-
-            type_t arg_type = type_from_tk(arg->var_type);
-
-            // Register argument as variable in function scope
-            size_t arg_align = ALIGNOF_T(arg_type);
-            arg_ptr = ALIGN(arg_ptr, arg_align);
-            var_t arg_var = (var_t){arg->identifier->str, arg->identifier->strlen, arg_ptr, VAR_ARG, FLAG_NONE, arg_type};
-            arg_ptr += SIZEOF_T(arg_type);
-            if(get_var(arg->identifier->str, arg->identifier->strlen)){
-                print_context("Another argument has the same name", arg->identifier);
-                return false;
-            }
-            vector_append(vars, &arg_var);
-        }
-
-        // Go through each statement
-        for(node_stmt* ptr = stmt->func_decl.stmts; ptr; ptr = ptr->next){
-            if(!generate_stmt(fptr, ptr, func.type, parent))
-                return false;
-        }
-
-        // Remove the variables in the scope
-        for(size_t i = vector_size(vars); i > func_scope.var_sz; i--)
-            vector_popback(vars);
-
-        // First label is dedicated to returns
-        gen_label(fptr, 0);
-        gen_return_func(fptr);
-
         return true;
     }
     case tk_if:{
@@ -2154,13 +2371,28 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             return false;
         }
 
-        {
-            enum_t* enu = get_enum(stmt->var_decl.identifier->str, stmt->var_decl.identifier->strlen);
-            if(enu){
-                print_context("Enum has the same name", stmt->var_decl.identifier);
-                print_context_ex("Enum defined here", enu->str, enu->strlen);
-                return false;
-            }
+        // If a constexpr already has the same name
+        constexpr_t* cons = get_constexpr(stmt->arr_decl.identifier->str, stmt->arr_decl.identifier->strlen);
+        if(cons){
+            print_context("Constexpr already declared with the same name", stmt->arr_decl.identifier);
+            print_context_ex("Constexpr defined here", cons->str, cons->strlen);
+            return false;
+        }
+
+        // If an enum already has the same name
+        enum_t* enu = get_enum(stmt->var_decl.identifier->str, stmt->var_decl.identifier->strlen);
+        if(enu){
+            print_context("Enum has the same name", stmt->var_decl.identifier);
+            print_context_ex("Enum defined here", enu->str, enu->strlen);
+            return false;
+        }
+
+        // If a module already has the same name
+        module_t* mod = get_module(stmt->var_decl.identifier->str, stmt->var_decl.identifier->strlen);
+        if(mod){
+            print_context("Module has the same name", stmt->var_decl.identifier);
+            print_context_ex("Module defined here", mod->str, mod->strlen);
+            return false;
         }
 
         type_t var_type = type_from_tk(stmt->var_decl.var_type);
@@ -2258,10 +2490,34 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
     }
     case tk_arr_decl:{
         // If the variable already got declared
-        if(get_var(stmt->arr_decl.identifier->str, stmt->arr_decl.identifier->strlen)){
-            print_context("Variable was already declared before", stmt->arr_decl.identifier);
-            var_t* var = get_var(stmt->arr_decl.identifier->str, stmt->arr_decl.identifier->strlen);
-            print_context_ex("First declared here:", var->str, var->strlen);
+        var_t* last_def = get_var(stmt->var_decl.identifier->str, stmt->var_decl.identifier->strlen);
+        if(last_def && !(last_def->flags & FLAG_EXTERN)){
+            print_context("Variable was already declared before", stmt->var_decl.identifier);
+            print_context_ex("First declared here:", last_def->str, last_def->strlen);
+            return false;
+        }
+
+        // If a constexpr already has the same name
+        constexpr_t* cons = get_constexpr(stmt->arr_decl.identifier->str, stmt->arr_decl.identifier->strlen);
+        if(cons){
+            print_context("Constexpr already declared with the same name", stmt->arr_decl.identifier);
+            print_context_ex("Constexpr defined here", cons->str, cons->strlen);
+            return false;
+        }
+
+        // If an enum already has the same name
+        enum_t* enu = get_enum(stmt->arr_decl.identifier->str, stmt->arr_decl.identifier->strlen);
+        if(enu){
+            print_context("Enum has the same name", stmt->arr_decl.identifier);
+            print_context_ex("Enum defined here", enu->str, enu->strlen);
+            return false;
+        }
+
+        // If a module already has the same name
+        module_t* mod = get_module(stmt->arr_decl.identifier->str, stmt->arr_decl.identifier->strlen);
+        if(mod){
+            print_context("Module has the same name", stmt->arr_decl.identifier);
+            print_context_ex("Module defined here", mod->str, mod->strlen);
             return false;
         }
 
@@ -2319,8 +2575,45 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             vector_append(vars, &new_var);
         }
         return true;
-    }
-    case tk_struct:
+    }case tk_constexpr:{
+        if(fn_type.data)
+            print_context(YELLOW_FG "WARNING" RESET_ATTR " : Constant expression will be exposed in global namespace", stmt->const_decl.identifier);
+
+        // If variable already has the same name
+        var_t* var = get_var(stmt->const_decl.identifier->str, stmt->const_decl.identifier->strlen);
+        if(var){
+            print_context("Variable already declared with the same name", stmt->const_decl.identifier);
+            print_context_ex("Variable declared here", var->str, var->strlen);
+        }
+
+        // If an enum already has the same name
+        enum_t* enu = get_enum(stmt->const_decl.identifier->str, stmt->const_decl.identifier->strlen);
+        if(enu){
+            print_context("Enum has the same name", stmt->const_decl.identifier);
+            print_context_ex("Enum defined here", enu->str, enu->strlen);
+            return false;
+        }
+
+        // If a module already has the same name
+        module_t* mod = get_module(stmt->const_decl.identifier->str, stmt->const_decl.identifier->strlen);
+        if(mod){
+            print_context("Module has the same name", stmt->const_decl.identifier);
+            print_context_ex("Module defined here", mod->str, mod->strlen);
+            return false;
+        }
+
+        constexpr_t cons = (constexpr_t){stmt->const_decl.identifier->str, stmt->const_decl.identifier->strlen,
+                                        stmt->const_decl.is_integer ? CONST_INT : CONST_FLOAT};
+
+        if((cons.type == CONST_INT && !eval_int_expr(stmt->const_decl.expr, &cons.i)) ||
+            (cons.type == CONST_FLOAT && !eval_float_expr(stmt->const_decl.expr, &cons.f))){
+            print_context_expr("Expression is not constant", stmt->const_decl.expr);
+            return false;
+        }
+
+        vector_append(consts, &cons);
+        return true;
+    }case tk_struct:
     case tk_class:{
         if(fn_type.data){
             print_context("Cannot declare struct / class type in function", stmt->struct_decl.identifier);
@@ -2337,23 +2630,48 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             return false;
         }
 
-        struct_t* last_def = get_struct(str, strlen);
-        if(stmt->type == tk_struct && last_def && last_def->size){
+        struct_t* new_struct = get_struct(str, strlen);
+        if(stmt->type == tk_struct && new_struct && new_struct->size){
             print_context_ex("Already defined", str, strlen);
-            print_context_ex("Last definition here", last_def->str, last_def->strlen);
+            print_context_ex("Last definition here", new_struct->str, new_struct->strlen);
             return false;
+        }else if(!new_struct){
+            struct_t stru = {str, strlen, 0, 0, {NEW_VECTOR(var_t)}, {NEW_VECTOR(func_t)}, NULL};
+            new_struct = vector_append(structs, &stru);
         }
 
-        struct_t new_struct = {str, strlen, 0, 0, {NEW_VECTOR(var_t)}, {NEW_VECTOR(func_t)}, NULL};
+        bool first_def = new_struct->members->size == 0 && new_struct->funcs->size == 0;
+
         for(node_stmt* ptr = stmt->struct_decl.members; ptr; ptr = ptr->next){
             // Scalar members
             if(ptr->type == tk_var_decl){
+                if(!first_def){
+                    print_context("Cannot redeclare a class's members (all definitions after the first must only declare methods)", ptr->var_decl.identifier);
+                    print_context("In class declaration", stmt->struct_decl.identifier);
+                    return false;
+                }
+
+                if(get_member(new_struct, ptr->var_decl.identifier->str, ptr->var_decl.identifier->strlen)){
+                    print_context("Another member has the same name in struct / class", ptr->var_decl.identifier);
+                    return false;
+                }
+
                 type_t var_type = type_from_tk(ptr->var_decl.var_type);
                 size_t var_flags = flags_from_tk(ptr->var_decl.var_type);
                 size_t var_sz = SIZEOF_T(var_type), var_align = ALIGNOF_T(var_type);
 
                 if(!var_type.data){
                     print_context("Invalid structure member type!", ptr->var_decl.identifier);
+                    return false;
+                }
+
+                if(var_type.data == DATA_STRUCT && get_struct_tk(var_type.repr) == new_struct && !var_type.ptr_depth){
+                    print_context("Cannot have itself as a member", ptr->var_decl.identifier);
+                    return false;
+                }
+
+                if(new_struct->funcs->size){
+                    print_context("All members of a class must be defined before methods", ptr->var_decl.identifier);
                     return false;
                 }
 
@@ -2366,21 +2684,24 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
                 if(stmt->type == tk_struct && var_flags){
                     print_context("Cannot give modifiers to structure members", ptr->var_decl.var_type);
                     return false;
+                }else if((var_flags & FLAG_EXTERN) || (var_flags & FLAG_CFUNC)){
+                    print_context("Invalid modifiers", ptr->var_decl.var_type);
+                    return false;
                 }
 
                 // Calculate the struct's size with alignment
-                new_struct.size = ALIGN(new_struct.size, var_align);
-                new_struct.align = MAX(new_struct.align, var_align);
-                var_t member_var = (var_t){ptr->var_decl.identifier->str, ptr->var_decl.identifier->strlen, new_struct.size, VAR_STACK, var_flags, var_type};
-                new_struct.size += var_sz;
+                new_struct->size = ALIGN(new_struct->size, var_align);
+                new_struct->align = MAX(new_struct->align, var_align);
+                var_t member_var = (var_t){ptr->var_decl.identifier->str, ptr->var_decl.identifier->strlen, new_struct->size, VAR_STACK, var_flags, var_type};
+                new_struct->size += var_sz;
 
                 // Append the member
-                vector_append(new_struct.members, &member_var);
+                vector_append(new_struct->members, &member_var);
 
                 // Add default value to linked list
                 // If there is none, we add a nothing expression
-                if(new_struct.default_values){
-                    node_expr* val = new_struct.default_values;
+                if(new_struct->default_values){
+                    node_expr* val = new_struct->default_values;
                     for(; val->next; val = val->next);
                     if(ptr->var_decl.expr)
                         val->next = ptr->var_decl.expr;
@@ -2389,13 +2710,24 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
                         val->next->none = (node_nothing_expr){tk_nothing, NULL};
                     }
                 }else if(ptr->var_decl.expr)
-                    new_struct.default_values = ptr->var_decl.expr;
+                    new_struct->default_values = ptr->var_decl.expr;
                 else{
-                    new_struct.default_values = (node_expr*) ARENA_ALLOC(arena, node_nothing_expr);
-                    new_struct.default_values->none = (node_nothing_expr){tk_nothing, NULL};
+                    new_struct->default_values = (node_expr*) ARENA_ALLOC(arena, node_nothing_expr);
+                    new_struct->default_values->none = (node_nothing_expr){tk_nothing, NULL};
                 }
             }// Array members
             else if(ptr->type == tk_arr_decl){
+                if(!first_def){
+                    print_context("Cannot redeclare a class's members (all definitions after the first must only declare methods)", ptr->var_decl.identifier);
+                    print_context("In class declaration", stmt->struct_decl.identifier);
+                    return false;
+                }
+
+                if(get_member(new_struct, ptr->arr_decl.identifier->str, ptr->arr_decl.identifier->strlen)){
+                    print_context("Another member has the same name in struct / class", ptr->arr_decl.identifier);
+                    return false;
+                }
+
                 type_t elem_type = type_from_tk(ptr->arr_decl.elem_type);
                 size_t arr_flags = flags_from_tk(ptr->arr_decl.elem_type);
                 size_t elem_sz = SIZEOF_T(elem_type), elem_align = ALIGNOF_T(elem_type);
@@ -2407,6 +2739,16 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
 
                 if(!elem_type.data){
                     print_context("Invalid array member type!", ptr->arr_decl.identifier);
+                    return false;
+                }
+
+                if(elem_type.data == DATA_STRUCT && get_struct_tk(elem_type.repr) == new_struct && !elem_type.ptr_depth){
+                    print_context("Cannot have itself as a member", ptr->var_decl.identifier);
+                    return false;
+                }
+
+                if(new_struct->funcs->size){
+                    print_context("All members of a class must be defined before methods", ptr->arr_decl.identifier);
                     return false;
                 }
 
@@ -2423,31 +2765,42 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
                 if(stmt->type == tk_struct && arr_flags){
                     print_context("Cannot give modifiers to structure members", ptr->arr_decl.elem_type);
                     return false;
+                }else if((arr_flags & FLAG_EXTERN) || (arr_flags & FLAG_CFUNC)){
+                    print_context("Invalid modifiers", ptr->arr_decl.elem_type);
+                    return false;
                 }
 
                 // Calculate struct's size and alignment
-                new_struct.size = ALIGN(new_struct.size, elem_align);
-                new_struct.align = MAX(new_struct.align, elem_align);
+                new_struct->size = ALIGN(new_struct->size, elem_align);
+                new_struct->align = MAX(new_struct->align, elem_align);
                 elem_type.ptr_depth++;
-                var_t member_arr = (var_t){ptr->arr_decl.identifier->str, ptr->arr_decl.identifier->strlen, new_struct.size, VAR_ARRAY, arr_flags, elem_type};
-                new_struct.size += elem_sz * elem_count;
+                var_t member_arr = (var_t){ptr->arr_decl.identifier->str, ptr->arr_decl.identifier->strlen, new_struct->size, VAR_ARRAY, arr_flags, elem_type};
+                new_struct->size += elem_sz * elem_count;
 
                 // Append array to members
-                vector_append(new_struct.members, &member_arr);
+                vector_append(new_struct->members, &member_arr);
+            }else if(stmt->type == tk_class && ptr->type == tk_func_decl){
+                func_t* method = get_method(new_struct, ptr->func_decl.identifier->str, ptr->func_decl.identifier->strlen);
+                if(!method){
+                    func_t func = (func_t){stmt->func_decl.identifier->str, stmt->func_decl.identifier->strlen};
+                    func.type.data = DATA_INVALID;
+                    method = vector_append(new_struct->funcs, &func);
+                }
+                if(!generate_func(fptr, method, ptr, stmt->struct_decl.identifier, stmt->struct_decl.identifier))
+                    return false;
+                if((method->flags & FLAG_CFUNC) || (method->flags & FLAG_PEEK) || (method->flags & FLAG_EXTERN)){
+                    print_context_ex("Modifiers extern, @cfunc and @peek are prohibited on methods", method->str, method->strlen);
+                    return false;
+                }
             }else{
                 print_context_ex("Expected only member declarations, got another statement instead here", str, strlen);
                 return false;
             }
         }
 
-        if(new_struct.align)
-            new_struct.size = ALIGN(new_struct.size, new_struct.align);
+        if(new_struct->align)
+            new_struct->size = ALIGN(new_struct->size, new_struct->align);
 
-        // Add / replace definition
-        if(!last_def)
-            vector_append(structs, &new_struct);
-        else
-            *last_def = new_struct;
         return true;
     }case tk_union:
     case tk_variant:{
@@ -2477,6 +2830,11 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
         union_t unio = {str, strlen, 0, 0, (stmt->type == tk_variant), stmt->struct_decl.members};
         for(node_stmt* ptr = stmt->struct_decl.members; ptr; ptr = ptr->next){
             if(ptr->type == tk_var_decl){
+                if(get_union_member(&unio, ptr->var_decl.identifier->str, ptr->var_decl.identifier->strlen) != ptr){
+                    print_context("Another member has the same name in union", ptr->var_decl.identifier);
+                    return false;
+                }
+
                 type_t var_type = type_from_tk(ptr->var_decl.var_type);
                 size_t size = SIZEOF_T(var_type), align = ALIGNOF_T(var_type);
 
@@ -2511,6 +2869,11 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
                 unio.size = MAX(unio.size, size);
                 unio.align = MAX(unio.align, align);
             }else if(ptr->type == tk_arr_decl){
+                if(get_union_member(&unio, ptr->arr_decl.identifier->str, ptr->arr_decl.identifier->strlen) != ptr){
+                    print_context("Another member has the same name in union", ptr->arr_decl.identifier);
+                    return false;
+                }
+
                 type_t elem_type = type_from_tk(ptr->arr_decl.elem_type);
                 size_t size = SIZEOF_T(elem_type), align = ALIGNOF_T(elem_type);
                 int64_t elem_count;
@@ -2534,8 +2897,8 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
                     return false;
                 }
 
-                if(flags_from_tk(ptr->var_decl.var_type)){
-                    print_context("Cannot give modifiers to union members", ptr->var_decl.var_type);
+                if(flags_from_tk(ptr->arr_decl.elem_type)){
+                    print_context("Cannot give modifiers to union members", ptr->arr_decl.elem_type);
                     return false;
                 }
 
@@ -2583,6 +2946,173 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             vector_append(unions, &unio);
         else
             *last_def = unio;
+        return true;
+    }case tk_module:{
+        if(fn_type.data){
+            print_context("Modules cannot be defined in functions", stmt->struct_decl.identifier);
+            return false;
+        }
+
+        // If variable already has the same name
+        var_t* var = get_var(stmt->struct_decl.identifier->str, stmt->struct_decl.identifier->strlen);
+        if(var){
+            print_context("Variable already declared with the same name", stmt->struct_decl.identifier);
+            print_context_ex("Variable declared here", var->str, var->strlen);
+        }
+
+        module_t* mod = get_module(stmt->struct_decl.identifier->str, stmt->struct_decl.identifier->strlen);
+        if(!mod){
+            module_t module = (module_t){stmt->struct_decl.identifier->str, stmt->struct_decl.identifier->strlen,
+                0, {NEW_VECTOR(constexpr_t)}, {NEW_VECTOR(var_t)}, {NEW_VECTOR(func_t)}, NULL};
+            mod = vector_append(modules, &module);
+        }
+
+        current_module = mod;
+
+        for(node_stmt* ptr = stmt->struct_decl.members; ptr; ptr = ptr->next){
+            if(ptr->type == tk_var_decl){
+                if(get_module_var(mod, ptr->var_decl.identifier->str, ptr->var_decl.identifier->strlen)){
+                    print_context("Variable with the same name already declared in the module", ptr->var_decl.identifier);
+                    return false;
+                }
+
+                if(get_module_const(mod, ptr->var_decl.identifier->str, ptr->var_decl.identifier->strlen)){
+                    print_context("Constant with the same name already declared in the module", ptr->var_decl.identifier);
+                    return false;
+                }
+
+                type_t var_type = type_from_tk(ptr->var_decl.var_type);
+                size_t var_flags = flags_from_tk(ptr->var_decl.var_type);
+                size_t var_sz = SIZEOF_T(var_type), var_align = ALIGNOF_T(var_type);
+
+                if((var_flags & FLAG_EXTERN) || (var_flags & FLAG_CFUNC) || (var_flags & FLAG_STATIC)){
+                    print_context("Invalid modifiers", ptr->var_decl.var_type);
+                    return false;
+                }
+
+                if(!var_type.data){
+                    print_context("Invalid structure member type!", ptr->var_decl.identifier);
+                    return false;
+                }
+
+                // We don't want an empty type (0 byte big type)
+                if(!var_sz){
+                    print_context("Structure member type is 0 bytes big!", ptr->var_decl.var_type);
+                    return false;
+                }
+
+                // Calculate the struct's size with alignment
+                mod->size = ALIGN(mod->size, var_align);
+                var_t member_var = (var_t){ptr->var_decl.identifier->str, ptr->var_decl.identifier->strlen, mod->size, VAR_STACK, var_flags, var_type};
+                mod->size += var_sz;
+
+                // Append the member
+                vector_append(mod->vars, &member_var);
+
+                // Add default value to linked list
+                // If there is none, we add a nothing expression
+                if(mod->vals){
+                    node_expr* val = mod->vals;
+                    for(; val->next; val = val->next);
+                    if(ptr->var_decl.expr)
+                        val->next = ptr->var_decl.expr;
+                    else{
+                        val->next = (node_expr*) ARENA_ALLOC(arena, node_nothing_expr);
+                        val->next->none = (node_nothing_expr){tk_nothing, NULL};
+                    }
+                }else if(ptr->var_decl.expr)
+                    mod->vals = ptr->var_decl.expr;
+                else{
+                    mod->vals = (node_expr*) ARENA_ALLOC(arena, node_nothing_expr);
+                    mod->vals->none = (node_nothing_expr){tk_nothing, NULL};
+                }
+            }else if(ptr->type == tk_arr_decl){
+                if(get_module_var(mod, ptr->arr_decl.identifier->str, ptr->arr_decl.identifier->strlen)){
+                    print_context("Variable with the same name already declared in the module", ptr->arr_decl.identifier);
+                    return false;
+                }
+
+                if(get_module_const(mod, ptr->arr_decl.identifier->str, ptr->arr_decl.identifier->strlen)){
+                    print_context("Constant with the same name already declared in the module", ptr->arr_decl.identifier);
+                    return false;
+                }
+
+                type_t elem_type = type_from_tk(ptr->arr_decl.elem_type);
+                size_t arr_flags = flags_from_tk(ptr->arr_decl.elem_type);
+                size_t elem_sz = SIZEOF_T(elem_type), elem_align = ALIGNOF_T(elem_type);
+                int64_t elem_count;
+                if(!eval_int_expr(ptr->arr_decl.elem_count, &elem_count)){
+                    print_context_expr("Expected constant expression", ptr->arr_decl.elem_count);
+                    return false;
+                }
+
+                if((arr_flags & FLAG_EXTERN) || (arr_flags & FLAG_CFUNC) || (arr_flags & FLAG_STATIC)){
+                    print_context("Invalid modifiers", ptr->arr_decl.elem_type);
+                    return false;
+                }
+
+                if(!elem_type.data){
+                    print_context("Invalid array member type!", ptr->arr_decl.identifier);
+                    return false;
+                }
+
+                if(!elem_sz){
+                    print_context("Array member elements are 0 bytes big!", ptr->arr_decl.identifier);
+                    return false;
+                }
+
+                if(elem_count < 0){
+                    print_context_expr("Array member's element count is negative!", ptr->arr_decl.elem_count);
+                    return false;
+                }
+
+                // Calculate struct's size and alignment
+                mod->size = ALIGN(mod->size, elem_align);
+                elem_type.ptr_depth++;
+                var_t member_arr = (var_t){ptr->arr_decl.identifier->str, ptr->arr_decl.identifier->strlen, mod->size, VAR_ARRAY, arr_flags, elem_type};
+                mod->size += elem_sz * elem_count;
+
+                // Append array to members
+                vector_append(mod->vars, &member_arr);
+            }else if(ptr->type == tk_constexpr){
+                if(get_module_var(mod, ptr->const_decl.identifier->str, ptr->const_decl.identifier->strlen)){
+                    print_context("Variable with the same name already declared in the module", ptr->const_decl.identifier);
+                    return false;
+                }
+
+                if(get_module_const(mod, ptr->const_decl.identifier->str, ptr->const_decl.identifier->strlen)){
+                    print_context("Constant with the same name already declared in the module", ptr->const_decl.identifier);
+                    return false;
+                }
+
+                constexpr_t cons = (constexpr_t){ptr->const_decl.identifier->str, ptr->const_decl.identifier->strlen,
+                    ptr->const_decl.is_integer ? CONST_INT : CONST_FLOAT};
+                if((cons.type == CONST_INT && !eval_int_expr(ptr->const_decl.expr, &cons.i)) ||
+                    (cons.type == CONST_FLOAT && !eval_float_expr(ptr->const_decl.expr, &cons.f))){
+                    print_context_expr("Expression is not constant", ptr->const_decl.expr);
+                    return false;
+                }
+                vector_append(mod->consts, &cons);
+            }else if(ptr->type == tk_func_decl){
+                func_t* func = get_module_func(mod, ptr->func_decl.identifier->str, ptr->func_decl.identifier->strlen);
+                if(!func){
+                    func_t new_func = (func_t){ptr->func_decl.identifier->str, ptr->func_decl.identifier->strlen, NULL, 0, INVALID_TYPE};
+                    func = vector_append(mod->funcs, &new_func);
+                }
+                if(!generate_func(fptr, func, ptr, stmt->struct_decl.identifier, NULL))
+                    return false;
+                if((func->flags & FLAG_CFUNC) || (func->flags & FLAG_PEEK) || (func->flags & FLAG_EXTERN) || (func->flags & FLAG_STATIC)){
+                    print_context_ex("Modifiers extern, static, @cfunc and @peek are prohibited on functions inside modules", func->str, func->strlen);
+                    return false;
+                }
+            }else{
+                print_context("Can only declare constants, variables and functions in a module", stmt->struct_decl.identifier);
+                return false;
+            }
+        }
+
+        current_module = NULL;
+
         return true;
     }case tk_enum:{
         if(fn_type.data){
@@ -2846,15 +3376,20 @@ static bool generate_constant(HC_FILE fptr, type_t target_type, node_expr* expr)
         }
         node_expr* args = expr->construct.elems;
         node_expr* default_args = stru->default_values;
-        size_t i = 0;
+        size_t i = 0, last = 0;
         for(; default_args; i++){
             var_t* member = vector_at(stru->members, i);
             node_expr* arg_expr = args;
+
+            if(last < member->stack_ptr)
+                gen_declare_mem(fptr, member->stack_ptr - last);
+            last = member->stack_ptr;
 
             if(member->location == VAR_ARRAY){
                 if(i + 1 < vector_size(stru->members)){
                     var_t* next_member = vector_at(stru->members, i+1);
                     gen_declare_mem(fptr, next_member->stack_ptr - member->stack_ptr);
+                    last = next_member->stack_ptr;
                 }else
                     gen_declare_mem(fptr, stru->size - member->stack_ptr);
                 continue;
@@ -2863,6 +3398,7 @@ static bool generate_constant(HC_FILE fptr, type_t target_type, node_expr* expr)
             if(!args || args->type == tk_nothing){
                 if(default_args->type == tk_nothing){
                     gen_declare_mem(fptr, SIZEOF_T(member->type));
+                    last += SIZEOF_T(member->type);
                     default_args = default_args->next;
                     continue;
                 }
@@ -2874,6 +3410,8 @@ static bool generate_constant(HC_FILE fptr, type_t target_type, node_expr* expr)
 
             if(!generate_constant(fptr, member->type, arg_expr))
                 return false;
+
+            last += SIZEOF_T(member->type);
 
             default_args = default_args->next;
             if(args && !default_args){
@@ -2968,6 +3506,7 @@ bool generate(const char* output_file, node_stmt* AST, bool library){
         if(var->flags & FLAG_EXTERN){
             if(var->location == VAR_GLOBAL && var->stack_ptr){
                 print_context_ex("Cannot give value to external global variable", var->str, var->strlen);
+                gen_free(fptr);
                 return false;
             }
             gen_declare_extern(fptr, var->str, var->strlen, "data");
@@ -2975,13 +3514,55 @@ bool generate(const char* output_file, node_stmt* AST, bool library){
         }
         gen_start_global_decl(fptr, var->str, var->strlen, var->flags & FLAG_PRIVATE);
         if(var->location == VAR_GLOBAL_ARR)
-            gen_declare_mem(fptr, var->stack_ptr);
+            gen_declare_mem(fptr, ALIGN(var->stack_ptr, 8));
         else if(var->stack_ptr){
-            if(!generate_constant(fptr, var->type, global_val))
+            size_t var_sz = SIZEOF_T(var->type);
+            if(!generate_constant(fptr, var->type, global_val)){
+                gen_free(fptr);
                 return false;
+            }
+            gen_declare_mem(fptr, ALIGN(var_sz, 8) - var_sz);
             global_val = global_val->next;
-        }else
-            gen_declare_mem(fptr, SIZEOF_T(var->type));
+        }else{
+            size_t var_sz = SIZEOF_T(var->type);
+            gen_declare_mem(fptr, ALIGN(var_sz, 8));
+        }
+    }
+
+    // Go through all modules and add them in .data section
+    for(size_t i = 0; i < vector_size(modules); i++){
+        module_t* mod = vector_at(modules, i);
+        gen_start_global_decl(fptr, mod->str, mod->strlen, false);
+        size_t last = 0;
+        node_expr* vals = mod->vals;
+        for(size_t j = 0; j < vector_size(mod->vars); j++){
+            var_t* var = vector_at(mod->vars, j);
+            if(last < var->stack_ptr)
+                gen_declare_mem(fptr, var->stack_ptr - last);
+            last = var->stack_ptr;
+            if(var->location == VAR_STACK){
+                if(vals->type != tk_nothing){
+                    if(!generate_constant(fptr, var->type, vals)){
+                        gen_free(fptr);
+                        return false;
+                    }
+                }else
+                    gen_declare_mem(fptr, SIZEOF_T(var->type));
+                vals = vals->next;
+                last += SIZEOF_T(var->type);
+            }else if(var->location == VAR_ARRAY){
+                size_t arr_size;
+                if(j + 1 < vector_size(mod->vars)){
+                    var_t* next_var = (var_t*) vector_at(mod->vars, j + 1);
+                    arr_size = next_var->stack_ptr - var->stack_ptr;
+                    last = next_var->stack_ptr;
+                }else
+                    arr_size = mod->size - var->stack_ptr;
+                gen_declare_mem(fptr, arr_size);
+            }
+        }
+        if(last % 8)
+            gen_declare_mem(fptr, ALIGN(last, 8) - last);
     }
 
     // Generate the read only data section for string literals

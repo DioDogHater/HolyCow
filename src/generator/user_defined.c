@@ -1,8 +1,6 @@
 #include "user_defined.h"
 #include "evaluator.h"
 
-vector_t vars[1] = { NEW_VECTOR(var_t) };
-
 // http://www.cse.yorku.ca/~oz/hash.html
 // djb2 hashing function (adapted)
 static size_t func_hashing_function(const void* key){
@@ -23,9 +21,12 @@ static bool func_cmp_function(const void* a, const void* b){
 }
 hashtable_t funcs[1] = { NEW_HASHTABLE(sizeof(func_t), func_hashing_function, func_cmp_function) };
 
+vector_t vars[1] = { NEW_VECTOR(var_t) };
+vector_t consts[1] = { NEW_VECTOR(constexpr_t) };
 vector_t structs[1] = { NEW_VECTOR(struct_t) };
 vector_t unions[1] = { NEW_VECTOR(union_t) };
 vector_t enums[1] = { NEW_VECTOR(enum_t) };
+vector_t modules[1] = { NEW_VECTOR(module_t) };
 
 // Find a named thing in a vector
 void* find_named_thing(vector_t* vec, const char* str, size_t strlen){
@@ -40,6 +41,11 @@ void* find_named_thing(vector_t* vec, const char* str, size_t strlen){
 // Find a variable with its name
 var_t* get_var(const char* str, size_t strlen){
     return (var_t*) find_named_thing(vars, str, strlen);
+}
+
+// Find a constant
+constexpr_t* get_constexpr(const char* str, size_t strlen){
+    return (constexpr_t*) find_named_thing(consts, str, strlen);
 }
 
 // Find a function with its name
@@ -113,4 +119,24 @@ bool get_enum_val(enum_t* enu, const char* str, size_t strlen, int64_t* result){
         }
     }
     return false;
+}
+
+// Get a module
+module_t* get_module(const char* str, size_t strlen){
+    return (module_t*) find_named_thing(modules, str, strlen);
+}
+
+// Get a constant in a module
+constexpr_t* get_module_const(module_t* module, const char* str, size_t strlen){
+    return (constexpr_t*) find_named_thing(module->consts, str, strlen);
+}
+
+// Get a function in a module
+func_t* get_module_func(module_t* module, const char* str, size_t strlen){
+    return (func_t*) find_named_thing(module->funcs, str, strlen);
+}
+
+// Get a variable in a module
+var_t* get_module_var(module_t* module, const char* str, size_t strlen){
+    return (var_t*) find_named_thing(module->vars, str, strlen);
 }

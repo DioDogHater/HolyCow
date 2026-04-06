@@ -90,6 +90,7 @@ enum{
     tk_variant,
     tk_class,
     tk_enum,
+    tk_module,
     tk_sizeof,         // sizeof(...)
     tk_typeof,         // typeof(...)
     tk_stack_alloc,    // @stack_alloc(type, n)

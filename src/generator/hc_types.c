@@ -182,11 +182,17 @@ type_t typeof_expr(node_expr* expr){
             break;
         }case tk_identifier:{
             var_t* var = get_var(expr->term.str, expr->term.strlen);
-            if(!var){
+            constexpr_t* cons = get_constexpr(expr->term.str, expr->term.strlen);
+            if(!var && !cons){
                 print_context_ex("Unknown identifier", expr->term.str, expr->term.strlen);
                 return INVALID_TYPE;
             }
-            max = var->type;
+            if(var)
+                max = var->type;
+            else if(cons && cons->type == CONST_INT)
+                max = (type_t){8, GET_DUMMY_TYPE(int64), true, DATA_INT, 8, 0};
+            else if(cons && cons->type == CONST_FLOAT)
+                max = (type_t){8, GET_DUMMY_TYPE(double), true, DATA_FLOAT, 8, 0};
             break;
         }case tk_reg_expr:{
             reg_t* reg = (reg_t*) expr->reg.reg;
@@ -228,6 +234,21 @@ type_t typeof_expr(node_expr* expr){
                 enum_t* enu = get_enum(expr->access.obj->term.str, expr->access.obj->term.strlen);
                 if(enu && get_enum_val(enu, expr->access.member->str, expr->access.member->strlen, NULL))
                     return (type_t){8, GET_DUMMY_TYPE(int64), true, DATA_INT, 8, 0};
+                module_t* mod = get_module(expr->access.obj->term.str, expr->access.obj->term.strlen);
+                if(mod){
+                    var_t* var = get_module_var(mod, expr->access.member->str, expr->access.member->strlen);
+                    constexpr_t* cons = get_module_const(mod, expr->access.member->str, expr->access.member->strlen);
+                    if(!var && !cons){
+                        print_context("Unknown variable in module", expr->access.member);
+                        return INVALID_TYPE;
+                    }
+                    if(var)
+                        return var->type;
+                    else if(cons->type == CONST_INT)
+                        return (type_t){8, GET_DUMMY_TYPE(int64), true, DATA_INT, 8, 0};
+                    else
+                        return (type_t){8, GET_DUMMY_TYPE(double), true, DATA_FLOAT, 8, 0};
+                }
             }
 
             type_t obj_type = typeof_expr(expr->access.obj);
@@ -262,11 +283,11 @@ type_t typeof_expr(node_expr* expr){
             break;
         }case tk_deref:
             max = typeof_expr(expr->unary_op.lhs);
-            max.ptr_depth--;
-            if(max.ptr_depth < 0){
+            if(max.ptr_depth == 0){
                 print_context_expr("Trying to dereference a direct value", expr);
                 return INVALID_TYPE;
             }
+            max.ptr_depth--;
             break;
         case tk_sizeof:
             max = (type_t){8, GET_DUMMY_TYPE(uint64), false, DATA_INT, 8, 0};
@@ -307,7 +328,28 @@ type_t typeof_expr(node_expr* expr){
             break;
         }
         case tk_func_call:{
-            func_t* func = get_func(expr->func.func->term.str, expr->func.func->term.strlen);
+            func_t* func = NULL;
+            if(expr->func.func->type == tk_identifier)
+                func = get_func(expr->func.func->term.str, expr->func.func->term.strlen);
+            else if(expr->func.func->type == tk_dot){
+                if(expr->func.func->access.obj->type == tk_identifier){
+                    module_t* mod = get_module(expr->func.func->access.obj->term.str,
+                                               expr->func.func->access.obj->term.strlen);
+                    if(mod)
+                        func = get_module_func(mod, expr->func.func->access.member->str,
+                                               expr->func.func->access.member->strlen);
+                }
+
+                if(!func){
+                    type_t t = typeof_expr(expr->func.func->access.obj);
+                    if(t.data != DATA_STRUCT || t.ptr_depth > 1){
+                        print_context("Expected class to call method", expr->func.func->access.member);
+                        return INVALID_TYPE;
+                    }
+                    struct_t* stru = get_struct_tk(t.repr);
+                    func = get_method(stru, expr->func.func->access.member->str, expr->func.func->access.member->strlen);
+                }
+            }
             if(!func){
                 print_context_expr("Unknown function", expr);
                 return INVALID_TYPE;

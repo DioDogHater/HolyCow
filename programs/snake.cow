@@ -1,19 +1,11 @@
-#include "../std/stdlib.hhc"
-#include "../std/linux/termios.hc"
-#include "../std/linux/syscall.hhc"
-#include "../std/linux/errno.hc"
-#include "../std/linux/time.hc"
+#include "../std/stdlib.hcw"
+#include "../std/linux/fcntl.hcw"
+#include "../std/linux/termios.hcw"
+#include "../std/linux/syscall.hcw"
+#include "../std/linux/time.hcw"
 
 // SNAKE GAME
 // Will only work on a linux TTY as of now
-
-// File descriptor IO (needed for non-blocking input)
-#define F_GETFL         3       /* Get file status flags.  */
-#define F_SETFL         4       /* Set file status flags.  */
-#define O_NONBLOCK      0o4000
-int fcntl(int fd, int cmd, int data = 0){
-    return syscall3(72, fd, cmd, data);
-}
 
 void nonblock_stdin(){
     fcntl(STDIN, F_SETFL, fcntl(STDIN, F_GETFL) | O_NONBLOCK);
@@ -45,7 +37,7 @@ vec2 food;
 // Get the player's direction using input
 bool get_direction(){
     char input[16];
-    int sz = read(STDIN, input, 16);
+    int sz = stdin.read(input, 16);
 
     @return = false;
     if(sz <= 0)
@@ -203,10 +195,10 @@ int main(uint argc, char** argv){
         // Game over screen
         if(gameover){
             print("> GAME OVER <\nPlay again? (y/n) ");
-            flush_stdout();
+            stdout.flush();
 
             // Read every character of input left in STDIN
-            read(STDIN, NULL, 64);
+            stdin.read(NULL, 64);
 
             // Restore old STDIN setup for prompt
             block_stdin();

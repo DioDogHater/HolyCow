@@ -40,32 +40,35 @@ typedef struct{
 size_t get_scope_size(node_stmt* scope);
 
 // Initialise the scope and save the state before it starts
-scope_t gen_init_scope(HC_FILE, node_stmt*);
+scope_t gen_init_scope(HC_FILE, node_stmt* scope);
 
 // Quit the scope and return to the state before it started
-void gen_quit_scope(HC_FILE, scope_t);
+void gen_quit_scope(HC_FILE, scope_t scope);
 
 
 // GENERATION
-bool save_struct(HC_FILE, struct_t*, reg_t*, node_expr*);
-bool save_union(HC_FILE, union_t*, reg_t*, node_expr*);
-bool save_expr(HC_FILE, node_expr*, node_expr*);
-bool get_expr_address(HC_FILE, reg_t*, node_expr*);
-size_t generate_func_call(HC_FILE, node_expr*, func_t**, reg_t*);
+bool save_struct(HC_FILE, struct_t* stru, reg_t* dest, node_expr* src);
+bool save_union(HC_FILE, union_t* unio, reg_t* dest, node_expr* src);
+bool save_expr(HC_FILE, node_expr* dest, node_expr* src);
+bool get_expr_address(HC_FILE, reg_t* dest, node_expr* expr);
+size_t generate_func_call(HC_FILE, node_expr* expr, func_t** func, reg_t* struct_ptr);
 
-// Provided by target
-extern size_t generate_cfunc_call(HC_FILE, node_expr*, func_t*, reg_t*);
+// Provided by target (C calling convention of the target architecture)
+extern size_t generate_cfunc_call(HC_FILE, node_expr* expr, func_t* func, reg_t* struct_ptr);
+
+// Generate a function
+bool generate_func(HC_FILE, func_t* func, node_stmt* func_stmts, token_t* parent, token_t* this);
 
 // Generate an integer expression.
 // Returns the register where the value is stored.
 // Last arg is the prefered register or NULL if it can be any of them.
 void fail_gen_expr(HC_FILE);
 #define EXPR_ONCE(expr, type, reg) free_reg(generate_expr(fptr, (expr), (type), (reg)))
-reg_t* generate_expr(HC_FILE, node_expr*, type_t, reg_t*);
+reg_t* generate_expr(HC_FILE, node_expr* expr, type_t target_type, reg_t* prefered_reg);
 
 // Generates a float expression
 // Returns true if successful, otherwise false
-bool generate_float_expr(HC_FILE, node_expr*);
+bool generate_float_expr(HC_FILE, node_expr* expr);
 
 // Necessary information over the current scope
 typedef struct{

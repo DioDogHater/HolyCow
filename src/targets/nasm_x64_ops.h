@@ -16,6 +16,13 @@ void gen_start_method(HC_FILE fptr, const char* pstr, size_t pstrlen, const char
     HC_FPRINTF(fptr, "\nglobal %.*s.%.*s:function\n%.*s.%.*s:\n\tpush rbp\n\tmov rbp, rsp\n",
                (int)pstrlen, pstr, (int)strlen, str, (int)pstrlen, pstr, (int)strlen, str);
 }
+
+void gen_inherit_method(HC_FILE fptr,
+        const char* cstr, size_t cstrlen,
+        const char* pstr, size_t pstrlen,
+        const char* mstr, size_t mstrlen){
+    HC_FPRINTF(fptr, "\n%.*s.%.*s equ %.*s.%.*s\n", (int)cstrlen, cstr, (int)mstrlen, mstr, (int)pstrlen, pstr, (int)mstrlen, mstr);
+}
 void gen_return_func(HC_FILE fptr){ HC_FPRINTF(fptr, "\tleave\n\tret\n"); }
 void gen_push_stack(HC_FILE fptr, reg_t* op){
     if(op->size == 2 || op->size == 8)
@@ -372,7 +379,12 @@ void gen_cond_set(HC_FILE fptr, tk_type cmp, reg_t* reg, bool sign){
     }
 }
 
-void gen_declare_extern(HC_FILE fptr, const char* str, size_t strlen, const char* category){ HC_FPRINTF(fptr, "extern %.*s:%s\n", (int)strlen, str, category); }
+void gen_declare_extern(HC_FILE fptr, const char* str, size_t strlen, const char* category){
+    HC_FPRINTF(fptr, "extern %.*s:%s\n", (int)strlen, str, category);
+}
+void gen_declare_extern_method(HC_FILE fptr, const char* pstr, size_t pstrlen, const char* str, size_t strlen){
+    HC_FPRINTF(fptr, "extern %.*s.%.*s:function\n", (int)pstrlen, pstr, (int)strlen, str);
+}
 
 static const char* x64_decl[9] = {"Unknown","db","dw","Unknown","dd","Unknown","Unknown","Unknown","dq"};
 void gen_start_global_decl(HC_FILE fptr, const char* str, size_t strlen, bool priv){

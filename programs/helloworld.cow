@@ -1,4 +1,4 @@
-#include "../std/stdlib.hhc"
+#include "../std/stdlib.hcw"
 
 // You can have default arguments
 // A comma in the middle of args = default argument
@@ -96,7 +96,7 @@ int main(uint argc, char** argv){
     println("bool:               %b", true);
 
     // Print a fixed point number
-    fixed x = string_to_fixed("-16.2126");
+    fixed_t x = fixed.from_string("-16.2126");
     println("fixed point:        %F", x);
 
     // Print a floating point number

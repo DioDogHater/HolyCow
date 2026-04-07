@@ -7,13 +7,18 @@ bool hashtable_init(hashtable_t* table, size_t size){
         return false;
     }
     table->size = size;
-    table->sets = (hashset_t*) HC_REALLOC(table->sets, sizeof(hashset_t) * table->size);
+    table->sets = (hashset_t*) HC_REALLOC(table->sets, (sizeof(hashset_t) + table->pair_size * HASHSET_MAX_SIZE) * table->size);
     if(!table->sets){
         HC_ERR("HASHTABLE : Failed to allocate %lu bytes", sizeof(hashset_t) * table->size);
         return false;
     }
-    for(size_t i = 0; i < size; i++)
+    // HC_LOG("Hashtable has allocated %lu bytes", (sizeof(hashset_t) + table->pair_size * HASHSET_MAX_SIZE) * table->size);
+    uint8_t* ptr = (uint8_t*) &table->sets[table->size];
+    for(size_t i = 0; i < size; i++){
         table->sets[i] = NEW_HASHSET();
+        table->sets[i].pairs = ptr;
+        ptr += table->pair_size * HASHSET_MAX_SIZE;
+    }
     return true;
 }
 
@@ -22,8 +27,13 @@ bool hashtable_grow(hashtable_t* table, size_t size){
         HC_ERR("HASHTABLE : Invalid table");
         return false;
     }
-    HC_WARN("HASHTABLE : Growing hashtable to %lu hashsets", size);
+
+    // For now, if we need to grow the hashtable, we will exit.
+    // It is to avoid an infinite loop of growing the hashtable exponentionally bigger.
+    HC_LOG("HASHTABLE : Growing hashtable to %lu hashsets", size);
+    HC_WARN("Exiting now to avoid an infinite loop of memory allocation.");
     HC_FAIL();
+
     hashtable_t new_table = NEW_HASHTABLE(table->pair_size, table->hashing_func, table->cmp_func);
     if(!hashtable_init(&new_table, size))
         return false;
@@ -47,14 +57,7 @@ void* hashtable_set(hashtable_t* table, const void* pair){
     size_t hash = table->hashing_func(pair) % table->size;
     //HC_PRINT("hashtable_set : hash = %lu\n", hash);
     hashset_t* set = &table->sets[hash];
-    if(set->size == 0){
-        set->pairs = (uint8_t*) HC_MALLOC(table->pair_size * HASHTABLE_MAX_SET_SIZE);
-        if(!set->pairs){
-            HC_ERR("HASHTABLE : Failed to allocate %lu bytes", table->pair_size * HASHTABLE_MAX_SET_SIZE);
-            return NULL;
-        }
-    }
-    if(set->size == HASHTABLE_MAX_SET_SIZE){
+    if(set->size == HASHSET_MAX_SIZE){
         if(!hashtable_grow(table, HASHTABLE_GROW(table->size)))
             return false;
         return hashtable_set(table, pair);
@@ -83,8 +86,6 @@ void* hashtable_get(hashtable_t* table, const void* key){
 void hashtable_destroy(hashtable_t* table){
     if(!table || !table->size || !table->sets)
         return;
-    for(size_t i = 0; i < table->size; i++)
-        if(table->sets[i].pairs) HC_FREE(table->sets[i].pairs);
     HC_FREE(table->sets);
     table->size = 0;
 }

@@ -3,21 +3,28 @@
 
 ifeq ($(OS),Windows_NT)
 	HCC := .\build\hcc.exe
+	# For now, STDLIB will be the linux standard library even in Windows
+	STDLIB := std/linux/linux.cow std/linux/stdlib.cow
 	HELLOWORLD := .\programs\build\helloworld.exe
 	TEST := .\programs\build\test.exe
 	TICTACTOE := .\programs\build\tictactoe.exe
 	SNAKE := .\programs\build\snake.exe
 	FIBONACCI := .\programs\build\fibonacci.exe
 	RAYLIB := .\programs\build\raylib.exe
+	LIBRAYLIB := libraylibdll.a
 else
 	HCC := ./build/hcc
+	STDLIB := std/linux/linux.cow std/linux/stdlib.cow
 	HELLOWORLD := ./programs/build/helloworld
 	TEST := ./programs/build/test
 	TICTACTOE := ./programs/build/tictactoe
 	SNAKE := ./programs/build/snake
 	FIBONACCI := ./programs/build/fibonacci
 	RAYLIB := ./programs/build/raylib
+	LIBRAYLIB := libraylib.a
 endif
+
+HCC_FLAGS := -d --silent
 
 
 all: $(HELLOWORLD) $(TEST) $(TICTACTOE) $(SNAKE) $(FIBONACCI) $(RAYLIB)
@@ -40,25 +47,25 @@ fibonacci: $(FIBONACCI)
 raylib: $(RAYLIB)
 	$<
 
-$(RAYLIB): programs/raylib/main.hc $(HCC)
-	$(HCC) -c -d $< -o $@
-	cc -no-pie -nostdlib $@.o -o $@ -Lprograms/raylib -l:libraylib.a -lc -lm
+$(RAYLIB): programs/raylib/main.cow $(HCC)
+	$(HCC) -c $(HCC_FLAGS) $< -o $@
+	cc -no-pie -nostdlib $@.o -o $@ -Lprograms/raylib -l:$(LIBRAYLIB) -lc -lm
 
-$(FIBONACCI): programs/fibonacci.hc std/stdlib.o std/stdlib.hhc $(HCC)
-	$(HCC) -d $< -o $@ -lstd/stdlib.o
+$(FIBONACCI): programs/fibonacci.cow std/stdlib.o std/stdlib.hcw $(HCC)
+	$(HCC) $(HCC_FLAGS) $< -o $@ -lstd/stdlib.o
 
-$(HELLOWORLD): programs/helloworld.hc std/stdlib.o std/stdlib.hhc $(HCC)
-	$(HCC) -d $< -o $@ -lstd/stdlib.o
+$(HELLOWORLD): programs/helloworld.cow std/stdlib.o std/stdlib.hcw $(HCC)
+	$(HCC) $(HCC_FLAGS) $< -o $@ -lstd/stdlib.o
 
-$(TEST): programs/test.hc std/stdlib.o std/stdlib.hhc $(HCC)
-	$(HCC) -d $< -o $@ -lstd/stdlib.o
+$(TEST): programs/test.cow std/stdlib.o std/stdlib.hcw $(HCC)
+	$(HCC) $(HCC_FLAGS) $< -o $@ -lstd/stdlib.o
 
-$(TICTACTOE): programs/tictactoe.hc std/stdlib.o std/stdlib.hhc $(HCC)
-	$(HCC) -d $< -o $@ -lstd/stdlib.o
+$(TICTACTOE): programs/tictactoe.cow std/stdlib.o std/stdlib.hcw $(HCC)
+	$(HCC) $(HCC_FLAGS) $< -o $@ -lstd/stdlib.o
 
-$(SNAKE): programs/snake.hc std/stdlib.o std/stdlib.hhc $(HCC)
-	$(HCC) -d $< -o $@ -lstd/stdlib.o
+$(SNAKE): programs/snake.cow std/stdlib.o std/stdlib.hcw $(HCC)
+	$(HCC) $(HCC_FLAGS) $< -o $@ -lstd/stdlib.o
 
 # For now, linux by default
-std/stdlib.o: std/linux/stdlib.hc std/stdlib.hhc $(HCC)
-	$(HCC) -d -s $< -o std/stdlib
+std/stdlib.o: $(STDLIB) std/stdlib.hcw $(HCC)
+	$(HCC) -s $(HCC_FLAGS) $(STDLIB) -o std/stdlib

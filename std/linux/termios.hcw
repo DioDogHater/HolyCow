@@ -1,4 +1,4 @@
-#include "syscall.hhc"
+#include "syscall.hcw"
 
 #define	VEOF		0	/* ICANON */
 #define	VEOL		1	/* ICANON */
@@ -80,33 +80,7 @@ struct termios {
     int32	c_ospeed;	/* output speed */
 }
 
-int ioctl(int fd, uint op, void* argp){
-    return syscall3(16, fd, op, (uint)argp);
-}
-
-int tcgetattr(int fd, termios *term)
-{
-	return ioctl(fd, TCGETS, term);
-}
-
-int tcsetattr(int fd, int actions, termios* term)
-{
-	if(actions == TCSANOW)
-		return ioctl(fd, TCSETS , term);
-	else if(actions == TCSADRAIN)
-		return ioctl(fd, TCSETSW, term);
-	else if(actions == TCSAFLUSH)
-		return ioctl(fd, TCSETSF, term);
-	return -1;
-}
-
-void cfmakeraw(termios *t)
-{
-	t.c_iflag = t.c_iflag & ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL | IXON);
-	t.c_oflag = t.c_oflag & ~OPOST;
-	t.c_lflag = t.c_lflag & ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
-	t.c_cflag = t.c_cflag & ~(CSIZE | PARENB);
-	t.c_cflag = t.c_cflag | CS8;
-	t.c_cc[VMIN] = 1;
-	t.c_cc[VTIME] = 0;
-}
+int ioctl(int fd, uint op, void* argp);
+int tcgetattr(int fd, termios *term);
+int tcsetattr(int fd, int actions, termios* term);
+void cfmakeraw(termios *t);

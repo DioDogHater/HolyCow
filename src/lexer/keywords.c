@@ -22,7 +22,6 @@ static struct keyword_pair keywords[] = {
     KEYWORD(public),
     KEYWORD(private),
     KEYWORD(protected),
-    KEYWORD(static),
     KEYWORD(extern),
     ALIAS_KW(@peek, peek),
     ALIAS_KW(@cfunc, cfunc),

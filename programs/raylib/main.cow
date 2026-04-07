@@ -1,8 +1,8 @@
-#include "../../libc/stdio.hhc"
-#include "../../libc/stdlib.hhc"
-#include "../../libc/math.hhc"
-#include "raylib.hhc"
-#include "raymath.hhc"
+#include "../../libc/stdio.hcw"
+#include "../../libc/stdlib.hcw"
+#include "../../libc/math.hcw"
+#include "raylib.hcw"
+#include "raymath.hcw"
 
 double FP_PRECISION = EPSILON;
 

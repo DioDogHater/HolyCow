@@ -496,38 +496,34 @@ main:
 	ret
 
 
-extern int_to_fixed:function
 extern log:function
-extern fraction_to_fixed:function
 extern sin:function
 extern print_char:function
 extern trunc:function
 extern print:function
 extern set_rounding:function
-extern div_fixed:function
 extern pow:function
 extern memmove:function
-extern mul_fixed:function
 extern random:function
 extern is_num:function
 extern memset:function
+extern malloc:function
 extern exit:function
 extern read:function
 extern tan:function
 extern int_to_string:function
 extern string_to_int:function
-extern string_to_fixed:function
 extern write:function
 extern print_format:function
 extern strcmp:function
 extern strfind:function
 extern absf:function
-extern fixed_to_int:function
 extern print_fixed:function
 extern absi:function
 extern floor:function
 extern uint_to_string:function
 extern strdfind:function
+extern free:function
 extern flush_stdout:function
 extern to_lower:function
 extern memcpy:function
@@ -541,10 +537,10 @@ extern print_udecimal:function
 extern input:function
 extern print_decimal:function
 extern is_alpha:function
+extern realloc:function
 extern cos:function
 extern strcpy:function
 extern print_double:function
-extern mod_fixed:function
 extern println:function
 extern round:function
 extern sqrt:function
@@ -553,6 +549,22 @@ extern randint:function
 extern print_hex:function
 extern atan2:function
 extern is_alnum:function
+extern File.write:function
+extern File.read:function
+extern File.set_buffering:function
+extern File.set_buffer:function
+extern File.flush:function
+extern File.open:function
+extern File.close:function
+extern fixed.from_int:function
+extern fixed.from_float:function
+extern fixed.from_string:function
+extern fixed.to_int:function
+extern fixed.to_float:function
+extern fixed.mul:function
+extern fixed.div:function
+extern fixed.mod:function
+extern string.new:function
 
 
 section .data
@@ -562,10 +574,15 @@ dq 0
 static __GP_TMP:data
 __GP_TMP:
 times 64 db 0
+extern stdout:data
+extern stdin:data
 global FP_PRECISION:data
 FP_PRECISION:
 dq 0.0001000000
 times 0 db 0
+extern File:data
+extern fixed:data
+extern string:data
 global test:data
 test:
 

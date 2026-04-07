@@ -136,7 +136,8 @@ bool eval_##name##_expr(node_expr* expr, T* result){\
             }\
             return false;\
         }\
-    }\
+    }case tk_type_cast:\
+        return eval_##name##_expr(expr->type_cast.rhs, result);\
     EVAL_UNARY_OP(tk_neg, -, name, T)\
     EVAL_UNARY_OP(tk_bin_flip, ~, name, T)\
     EVAL_UNARY_OP(tk_not, !, name, T)\
@@ -178,7 +179,8 @@ bool eval_float_expr(node_expr* expr, double* result){
             return false;
         *result = (double) integer;
         return true;
-    }
+    }else if(DATAOF_T(expr_type) != DATA_FLOAT)
+        return false;
 
     switch(expr->type){
     case tk_float_lit:
@@ -206,7 +208,8 @@ bool eval_float_expr(node_expr* expr, double* result){
             }
         }
         return false;
-    }
+    }case tk_type_cast:
+        return eval_float_expr(expr->type_cast.rhs, result);
     EVAL_FBIN_OP(tk_add, +)
     EVAL_FBIN_OP(tk_sub, -)
     EVAL_FBIN_OP(tk_mult, *)

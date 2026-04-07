@@ -1,12 +1,69 @@
-#include "../stdlib.hhc"
-#include "syscall.hhc"
+#include "../stdlib.hcw"
 
-// struct FILE {
-//     uint fd;
-//     uint size;
-//     char* data;
-//     uint cursor;
-// }
+class File {
+    // Its ok to have members as public
+    // since only this file knows what's inside a File
+    uint fd;
+    uint8* buff;
+    uint buff_size;
+    uint cursor;
+    uint32 buff_mode;
+    uint32 flags;
+
+    void write(uint8* src, uint sz){
+        if(!(this.flags & File.write))
+            return;
+        if(this.buff_mode == Buffering.none){
+            write(this.fd, src, sz);
+            return;
+        }
+        repeat(sz){
+            this.buff[this.cursor++] = *src;
+            if(this.buff_mode == Buffering.line && *src == '\n')
+                this.flush();
+            else if(this.cursor >= this.buff_size)
+                this.flush();
+            ++src;
+        }
+    }
+
+    int read(uint8* dest, uint sz){
+        if(!(this.flags & File.read))
+            return -1;
+        @return = read(this.fd, dest, sz);
+    }
+
+    void set_buffering(uint mode){
+        this.flags = (this.flags & 0x0F) | mode;
+    }
+
+    void set_buffer(uint8* buff, uint buff_sz){
+        if(!buff)
+            this.set_buffering(Buffering.none);
+        this.buff = buff;
+        this.buff_size = buff_sz;
+    }
+
+    void flush(){
+        if(this.buff_mode != Buffering.none)
+            write(this.fd, this.buff, this.cursor);
+        this.cursor = 0;
+    }
+}
+
+private char stdout_buffer[STDOUT_BUFF_SZ];
+private File stdout_raw = File{
+    STDOUT,         // File descriptor
+    stdout_buffer,  // Buffer
+    STDOUT_BUFF_SZ, // Buffer size
+    0,              // Cursor
+    Buffering.line, // Line buffering
+    File.write      // Write-only
+};
+private File stdin_raw = File{ STDIN, NULL, 0, 0, Buffering.none, File.read };
+
+File* stdout = &stdout_raw;
+File* stdin = &stdin_raw;
 
 int absi(int x){
     @return = (x < 0) ? -x : x;
@@ -145,50 +202,58 @@ double trunc(double x){
 }
 
 // Fixed point arithmetic
-fixed int_to_fixed(int x){
-    @return = x << FIXED_PRECISION;
-}
-fixed fraction_to_fixed(int a, int b){
-    @return = (int)((a << (FIXED_PRECISION * 2)) / b);
-}
-fixed string_to_fixed(char* str, uint len){
-    if(len == -1)
-        len = strlen(str);
-    fixed int_x = 0;
-    fixed frac_x = 0;
-    int32 d = 1;
-    bool sign = false;
-    bool frac = false;
-    for(; len; ++str, --len){
-        if(*str == '-')
-            sign = !sign;
-        else if(*str >= '0' && *str <= '9'){
-            if(frac){
-                frac_x = frac_x * 10 + ((*str - '0') << FIXED_PRECISION);
-                d *= 10;
-            }else{
-                int_x = int_x * 10 + ((*str - '0') << FIXED_PRECISION);
-            }
-        }else if(*str == '.')
-            frac = true;
+
+module fixed = {
+    fixed_t from_int(int x){
+        @return = x << fixed.precision;
     }
-    int_x += (frac_x / d) & FIXED_FRAC_MASK;
-    if(sign)
-        int_x = -int_x;
-    @return = int_x;
+    fixed_t from_float(double x){
+        @return = (int32) round(x * (double)fixed.S);
+    }
+    fixed_t from_string(char* str, uint len){
+        if(len == -1)
+            len = strlen(str);
+        fixed_t int_x = 0;
+        fixed_t frac_x = 0;
+        int32 d = 1;
+        bool sign = false;
+        bool frac = false;
+        for(; len; ++str, --len){
+            if(*str == '-')
+                sign = !sign;
+            else if(*str >= '0' && *str <= '9'){
+                if(frac){
+                    frac_x = frac_x * 10 + ((*str - '0') << fixed.precision);
+                    d *= 10;
+                }else
+                    int_x = int_x * 10 + ((*str - '0') << fixed.precision);
+            }else if(*str == '.')
+                frac = true;
+        }
+        int_x += (frac_x / d) & fixed.frac_mask;
+        if(sign)
+            int_x = -int_x;
+        @return = int_x;
+    }
+
+    int to_int(fixed_t x){
+        @return = x >> fixed.precision;
+    }
+    double to_float(fixed_t x){
+        @return = (double)x / (double)fixed.S;
+    }
+
+    fixed_t mul(fixed_t a, fixed_t b){
+        @return = (int)((a * b) >> fixed.precision);
+    }
+    fixed_t div(fixed_t a, fixed_t b){
+        @return = (int)((a << fixed.precision) / b);
+    }
+    fixed_t mod(fixed_t a, fixed_t b){
+        @return = (int)((a << fixed.precision) % b);
+    }
 }
-int fixed_to_int(fixed x){
-    @return = x >> FIXED_PRECISION;
-}
-fixed mul_fixed(fixed a, fixed b){
-    @return = (int)((a * b) >> FIXED_PRECISION);
-}
-fixed div_fixed(fixed a, fixed b){
-    @return = (int)((a << FIXED_PRECISION) / b);
-}
-fixed mod_fixed(fixed a, fixed b){
-    @return = (int)((a << FIXED_PRECISION) % b);
-}
+
 
 // STR operations
 
@@ -329,16 +394,6 @@ bool strequal(char* s1, char* s2){
 }
 
 // Terminal IO
-#define STDOUT_BUFF_SZ 2048
-char stdout_buff[STDOUT_BUFF_SZ];
-uint stdout_cursor = 0;
-
-void flush_stdout(){
-    if(stdout_cursor){
-        write(STDOUT, stdout_buff, stdout_cursor);
-        stdout_cursor = 0;
-    }
-}
 
 // Prints a string with a specified length
 // If len = -1 (so no length provided), len = strlen(str)
@@ -349,18 +404,12 @@ void print_str(char* str, uint len){
     }
     if(len == -1)
         len = strlen(str);
-    repeat(len){
-        stdout_buff[stdout_cursor++] = *str;
-        if(stdout_cursor >= STDOUT_BUFF_SZ || *str == '\n'){ flush_stdout(); }
-        ++str;
-    }
+    stdout.write(str, len);
 }
 
 // Prints a single character
 void print_char(char c){
-    stdout_buff[stdout_cursor++] = c;
-    if(stdout_cursor >= STDOUT_BUFF_SZ || c == '\n')
-        flush_stdout();
+    stdout.write(&c, 1);
 }
 
 // Prints a signed 64 bit int in decimal form
@@ -391,13 +440,13 @@ void print_hex(uint x){
 }
 
 // Prints a fixed point number
-void print_fixed(fixed x){
+void print_fixed(fixed_t x){
     if(x < 0){
         print_char('-');
         x = -x;
     }
-    uint integer = x >> FIXED_PRECISION;
-    uint fractional = (x & FIXED_FRAC_MASK) * 10000 / (1 << FIXED_PRECISION);
+    uint integer = x >> fixed.precision;
+    uint fractional = (x & fixed.frac_mask) * 10000 / (1 << fixed.precision);
     print_udecimal(integer);
     print_char('.');
     char buffer[32];
@@ -419,39 +468,33 @@ void print_double(double x, uint digits){
 }
 
 private void left_align_stdout(uint last, uint target, char fill = ' '){
-    if(last == -1){
-        print_str("\nExpected %[ before %L to enclose text to align left\n");
-        exit(1);
-    }
-    if(stdout_cursor - last >= target){ return; }
-    memset(stdout_buff + stdout_cursor, fill, target - stdout_cursor + last);
-    stdout_cursor = last + target;
+    if(last == -1)
+        error("\nExpected %[ before %L to enclose text to align left");
+    if(stdout.cursor - last >= target) return;
+    memset(stdout.buff + stdout.cursor, fill, target - stdout.cursor + last);
+    stdout.cursor = last + target;
 }
 
 private void right_align_stdout(uint last, uint target, char fill = ' '){
-    if(last == -1){
-        print_str("\nExpected %[ before %R to enclose text to align right\n");
-        exit(1);
-    }
-    if(stdout_cursor - last >= target){ return; }
-    uint target_idx = last + target - (stdout_cursor - last);
-    memmove(stdout_buff + target_idx, stdout_buff + last, stdout_cursor - last);
-    memset(stdout_buff + last, fill, target_idx - last);
-    stdout_cursor = last + target;
+    if(last == -1)
+        error("\nExpected %[ before %R to enclose text to align right");
+    if(stdout.cursor - last >= target) return;
+    uint target_idx = last + target - (stdout.cursor - last);
+    memmove(stdout.buff + target_idx, stdout.buff + last, stdout.cursor - last);
+    memset(stdout.buff + last, fill, target_idx - last);
+    stdout.cursor = last + target;
 }
 
 private void center_stdout(uint last, uint target, char fill = ' '){
-    if(last == -1){
-        print_str("\nExpected %[ before %C to enclose text to center\n");
-        exit(1);
-    }
-    if(stdout_cursor - last >= target){ return; }
-    uint space = target - (stdout_cursor - last);
+    if(last == -1)
+        error("\nExpected %[ before %C to enclose text to center");
+    if(stdout.cursor - last >= target) return;
+    uint space = target - (stdout.cursor - last);
     uint target_idx = last + (space >> 1);
-    memmove(stdout_buff + target_idx, stdout_buff + last, stdout_cursor - last);
-    memset(stdout_buff + last, fill, target_idx - last);
-    memset(stdout_buff + target_idx + stdout_cursor - last, fill, (space >> 1) + (space & 1));
-    stdout_cursor = last + target;
+    memmove(stdout.buff + target_idx, stdout.buff + last, stdout.cursor - last);
+    memset(stdout.buff + last, fill, target_idx - last);
+    memset(stdout.buff + target_idx + stdout.cursor - last, fill, (space >> 1) + (space & 1));
+    stdout.cursor = last + target;
 }
 
 void print_format(char* fmt, uint* argv){
@@ -459,30 +502,31 @@ void print_format(char* fmt, uint* argv){
     uint argc = 0;
     uint len = strlen(fmt);
     uint last = -1;
+
     while(len){
         int n = strfind(fmt, '%', len);
         if(n == -1){ n = len; }
-        if(n){
+        if(n)
             print_str(fmt, n);
-        }else if(*(fmt+1) == 'i'){
+        else if(*(fmt+1) == 'i')
             print_decimal(argv[argc++]);
-        }else if(*(fmt+1) == 'u'){
+        else if(*(fmt+1) == 'u')
             print_udecimal(argv[argc++]);
-        }else if(*(fmt+1) == 'x'){
+        else if(*(fmt+1) == 'x')
             print_hex(argv[argc++]);
-        }else if(*(fmt+1) == 's'){
+        else if(*(fmt+1) == 's')
             print_str((char*)argv[argc++]);
-        }else if(*(fmt+1) == 'c'){
+        else if(*(fmt+1) == 'c')
             print_char(argv[argc++]);
-        }else if(*(fmt+1) == '['){
-            last = stdout_cursor;
-        }else if(*(fmt+1) == 'L'){
+        else if(*(fmt+1) == '[')
+            last = stdout.cursor;
+        else if(*(fmt+1) == 'L')
             left_align_stdout(last, argv[argc++]);
-        }else if(*(fmt+1) == 'R'){
+        else if(*(fmt+1) == 'R')
             right_align_stdout(last, argv[argc++]);
-        }else if(*(fmt+1) == 'C'){
+        else if(*(fmt+1) == 'C')
             center_stdout(last, argv[argc++]);
-        }else if(*(fmt+1) == 'A'){
+        else if(*(fmt+1) == 'A'){
             uint target = argv[argc++];
             left_align_stdout(0, target);
         }else if(*(fmt+1) == 'T'){
@@ -491,35 +535,35 @@ void print_format(char* fmt, uint* argv){
                 exit(1);
             }
             uint target = argv[argc++];
-            if(stdout_cursor - last > target){
-                memset(stdout_buff + last + target, 0, stdout_cursor - last - target);
-                stdout_cursor = last + target;
+            if(stdout.cursor - last > target){
+                memset(stdout.buff + last + target, 0, stdout.cursor - last - target);
+                stdout.cursor = last + target;
             }
         }else if(*(fmt+1) == 'b'){
-            if(argv[argc++]){ print_str("true"); }
-            else{ print_str("false"); }
-        }else if(*(fmt+1) == 'F'){
-            print_fixed((fixed)argv[argc++]);
-        }else if(*(fmt+1) == 'f'){
-            print_double(((double*)argv)[argc++]);
-        }else if(*(fmt+1) == '0'){
+            if(argv[argc++])
+                print_str("true");
+            else
+                print_str("false");
+        }else if(*(fmt+1) == 'F')
+            print_fixed( (fixed_t) argv[argc++] );
+        else if(*(fmt+1) == 'f')
+            print_double( ((double*) argv)[argc++] );
+        else if(*(fmt+1) == '0'){
             char buffer[64];
             ++fmt;
-            if(*(fmt+1) < '2' || *(fmt+1) > '9'){
-                print_str("\nExpected in to be in the range [2, 9] in format specifier %0n\n");
-                exit(1);
-            }
+            if(*(fmt+1) < '1' || *(fmt+1) > '9')
+                error("\nExpected in to be in the range [1, 9] in format specifier %0n");
             uint n_len = *(fmt+1) - '0';
             print_str(uint_to_string(argv[argc++], buffer, n_len + 1, '0'));
-        }else if(*(fmt+1) == '%'){
+        }else if(*(fmt+1) == '%')
             print_char('%');
-        }else if(*(fmt+1) == '*'){
+        else if(*(fmt+1) == '*'){
             ++fmt;
             --len;
             uint mod = argv[argc++];
-            if(*(fmt+1) == 's'){
-                print_str((char*)argv[argc++], mod);
-            }else if(*(fmt+1) == 'c'){
+            if(*(fmt+1) == 's')
+                print_str((char*) argv[argc++], mod);
+            else if(*(fmt+1) == 'c'){
                 char c = argv[argc++];
                 repeat(mod){ print_char(c); }
             }else if(*(fmt+1) == 'L'){
@@ -535,29 +579,20 @@ void print_format(char* fmt, uint* argv){
                 char c = argv[argc++];
                 left_align_stdout(0, mod, c);
             }else if(*(fmt+1) == 'T'){
-                if(last == -1){
-                    print_str("\nExpected %[ before %*T to enclose text to truncate\n");
-                    exit(1);
+                if(last == -1)
+                    error("\nExpected %[ before %*T to enclose text to truncate");
+                if(stdout.cursor - last > mod){
+                    memmove(stdout.buff + last, stdout.buff + stdout.cursor - mod, mod);
+                    memset(stdout.buff + last + mod, 0, stdout.cursor - last - mod);
+                    stdout.cursor = last + mod;
                 }
-                if(stdout_cursor - last > mod){
-                    memmove(stdout_buff + last, stdout_buff + stdout_cursor - mod, mod);
-                    memset(stdout_buff + last + mod, 0, stdout_cursor - last - mod);
-                    stdout_cursor = last + mod;
-                }
-            }else if(*(fmt+1) == 'f'){
-                print_double(((double*)argv)[argc++], mod);
-            }else{
-                print_str("\nUnexpected format specifier %");
-                print_str(fmt-1, 2);
-                print_char('\n');
-                exit(1);
-            }
-        }else{
-            print_str("\nUnexpected format specifier %");
-            print_char(*(fmt+1));
-            print_char('\n');
-            exit(1);
-        }
+            }else if(*(fmt+1) == 'f')
+                print_double(((double*) argv)[argc++], mod);
+            else
+                error("\nUnexpected format specifier %%%*s", 2, fmt-1);
+        }else
+            error("\nUnexpected format specifier %%%c", *(fmt+1));
+
         if(n){
             fmt += n;
             len -= n;
@@ -586,8 +621,8 @@ void error(char* fmt, ...){
 // Takes in a buffer, its size
 // Returns number of characters read
 uint input(char* buff, uint len){
-    flush_stdout();
-    int result = read(STDIN, buff, len);
+    stdout.flush();
+    int result = stdin.read(buff, len);
     if(result < 0)
         error("input() error: %i", result);
     buff[--result] = 0;
@@ -595,9 +630,9 @@ uint input(char* buff, uint len){
 }
 
 char input_char(){
-    flush_stdout();
+    stdout.flush();
     uint16 c = 0;
-    int result = read(STDIN, &c, 2);
+    int result = stdin.read(&c, 2);
     if(result < 0)
         error("input_char() error: %i", result);
     @return = c;
@@ -653,49 +688,4 @@ int string_to_int(char* str, uint len){
     if(sign)
         result = -result;
     @return = result;
-}
-
-// OS stuff
-
-// Syscalls
-int syscall1(int rax, int rdi){
-    @asm(rax, rdi, rsi, rdx,
-         "mov rax, @0
-         mov rdi, @1
-         syscall
-         mov [rbp+16], rax", rax, rdi);
-}
-
-int syscall2(int rax, int rdi, int rsi){
-    @asm(rax, rdi, rsi, rdx,
-         "mov rax, @0
-         mov rdi, @1
-         mov rsi, @2
-         syscall
-         mov [rbp+16], rax", rax, rdi, rsi);
-}
-
-int syscall3(int rax, int rdi, int rsi, int rdx){
-    @asm(rax, rdi, rsi, rdx,
-         "mov rax, @0
-         mov rdi, @1
-         mov rsi, @2
-         mov rdx, @3
-         syscall
-         mov [rbp+16], rax", rax, rdi, rsi, rdx);
-}
-
-// Reads len bytes from file descriptor -> buff
-int read(uint fd, char* buff, uint len){
-    @return = syscall3(0, fd, (uint)buff, len);
-}
-
-// Writes len bytes from buff -> file descriptor
-int write(uint fd, char* buff, uint len){
-    @return = syscall3(1, fd, (uint)buff, len);
-}
-
-// Exits the program instantly with a code
-void exit(int code){
-    syscall1(60, code);
 }

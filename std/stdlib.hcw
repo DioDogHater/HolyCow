@@ -1,15 +1,41 @@
 // Prototype declaration of the main entry point
 int main(uint argc, char** argv);
 
-// OS specific
-class FILE {
-    void flush();
-    void write(uint8* src, uint sz);
-    void read(uint8* dest, uint sz);
+enum Buffering {
+    full,
+    line,
+    none
 }
-// extern FILE* stdin;
-// extern FILE* stdout;
-// extern FILE* stderr;
+
+enum File {
+    write = 0x01,
+    read = 0x02,
+    read_write = 0x03,
+    append = 0x04,
+    none = 0x00
+}
+
+class File {
+    // Members are not included due to
+    // OS specific implementation
+    void write(uint8* src, uint sz);
+    int read(uint8* dest, uint sz);
+
+    void set_buffering(uint mode);
+    void set_buffer(uint8* buff, uint buff_size);
+    void flush();
+}
+
+module File extern {
+    char* test = "Hello world!";
+
+    File* open(char* filepath, uint mode = File.read);
+    void close();
+}
+
+#define STDOUT_BUFF_SZ 4096
+extern File* stdout;
+extern File* stdin;
 
 // ================ Macros ====================
 // Invalid pointer, null pointer
@@ -83,40 +109,24 @@ double ceil(double x);
 double trunc(double x);
 
 // ========= Fixed point arithmetic ============
-#define fixed int32
-#define FIXED_PRECISION 15
-#define FIXED_INT_MASK  0xFFFF8000
-#define FIXED_FRAC_MASK 0x00007FFF
+#define fixed_t int32
+module fixed extern {
+    constexpr int precision = 15;
+    constexpr int int_mask = 0xFFFF8000;
+    constexpr int frac_mask = 0x00007FFF;
+    constexpr int S = 1 << fixed.precision;
 
-// TODO finish this later
-// class fixed {
-//     constexpr int precision = 15;
-//     constexpr int int_mask = 0xFFFF8000;
-//     constexpr int frac_mask = 0x00007FFF;
-//
-//     public int32 i;
-//
-//     static fixed from_int(int x);
-//     static fixed from_float(float x);
-//     static fixed from_string(char* str);
-//     void set_int(int x);
-//     void set_float(float x);
-// }
+    fixed_t from_int(int x);
+    fixed_t from_float(double x);
+    fixed_t from_string(char* str, uint len = -1);
 
-// int -> fixed
-fixed int_to_fixed(int x);
-// Get a fixed point representation of a/b
-fixed fraction_to_fixed(int a, int b);
-// String -> fixed
-fixed string_to_fixed(char* str, uint len = -1);
-// fixed -> int
-int fixed_to_int(fixed x);
-// mul_fixed(a, b) = a * b
-fixed mul_fixed(fixed a, fixed b);
-// div_fixed(a, b) = a / b
-fixed div_fixed(fixed a, fixed b);
-// mod_fixed(a, b) = a % b
-fixed mod_fixed(fixed a, fixed b);
+    int to_int(fixed_t x);
+    double to_float(fixed_t x);
+
+    fixed_t mul(fixed_t a, fixed_t b);
+    fixed_t div(fixed_t a, fixed_t b);
+    fixed_t mod(fixed_t a, fixed_t b);
+}
 
 // ============ String operations ============
 // Set bytes in memory to a value
@@ -142,6 +152,15 @@ int8 strcmp(char* s1, char* s2, uint len = -1);
 // Also checks if their length are equal
 bool strequal(char* s1, char* s2);
 
+class string {
+    char* str;
+    uint length;
+}
+
+module string extern {
+    string new(char* str, uint len = -1);
+}
+
 // ========== Terminal IO ==============
 // stdout buffering
 void flush_stdout();
@@ -152,7 +171,7 @@ void print_char(char c);
 void print_decimal(int x);
 void print_udecimal(uint x);
 void print_hex(uint x);
-void print_fixed(fixed x);
+void print_fixed(fixed_t x);
 void print_double(double x, uint digits = 4);
 
 // Print formatted text
@@ -166,7 +185,7 @@ void print_double(double x, uint digits = 4);
  *
  * %0n:
  *  Print uint x, with '0' to fill space to be n characters long
- *  n must be between 2 and 9, inclusive
+ *  n must be between 1 and 9, inclusive
  *      print("%0n", x);
  *  EX: print("%04", 15); -> "0015"
  *
@@ -261,9 +280,10 @@ char* int_to_string(int x, char* str, uint len, char filler = 0);
 char* uint_to_string(uint x, char* str, uint len, char filler = 0);
 int string_to_int(char* str, uint len = -1);
 
-// ========== OS interaction ============
-int read(uint fd, char* buffer, uint len);
-int write(uint fd, char* buffer, uint len);
+void* malloc(uint sz);
+void* realloc(void* ptr, uint sz);
+void free(void* ptr);
+
 #define EXIT_SUCCESS  0
 #define EXIT_FAILURE -1
 void exit(int code);

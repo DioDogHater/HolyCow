@@ -22,7 +22,6 @@ enum{
     tk_public,
     tk_private,
     tk_protected,
-    tk_static,
     tk_extern,
     tk_peek,
     tk_cfunc,

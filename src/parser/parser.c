@@ -530,7 +530,7 @@ node_stmt* parse_stmt(token_t** tokens, bool sc_necessary){
             return NULL;
         }
     }// Struct / class / union / variant / module declaration
-    else if(token->type == tk_struct || token->type == tk_class || token->type == tk_union || token->type == tk_variant || token->type == tk_module){
+    else if(token->type == tk_struct || token->type == tk_class || token->type == tk_union || token->type == tk_variant){
         (void) consume_token(tokens);
         stmt = (node_stmt*) ARENA_ALLOC(arena, node_struct_decl);
         stmt->struct_decl = (node_struct_decl){token->type, NULL, peek_token(tokens), NULL};
@@ -542,6 +542,27 @@ node_stmt* parse_stmt(token_t** tokens, bool sc_necessary){
             return stmt;
         stmt->struct_decl.members = parse_scope(tokens);
         if(!stmt->struct_decl.members || stmt->struct_decl.members == (node_stmt*)(~0)){
+            print_context("Expected something inside braces", stmt->struct_decl.identifier);
+            return NULL;
+        }
+        return stmt;
+    }// Modules
+    else if(token->type == tk_module){
+        (void) consume_token(tokens);
+        stmt = (node_stmt*) ARENA_ALLOC(arena, node_struct_decl);
+        stmt->struct_decl = (node_struct_decl){token->type, NULL, peek_token(tokens), NULL};
+        if(!consume_tk_type(tokens, tk_identifier)){
+            print_context("Expected identifier to name structure", *tokens);
+            return NULL;
+        }
+        if(peek_tk_type(tokens, tk_extern))
+            (void) consume_token(tokens);
+        else
+            (void) consume_tk_type(tokens, tk_assign);
+        stmt->struct_decl.members = parse_scope(tokens);
+        if(stmt->struct_decl.members == (node_stmt*)(~0))
+            stmt->struct_decl.members = NULL;
+        else if(!stmt->struct_decl.members){
             print_context("Expected something inside braces", stmt->struct_decl.identifier);
             return NULL;
         }

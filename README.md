@@ -55,10 +55,10 @@ string x = "Hello world!";
 int16 my_variable = 0;
 
 // Preprocessor directives
-// Source files end with .hc
-// Header files end with .hhc
+// Source files end with .cow
+// Header files end with .hcw
 // Not enforced, so choose what you like.
-#include "header_file.hhc"
+#include "header_file.h"
 
 // Simple find & replace macro
 #define twenty_five "twenty_five"
@@ -66,13 +66,20 @@ int16 my_variable = 0;
 // Parametric macro
 #macro test(x, y) (x * y)
 
-// It is possible to create modules (namespaces)
+// It is possible to create modules
+// (similar to namespaces, but closer to a global singleton)
 module test{
-    // Now to access greet() you must use test.greet()
+    constexpr int test_constant = 42;
+    
+    // You can make things private
+    private int bar = -51;
+    
     void greet(){
         println("Hello!");
     }
 }
+// Now you can access everything inside it using the dot operator
+// For example, to use greet(), you must write: test.greet()
 
 // Constant expression
 // Evaluated at compile-time, isn't stored in an actual variable

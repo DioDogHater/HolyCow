@@ -1,4 +1,4 @@
-#include "defs.hhc"
+#include "defs.hcw"
 
 /* Copy N bytes of SRC to DEST.  */
 LIBC_FUNC void *memcpy (void * __dest, void * __src, size_t __n);

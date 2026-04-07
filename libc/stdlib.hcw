@@ -1,4 +1,4 @@
-#include "defs.hhc"
+#include "defs.hcw"
 
 /* The largest number rand will return (same as INT_MAX).  */
 #define	RAND_MAX	2147483647

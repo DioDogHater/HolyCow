@@ -16,7 +16,7 @@ size_t str_literal_count = 0;
 node_term* float_literals = NULL;
 size_t float_literal_count = 0;
 
-static node_expr* global_var_values = NULL;
+static vector_t global_var_values[1] = { NEW_VECTOR(node_expr) };
 
 // Get the size of a scope (the size of all variables inside)
 size_t get_scope_size(node_stmt* scope){
@@ -2059,6 +2059,43 @@ bool generate_func(HC_FILE fptr, func_t* target, node_stmt* stmt, token_t* paren
     return true;
 }
 
+static bool append_module_var(module_t* mod, var_t* var, node_expr* expr){
+    if(get_module_var(mod, var->str, var->strlen)){
+        print_context_ex("Variable with the same name already declared in the module", var->str, var->strlen);
+        return false;
+    }
+
+    if(get_module_const(mod, var->str, var->strlen)){
+        print_context_ex("Constant with the same name already declared in the module", var->str, var->strlen);
+        return false;
+    }
+
+    // Append the member
+    vector_append(mod->vars, var);
+
+    // Add default value to linked list
+    // If there is none, we add a nothing expression
+    if(var->location == VAR_STACK){
+        if(mod->vals){
+            node_expr* val = mod->vals;
+            for(; val->next; val = val->next);
+            if(expr)
+                val->next = expr;
+            else{
+                val->next = (node_expr*) ARENA_ALLOC(arena, node_nothing_expr);
+                val->next->none = (node_nothing_expr){tk_nothing, NULL};
+            }
+        }else if(expr)
+            mod->vals = expr;
+        else{
+            mod->vals = (node_expr*) ARENA_ALLOC(arena, node_nothing_expr);
+            mod->vals->none = (node_nothing_expr){tk_nothing, NULL};
+        }
+    }
+
+    return true;
+}
+
 bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info parent){
     if(!fn_type.data &&
         stmt->type != tk_func_decl &&
@@ -2094,7 +2131,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
         }
         if(!generate_func(fptr, target, stmt, NULL, NULL))
             return false;
-        if((target->flags & FLAG_PROTECT) || (target->flags & FLAG_STATIC) || (target->flags & FLAG_PEEK)){
+        if((target->flags & FLAG_PROTECT) || (target->flags & FLAG_PEEK)){
             print_context_ex("Only public, private, extern and @cfunc modifiers are allowed on functions", target->str, target->strlen);
             return false;
         }
@@ -2365,7 +2402,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
     case tk_var_decl:{
         // If the variable already got declared
         var_t* last_def = get_var(stmt->var_decl.identifier->str, stmt->var_decl.identifier->strlen);
-        if(last_def && !(last_def->flags & FLAG_EXTERN)){
+        if(last_def && !(last_def->location == VAR_GLOBAL && last_def->flags & FLAG_EXTERN)){
             print_context("Variable was already declared before", stmt->var_decl.identifier);
             print_context_ex("First declared here:", last_def->str, last_def->strlen);
             return false;
@@ -2452,15 +2489,10 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
                 vector_append(vars, &new_var);
         }else{
             // Global variables
+            size_t i = ~0;
             if(stmt->var_decl.expr){
-                node_expr* last_val = global_var_values;
-                stmt->var_decl.expr->term.next = NULL;
-                if(!last_val)
-                    global_var_values = stmt->var_decl.expr;
-                else{
-                    for(; last_val->next; last_val = last_val->next);
-                    last_val->next = stmt->var_decl.expr;
-                }
+                i = vector_size(global_var_values);
+                node_expr* expr = vector_append(global_var_values, stmt->var_decl.expr);
             }
 
             if(var_flags != FLAG_NONE && var_flags != FLAG_EXTERN && var_flags != FLAG_PRIVATE){
@@ -2477,14 +2509,14 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             var_t new_var = (var_t){
                 stmt->var_decl.identifier->str,
                 stmt->var_decl.identifier->strlen,
-                (stmt->var_decl.expr != 0),
+                i,
                 VAR_GLOBAL, var_flags, var_type
             };
 
             if(last_def)
                 *last_def = new_var;
             else
-                vector_append(vars, &new_var);
+                last_def = vector_append(vars, &new_var);
         }
         return true;
     }
@@ -2640,13 +2672,18 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             new_struct = vector_append(structs, &stru);
         }
 
-        bool first_def = new_struct->members->size == 0 && new_struct->funcs->size == 0;
+        bool first_member_def = new_struct->members->size == 0;
+        for(size_t i = 0; i < vector_size(new_struct->funcs); i++){
+            func_t* func = vector_at(new_struct->funcs, i);
+            if(func->flags & FLAG_CFUNC)
+                first_member_def = false;
+        }
 
         for(node_stmt* ptr = stmt->struct_decl.members; ptr; ptr = ptr->next){
             // Scalar members
             if(ptr->type == tk_var_decl){
-                if(!first_def){
-                    print_context("Cannot redeclare a class's members (all definitions after the first must only declare methods)", ptr->var_decl.identifier);
+                if(!first_member_def){
+                    print_context("Members must be defined entirely (together) before methods are defined", ptr->var_decl.identifier);
                     print_context("In class declaration", stmt->struct_decl.identifier);
                     return false;
                 }
@@ -2667,11 +2704,6 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
 
                 if(var_type.data == DATA_STRUCT && get_struct_tk(var_type.repr) == new_struct && !var_type.ptr_depth){
                     print_context("Cannot have itself as a member", ptr->var_decl.identifier);
-                    return false;
-                }
-
-                if(new_struct->funcs->size){
-                    print_context("All members of a class must be defined before methods", ptr->var_decl.identifier);
                     return false;
                 }
 
@@ -2717,8 +2749,8 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
                 }
             }// Array members
             else if(ptr->type == tk_arr_decl){
-                if(!first_def){
-                    print_context("Cannot redeclare a class's members (all definitions after the first must only declare methods)", ptr->var_decl.identifier);
+                if(!first_member_def){
+                    print_context("Members must be defined entirely (together) before methods are defined", ptr->arr_decl.identifier);
                     print_context("In class declaration", stmt->struct_decl.identifier);
                     return false;
                 }
@@ -2744,11 +2776,6 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
 
                 if(elem_type.data == DATA_STRUCT && get_struct_tk(elem_type.repr) == new_struct && !elem_type.ptr_depth){
                     print_context("Cannot have itself as a member", ptr->var_decl.identifier);
-                    return false;
-                }
-
-                if(new_struct->funcs->size){
-                    print_context("All members of a class must be defined before methods", ptr->arr_decl.identifier);
                     return false;
                 }
 
@@ -2792,6 +2819,8 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
                     print_context_ex("Modifiers extern, @cfunc and @peek are prohibited on methods", method->str, method->strlen);
                     return false;
                 }
+                if(method->flags & FLAG_FDEF)
+                    first_member_def = false;
             }else{
                 print_context_ex("Expected only member declarations, got another statement instead here", str, strlen);
                 return false;
@@ -2967,25 +2996,20 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             mod = vector_append(modules, &module);
         }
 
+        if(stmt->struct_decl.identifier->next->type == tk_extern)
+            mod->external = true;
+        else if(stmt->struct_decl.identifier->next->type == tk_assign)
+            mod->external = false;
+
         current_module = mod;
 
         for(node_stmt* ptr = stmt->struct_decl.members; ptr; ptr = ptr->next){
             if(ptr->type == tk_var_decl){
-                if(get_module_var(mod, ptr->var_decl.identifier->str, ptr->var_decl.identifier->strlen)){
-                    print_context("Variable with the same name already declared in the module", ptr->var_decl.identifier);
-                    return false;
-                }
-
-                if(get_module_const(mod, ptr->var_decl.identifier->str, ptr->var_decl.identifier->strlen)){
-                    print_context("Constant with the same name already declared in the module", ptr->var_decl.identifier);
-                    return false;
-                }
-
                 type_t var_type = type_from_tk(ptr->var_decl.var_type);
                 size_t var_flags = flags_from_tk(ptr->var_decl.var_type);
                 size_t var_sz = SIZEOF_T(var_type), var_align = ALIGNOF_T(var_type);
 
-                if((var_flags & FLAG_EXTERN) || (var_flags & FLAG_CFUNC) || (var_flags & FLAG_STATIC)){
+                if((var_flags & FLAG_EXTERN) || (var_flags & FLAG_CFUNC)){
                     print_context("Invalid modifiers", ptr->var_decl.var_type);
                     return false;
                 }
@@ -3006,37 +3030,8 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
                 var_t member_var = (var_t){ptr->var_decl.identifier->str, ptr->var_decl.identifier->strlen, mod->size, VAR_STACK, var_flags, var_type};
                 mod->size += var_sz;
 
-                // Append the member
-                vector_append(mod->vars, &member_var);
-
-                // Add default value to linked list
-                // If there is none, we add a nothing expression
-                if(mod->vals){
-                    node_expr* val = mod->vals;
-                    for(; val->next; val = val->next);
-                    if(ptr->var_decl.expr)
-                        val->next = ptr->var_decl.expr;
-                    else{
-                        val->next = (node_expr*) ARENA_ALLOC(arena, node_nothing_expr);
-                        val->next->none = (node_nothing_expr){tk_nothing, NULL};
-                    }
-                }else if(ptr->var_decl.expr)
-                    mod->vals = ptr->var_decl.expr;
-                else{
-                    mod->vals = (node_expr*) ARENA_ALLOC(arena, node_nothing_expr);
-                    mod->vals->none = (node_nothing_expr){tk_nothing, NULL};
-                }
+                append_module_var(mod, &member_var, ptr->var_decl.expr);
             }else if(ptr->type == tk_arr_decl){
-                if(get_module_var(mod, ptr->arr_decl.identifier->str, ptr->arr_decl.identifier->strlen)){
-                    print_context("Variable with the same name already declared in the module", ptr->arr_decl.identifier);
-                    return false;
-                }
-
-                if(get_module_const(mod, ptr->arr_decl.identifier->str, ptr->arr_decl.identifier->strlen)){
-                    print_context("Constant with the same name already declared in the module", ptr->arr_decl.identifier);
-                    return false;
-                }
-
                 type_t elem_type = type_from_tk(ptr->arr_decl.elem_type);
                 size_t arr_flags = flags_from_tk(ptr->arr_decl.elem_type);
                 size_t elem_sz = SIZEOF_T(elem_type), elem_align = ALIGNOF_T(elem_type);
@@ -3046,7 +3041,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
                     return false;
                 }
 
-                if((arr_flags & FLAG_EXTERN) || (arr_flags & FLAG_CFUNC) || (arr_flags & FLAG_STATIC)){
+                if((arr_flags & FLAG_EXTERN) || (arr_flags & FLAG_CFUNC)){
                     print_context("Invalid modifiers", ptr->arr_decl.elem_type);
                     return false;
                 }
@@ -3072,8 +3067,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
                 var_t member_arr = (var_t){ptr->arr_decl.identifier->str, ptr->arr_decl.identifier->strlen, mod->size, VAR_ARRAY, arr_flags, elem_type};
                 mod->size += elem_sz * elem_count;
 
-                // Append array to members
-                vector_append(mod->vars, &member_arr);
+                append_module_var(mod, &member_arr, NULL);
             }else if(ptr->type == tk_constexpr){
                 if(get_module_var(mod, ptr->const_decl.identifier->str, ptr->const_decl.identifier->strlen)){
                     print_context("Variable with the same name already declared in the module", ptr->const_decl.identifier);
@@ -3101,7 +3095,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
                 }
                 if(!generate_func(fptr, func, ptr, stmt->struct_decl.identifier, NULL))
                     return false;
-                if((func->flags & FLAG_CFUNC) || (func->flags & FLAG_PEEK) || (func->flags & FLAG_EXTERN) || (func->flags & FLAG_STATIC)){
+                if((func->flags & FLAG_CFUNC) || (func->flags & FLAG_PEEK) || (func->flags & FLAG_EXTERN)){
                     print_context_ex("Modifiers extern, static, @cfunc and @peek are prohibited on functions inside modules", func->str, func->strlen);
                     return false;
                 }
@@ -3305,7 +3299,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
 }
 
 static bool generate_constant(HC_FILE fptr, type_t target_type, node_expr* expr){
-    if((expr->type == tk_str_lit || expr->type == tk_getaddr) && !target_type.ptr_depth){
+    if((expr->type == tk_str_lit || expr->type == tk_getaddr || expr->type == tk_identifier) && !target_type.ptr_depth){
         print_context_expr("Cannot assign pointer value to non-pointer type", expr);
         print_type("Type ", target_type, " is not a pointer type!");
         return false;
@@ -3317,9 +3311,9 @@ static bool generate_constant(HC_FILE fptr, type_t target_type, node_expr* expr)
             print_context_expr("Expression is not constant", expr);
             return false;
         }
-        var_t* var = get_var(expr->term.str, expr->term.strlen);
+        var_t* var = get_var(expr->unary_op.lhs->term.str, expr->unary_op.lhs->term.strlen);
         if(!var){
-            print_context_ex("Unknown identifier", expr->term.str, expr->term.strlen);
+            print_context_ex("Unknown identifier", expr->unary_op.lhs->term.str, expr->unary_op.lhs->term.strlen);
             return false;
         }
         if(var->location != VAR_GLOBAL){
@@ -3483,6 +3477,25 @@ bool generate(const char* output_file, node_stmt* AST, bool library){
         }
     }
 
+    // Go through all declared but not defined functions
+    // in classes and modules
+    for(size_t i = 0; i < vector_size(structs); i++){
+        struct_t* stru = vector_at(structs, i);
+        for(size_t j = 0; j < vector_size(stru->funcs); j++){
+            func_t* method = vector_at(stru->funcs, j);
+            if(!(method->flags & FLAG_FDEF))
+                gen_declare_extern_method(fptr, stru->str, stru->strlen, method->str, method->strlen);
+        }
+    }
+    for(size_t i = 0; i < vector_size(modules); i++){
+        module_t* mod = vector_at(modules, i);
+        for(size_t j = 0; j < vector_size(mod->funcs); j++){
+            func_t* method = vector_at(mod->funcs, j);
+            if(!(method->flags & FLAG_FDEF))
+                gen_declare_extern_method(fptr, mod->str, mod->strlen, method->str, method->strlen);
+        }
+    }
+
     // Data section
     HC_FPRINTF(fptr, "\n\n%s", target_data_section);
 
@@ -3495,7 +3508,6 @@ bool generate(const char* output_file, node_stmt* AST, bool library){
     gen_declare_mem(fptr, 64);
 
     // Go through all global variables and add them in the .data section
-    node_expr* global_val = global_var_values;
     for(size_t i = 0; i < vector_size(vars); i++){
         var_t* var = vector_at(vars, i);
         if(var->location != VAR_GLOBAL && var->location != VAR_GLOBAL_ARR){
@@ -3504,7 +3516,7 @@ bool generate(const char* output_file, node_stmt* AST, bool library){
             return false;
         }
         if(var->flags & FLAG_EXTERN){
-            if(var->location == VAR_GLOBAL && var->stack_ptr){
+            if(var->location == VAR_GLOBAL && var->stack_ptr != ~0){
                 print_context_ex("Cannot give value to external global variable", var->str, var->strlen);
                 gen_free(fptr);
                 return false;
@@ -3515,14 +3527,14 @@ bool generate(const char* output_file, node_stmt* AST, bool library){
         gen_start_global_decl(fptr, var->str, var->strlen, var->flags & FLAG_PRIVATE);
         if(var->location == VAR_GLOBAL_ARR)
             gen_declare_mem(fptr, ALIGN(var->stack_ptr, 8));
-        else if(var->stack_ptr){
+        else if(var->stack_ptr != ~0){
             size_t var_sz = SIZEOF_T(var->type);
-            if(!generate_constant(fptr, var->type, global_val)){
+            node_expr* expr = vector_at(global_var_values, var->stack_ptr);
+            if(!generate_constant(fptr, var->type, expr)){
                 gen_free(fptr);
                 return false;
             }
             gen_declare_mem(fptr, ALIGN(var_sz, 8) - var_sz);
-            global_val = global_val->next;
         }else{
             size_t var_sz = SIZEOF_T(var->type);
             gen_declare_mem(fptr, ALIGN(var_sz, 8));
@@ -3532,6 +3544,10 @@ bool generate(const char* output_file, node_stmt* AST, bool library){
     // Go through all modules and add them in .data section
     for(size_t i = 0; i < vector_size(modules); i++){
         module_t* mod = vector_at(modules, i);
+        if(mod->external){
+            gen_declare_extern(fptr, mod->str, mod->strlen, "data");
+            continue;
+        }
         gen_start_global_decl(fptr, mod->str, mod->strlen, false);
         size_t last = 0;
         node_expr* vals = mod->vals;

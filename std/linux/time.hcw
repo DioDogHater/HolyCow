@@ -1,0 +1,24 @@
+#include "syscall.hcw"
+
+struct timespec {
+    uint tv_sec  = 0;   /* Seconds*/
+    uint tv_nsec = 0;   /* Nanoseconds */
+}
+
+int nanosleep(timespec* rqtp, timespec* rmtp = NULL);
+
+// Sleep in seconds
+void sleep(double seconds);
+
+// Sleep in milliseconds
+void msleep(uint msec);
+
+// Sleep in microseconds
+void usleep(uint usec);
+
+#define CLOCK_REALTIME 0
+// Get time since the Epoch as a timespec
+int clock_gettime(uint clock = CLOCK_REALTIME, timespec* tp);
+
+// Get time since the Epoch, in seconds
+double time();

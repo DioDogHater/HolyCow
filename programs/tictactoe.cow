@@ -1,4 +1,4 @@
-#include "../std/stdlib.hhc"
+#include "../std/stdlib.hcw"
 
 class Board {
     char board[3 * 3];

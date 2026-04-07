@@ -2,6 +2,7 @@
 #define HCC_TYPES_H
 
 #include "libs.h"
+#include "utils.h"
 
 // Arena allocator
 #define NEW_ARENA() (arena_t){0,0,NULL,NULL}
@@ -13,14 +14,16 @@ typedef struct arena_t {
 } arena_t;
 
 // Initialise an arena allocator
-bool arena_init(arena_t*, size_t);
+// To make full use of an arena allocator, it is
+// recommended to use sizes upwards of 1MB
+bool arena_init(arena_t*, size_t sz);
 
-// Allocate a space in the arena
-void* arena_alloc(arena_t*, size_t);
+// Allocate sz bytes in the arena's memory
+void* arena_alloc(arena_t*, size_t sz);
 #define ARENA_ALLOC(_a, _type) (_type*)arena_alloc((_a), sizeof(_type))
 
-// Deallocate a space in the arena
-bool arena_dealloc(arena_t*, size_t);
+// Deallocate sz bytes from the last allocation
+bool arena_dealloc(arena_t*, size_t sz);
 
 // Destroy the arena (free its resources)
 void arena_destroy(arena_t*);
@@ -53,16 +56,16 @@ typedef struct vector_t {
     uint8_t* data;
     struct vector_t* next;
 } vector_t;
-// Allocate an amount of data
-bool vector_alloc(vector_t*, size_t);
+// Allocate enough space for n new elements
+bool vector_alloc(vector_t*, size_t n);
 // Get the size of a vector
 size_t vector_size(vector_t*);
 // Get an element of data in the vector
-void* vector_at(vector_t*, size_t);
+void* vector_at(vector_t*, size_t index);
 // Get the last element of the vector
 void* vector_back(vector_t*);
 // Add an element to the end of the vector
-void* vector_append(vector_t*, const void*);
+void* vector_append(vector_t*, const void* elem);
 // Remove the last element of the vector
 bool vector_popback(vector_t*);
 // Destroy the vector (free the vector's data)
@@ -73,6 +76,7 @@ void vector_set_arena(arena_t*);
 
 // Hashset (simple array, only allocated when needed)
 #define NEW_HASHSET() (hashset_t){0, NULL}
+#define HASHSET_MAX_SIZE 32
 typedef struct {
     size_t size;
     uint8_t* pairs;
@@ -80,7 +84,6 @@ typedef struct {
 
 // Hashtable
 #define HASHTABLE_GROW(n) ((n) * 2)
-#define HASHTABLE_MAX_SET_SIZE 32
 #define NEW_HASHTABLE(pair_size,hash_func,cmp_func) {0, NULL, (pair_size), (hash_func), (cmp_func)}
 typedef struct {
     size_t size;
@@ -90,13 +93,13 @@ typedef struct {
     bool (*cmp_func)(const void*,const void*);
 } hashtable_t;
 // Initialise the hashtable
-bool hashtable_init(hashtable_t*, size_t);
+bool hashtable_init(hashtable_t*, size_t size);
 // Grow the hashtable (make a new one, but bigger)
-bool hashtable_grow(hashtable_t*, size_t);
+bool hashtable_grow(hashtable_t*, size_t new_size);
 // Add an element to the hashtable
-void* hashtable_set(hashtable_t*, const void*);
+void* hashtable_set(hashtable_t*, const void* pair);
 // Get an element from the hashtable
-void* hashtable_get(hashtable_t*, const void*);
+void* hashtable_get(hashtable_t*, const void* key);
 // Destroy the hashtable (free the hashsets)
 void hashtable_destroy(hashtable_t*);
 

@@ -9,15 +9,16 @@
 #include "hc_types.h"
 #include "target_requirements.h"
 
-uint64_t eval_char_lit(node_term*);
-uint64_t eval_int_lit(node_term*);
-double eval_float_lit(node_term*);
+// Evaluate literals
+uint64_t eval_char_lit(node_term* lit);
+uint64_t eval_int_lit(node_term* lit);
+double eval_float_lit(node_term* lit);
 
 // Returns true if expression has been evaluated,
 // false if expression cannot be entirely evaluated at compile-time
 // Last argument is pointer to result (will set result if evaluated)
-bool eval_int_expr(node_expr*, int64_t*);
-bool eval_uint_expr(node_expr*, uint64_t*);
-bool eval_float_expr(node_expr*, double*);
+bool eval_int_expr(node_expr* expr, int64_t* result);
+bool eval_uint_expr(node_expr* expr, uint64_t* result);
+bool eval_float_expr(node_expr* expr, double* result);
 
 #endif

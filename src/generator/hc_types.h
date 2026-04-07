@@ -18,25 +18,24 @@ enum{
     FLAG_NONE     = 0x00,
     FLAG_PRIVATE  = 0x01,
     FLAG_PROTECT  = 0x02,
-    FLAG_STATIC   = 0x04,
-    FLAG_EXTERN   = 0x08,
+    FLAG_EXTERN   = 0x04,
 
     // When an attribute is private / protected
     // it is possible to give public reading access of
     // said attribute, using the "peek" modifier.
     // Faster than having to make getters for every attribute.
-    FLAG_PEEK     = 0x10,
+    FLAG_PEEK     = 0x08,
 
     // External C function
-    FLAG_CFUNC    = 0x20,
+    FLAG_CFUNC    = 0x10,
 
     // If a function is defined, this flag will be set
-    FLAG_FDEF     = 0x40,
+    FLAG_FDEF     = 0x20,
 
     // Flag given to members and methods inherited
     // If a private member is inherited, it cannot be accessed by child class
     // If a method is inherited, it can be overriden (replaced)
-    FLAG_INHERITED= 0x80
+    FLAG_INHERITED= 0x40
 };
 
 typedef struct{

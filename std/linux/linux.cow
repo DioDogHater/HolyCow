@@ -1,0 +1,160 @@
+#include "../stdlib.hcw"
+
+#include "errno.hcw"
+#include "syscall.hcw"
+#include "unistd.hcw"
+#include "fcntl.hcw"
+#include "socket.hcw"
+#include "termios.hcw"
+#include "time.hcw"
+
+// OS stuff
+uint errno = 0;
+
+// Syscalls
+int syscall1(int rax, int rdi){
+    @asm(rax, rdi, rsi, rdx,
+         "mov rax, @0
+         mov rdi, @1
+         syscall
+         mov [rbp+16], rax", rax, rdi);
+    if(@return < 0)
+        errno = -@return;
+}
+
+int syscall2(int rax, int rdi, int rsi){
+    @asm(rax, rdi, rsi, rdx,
+         "mov rax, @0
+         mov rdi, @1
+         mov rsi, @2
+         syscall
+         mov [rbp+16], rax", rax, rdi, rsi);
+    if(@return < 0)
+        errno = -@return;
+}
+
+int syscall3(int rax, int rdi, int rsi, int rdx){
+    @asm(rax, rdi, rsi, rdx,
+         "mov rax, @0
+         mov rdi, @1
+         mov rsi, @2
+         mov rdx, @3
+         syscall
+         mov [rbp+16], rax", rax, rdi, rsi, rdx);
+    if(@return < 0)
+        errno = -@return;
+}
+
+// fcntl
+int fcntl(uint fd, uint cmd, uint arg = 0){
+    @return = syscall3(72, fd, cmd, arg);
+}
+
+// Reads len bytes from file descriptor -> buff
+int read(uint fd, char* buff, uint len){
+    @return = syscall3(0, fd, (uint)buff, len);
+}
+
+// Writes len bytes from buff -> file descriptor
+int write(uint fd, char* buff, uint len){
+    @return = syscall3(1, fd, (uint)buff, len);
+}
+
+// Exits the program instantly with a code
+void exit(int code){
+    syscall1(60, code);
+}
+
+// Socket networking
+int socket(int domain, int type, int protocol){
+    @return = syscall3(41, domain, type, protocol);
+}
+int connect(int fd, sockaddr* uservaddr, int addrlen){
+    @return = syscall3(42, fd, (uint)uservaddr, addrlen);
+}
+int accept(int fd, sockaddr* upeer_sockaddr, int* upeer_addrlen){
+    @return = syscall3(43, fd, (uint)upeer_sockaddr, (uint)upeer_addrlen);
+}
+int bind(int fd, sockaddr* umyaddr, int addrlen){
+    @return = syscall3(49, fd, (uint)umyaddr, addrlen);
+}
+int listen(int fd, int backlog){
+    @return = syscall2(50, fd, backlog);
+}
+int close(int fd){
+    @return = syscall1(3, fd);
+}
+
+// netinet_in
+uint32 htonl(uint32 n){
+    @asm("bswap @0\n\tmov [rbp+16], @0", n);
+}
+
+uint32 htons(uint16 n){
+    @asm(ax, "mov ax, @0\n\txchg al, ah\t\nmov @0, ax", n);
+}
+
+// Termios
+int ioctl(int fd, uint op, void* argp){
+    return syscall3(16, fd, op, (uint)argp);
+}
+
+int tcgetattr(int fd, termios *term){
+    return ioctl(fd, TCGETS, term);
+}
+
+int tcsetattr(int fd, int actions, termios* term){
+    if(actions == TCSANOW)
+        return ioctl(fd, TCSETS , term);
+    else if(actions == TCSADRAIN)
+        return ioctl(fd, TCSETSW, term);
+    else if(actions == TCSAFLUSH)
+        return ioctl(fd, TCSETSF, term);
+    return -1;
+}
+
+void cfmakeraw(termios *t){
+    t.c_iflag = t.c_iflag & ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL | IXON);
+    t.c_oflag = t.c_oflag & ~OPOST;
+    t.c_lflag = t.c_lflag & ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
+    t.c_cflag = t.c_cflag & ~(CSIZE | PARENB);
+    t.c_cflag = t.c_cflag | CS8;
+    t.c_cc[VMIN] = 1;
+    t.c_cc[VTIME] = 0;
+}
+
+
+// Time
+int nanosleep(timespec* rqtp, timespec* rmtp = NULL){
+    return syscall2(35, (uint) rqtp, (uint) rmtp);
+}
+
+// Sleep in seconds
+void sleep(double seconds){
+    timespec ts = timespec{seconds, seconds % 1.0 * 1000000000.0};
+    nanosleep(&ts);
+}
+
+// Sleep in milliseconds
+void msleep(uint msec){
+    timespec ts = timespec{msec / 1000, msec % 1000 * 1000000};
+    nanosleep(&ts);
+}
+
+// Sleep in microseconds
+void usleep(uint usec){
+    timespec ts = timespec{usec / 1000000, usec % 1000000 * 1000};
+    nanosleep(&ts);
+}
+
+// Get time since the Epoch as a timespec
+int clock_gettime(uint clock = CLOCK_REALTIME, timespec* tp){
+    return syscall2(228, clock, (uint) tp);
+}
+
+// Get time since the Epoch, in seconds
+double time(){
+    timespec tp;
+    clock_gettime(,&tp);
+    return (double)tp.tv_sec + (double)tp.tv_nsec / 1000000000.0;
+}

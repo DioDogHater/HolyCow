@@ -1,4 +1,4 @@
-#include "defs.hhc"
+#include "defs.hcw"
 
 // Opaque definition of a file IO stream
 struct FILE;

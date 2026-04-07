@@ -32,13 +32,15 @@ static struct{
     bool debug;
     bool library;
     bool object;
+    bool silent;
 } options = {
     .input_files = NEW_FILE(NULL),
     .output_file = NULL,
     .link_files = "",
     .debug = false,
     .library = false,
-    .object = false
+    .object = false,
+    .silent = false
 };
 
 // Show the usage of the compiler
@@ -54,6 +56,7 @@ static void show_usage(const char* msg){
         "   -s, --static    : Compiles a static library (object file) instead of executable\n"
         "   -d, --debug     : Adds debug info to output executable\n"
         "   --target-info   : Displays the target's information\n"
+        "   --silent        : Disable unecessary output when compiling\n"
     );
     arena_destroy(arena);
     HC_FAIL();
@@ -155,6 +158,10 @@ static void parse_compiler_args(int argc, char* argv[]){
                     HC_FAIL();
                 }
 
+                // Shut the fuck up compiler
+                else if(match_arg(&arg, "--silent"))
+                    options.silent = true;
+
                 // Invalid option
                 else
                     show_usage("Invalid option!");
@@ -232,9 +239,8 @@ int main(int argc, char* argv[]){
 #ifdef COMPILER_DEBUG
     for(token_t* tk = all_tokens; tk; tk = tk->next)
         print_token(tk);
+    HC_WARN("Tokenization ended");
 #endif
-
-    //HC_WARN("Tokenization ended");
 
     // Destroy the keyword table
     keyword_table_destroy();
@@ -247,10 +253,12 @@ int main(int argc, char* argv[]){
         return EXIT_FAILURE;
     }
 
-    //HC_WARN("Parsing ended");
+#ifdef COMPILER_DEBUG
+    HC_WARN("Parsing ended");
+#endif
 
     // Generate the assembly
-    // We need a buffer to store the .nasm filepath
+    // We need a buffer to store the .asm filepath
     char buffer[512];
     snprintf(buffer, 511, "%s.asm", options.output_file);
     if(!generate(buffer, AST, options.library)){
@@ -259,7 +267,12 @@ int main(int argc, char* argv[]){
         return EXIT_FAILURE;
     }
 
-    if(options.debug)
+#ifdef COMPILER_DEBUG
+    HC_WARN("Generation ended");
+#endif
+
+
+    if(options.debug && !options.silent)
         HC_CONFIRM("Intermediate assembly %s.asm was generated.", options.output_file);
 
     int sts = assemble(options.output_file, options.debug);
@@ -268,7 +281,7 @@ int main(int argc, char* argv[]){
         HC_ERR("\nASSEMBLY FAILED! Error code: %d", sts);
         compiler_quit();
         return EXIT_FAILURE;
-    }else if(options.library || options.object)
+    }else if((options.library || options.object) && !options.silent)
         HC_CONFIRM("Assembled successfully, %s.o generated.", options.output_file);
 
     if(!options.library && !options.object){
@@ -278,7 +291,7 @@ int main(int argc, char* argv[]){
             HC_ERR("\nLINKING FAILED! Error code: %d", sts);
             compiler_quit();
             return EXIT_FAILURE;
-        }else
+        }else if(!options.silent)
             HC_CONFIRM("Linked successfully, %s generated.", options.output_file);
     }
 
@@ -291,9 +304,10 @@ int main(int argc, char* argv[]){
     if(!options.library && !options.object)
         HC_DELETE_FILE(buffer);
 
-    HC_CONFIRM("COMPILATION SUCCESSFUL!");
-
-    HC_CONFIRM("Used %.2f%% of arena memory", (float)arena->ptr / (float)arena->size * 100.f);
+    if(!options.silent){
+        HC_CONFIRM("COMPILATION SUCCESSFUL!");
+        HC_LOG("Used %.2f%% of arena memory", (float)arena->ptr / (float)arena->size * 100.f);
+    }
 
     compiler_quit();
     return 0;

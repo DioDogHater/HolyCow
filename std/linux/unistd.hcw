@@ -1,0 +1,2 @@
+int read(uint fd, uint8* dest, uint sz);
+int write(uint fd, uint8* dest, uint sz);

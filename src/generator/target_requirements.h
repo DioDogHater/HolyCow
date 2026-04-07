@@ -59,6 +59,7 @@ void gen_alloc_stack(HC_FILE, size_t);
 void gen_dealloc_stack(HC_FILE, size_t);
 void gen_start_func(HC_FILE, const char*, size_t, bool);
 void gen_start_method(HC_FILE, const char*, size_t, const char*, size_t);
+void gen_inherit_method(HC_FILE, const char*, size_t, const char*, size_t, const char*, size_t);
 void gen_return_func(HC_FILE);
 void gen_push_stack(HC_FILE, reg_t*);
 void gen_pop_stack(HC_FILE, reg_t*);
@@ -172,6 +173,7 @@ void gen_cond_set(HC_FILE, tk_type, reg_t*, bool);
 
 // Declaration tools
 void gen_declare_extern(HC_FILE, const char*, size_t, const char* category);
+void gen_declare_extern_method(HC_FILE, const char*, size_t, const char*, size_t);
 void gen_start_global_decl(HC_FILE, const char*, size_t, bool);
 void gen_declare_int(HC_FILE, int64_t, size_t);
 size_t gen_declare_str(HC_FILE, const char*, size_t);

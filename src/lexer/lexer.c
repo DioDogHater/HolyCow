@@ -352,10 +352,11 @@ token_t* tokenize(file_t* src, token_t* token_start){
                     // if yes, ignore this time
                     file_t* last_file = &included_files;
                     bool already_included = false;
-                    for(; last_file->next && !already_included; last_file = last_file->next)
-                        if(strlen((const char*)last_file->next->file_name) != path_len &&
+                    for(; last_file->next && !already_included; last_file = last_file->next){
+                        if(strlen((const char*)last_file->next->file_name) == path_len &&
                             strncmp((const char*)last_file->next->file_name, buffer, path_len) == 0)
                             already_included = true;
+                    }
 
                     if(already_included){
                         str++;

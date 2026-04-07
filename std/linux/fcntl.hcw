@@ -1,0 +1,31 @@
+#include "syscall.hcw"
+
+/* open/fcntl.  */
+#define O_ACCMODE	    0o3
+#define O_RDONLY	    0o0
+#define O_WRONLY	    0o1
+#define O_RDWR		    0o2
+#define O_CREAT         0o100	/* Not fcntl.  */
+#define O_EXCL		    0o200	/* Not fcntl.  */
+#define O_NOCTTY	    0o400	/* Not fcntl.  */
+#define O_TRUNC	        0o1000	/* Not fcntl.  */
+#define O_APPEND	    0o2000
+#define O_NONBLOCK	    0o4000
+#define O_SYNC	        0o4010000
+#define O_ASYNC	        0o20000
+
+#define F_GETLK	    5	/* Get record locking info.  */
+#define F_SETLK	    6	/* Set record locking info (non-blocking).  */
+#define F_SETLKW	7	/* Set record locking info (blocking).  */
+#define F_GETLK64	12	/* Get record locking info.  */
+#define F_SETLK64	13	/* Set record locking info (non-blocking).  */
+#define F_SETLKW64	14	/* Set record locking info (blocking).  */
+
+/* Values for the second argument to `fcntl'.  */
+#define F_DUPFD		0	/* Duplicate file descriptor.  */
+#define F_GETFD		1	/* Get file descriptor flags.  */
+#define F_SETFD		2	/* Set file descriptor flags.  */
+#define F_GETFL		3	/* Get file status flags.  */
+#define F_SETFL		4	/* Set file status flags.  */
+
+int fcntl(uint fd, uint cmd, uint arg = 0);

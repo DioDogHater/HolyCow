@@ -1,5 +1,5 @@
 
-#include "../../libc/math.hhc"
+#include "../../libc/math.hcw"
 
 extern double FP_PRECISION;
 

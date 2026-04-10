@@ -681,11 +681,9 @@ File.write:
 	mov rsi, [rbp+16]
 	mov rcx, [rsi+8]
 	mov rdi, [rbp+16]
-	mov rsi, [rdi+24]
-	inc rsi
-	mov rdi, [rbp+16]
-	mov [rdi+24], rsi
-	dec rsi
+	lea rdi, [rdi+24]
+	mov rsi, [rdi]
+	inc QWORD [rdi]
 	mov rdi, [rbp+24]
 	mov r8b, [rdi]
 	mov [rcx+rsi*1], r8b
@@ -741,9 +739,8 @@ File.write:
 	jmp .L9
 	.L11:
 	.L9:
+	inc QWORD [rbp+24]
 	mov rcx, [rbp+24]
-	inc rcx
-	mov [rbp+24], rcx
 	.L6:
 	dec rbx
 	jmp .L5
@@ -1461,12 +1458,10 @@ fixed.from_string:
 	.L12:
 	.L7:
 	.L4:
+	inc QWORD [rbp+24]
 	mov rbx, [rbp+24]
-	inc rbx
-	mov [rbp+24], rbx
+	dec QWORD [rbp+32]
 	mov rbx, [rbp+32]
-	dec rbx
-	mov [rbp+32], rbx
 	jmp .L3
 	.L5:
 	mov ebx, [rsp+12]
@@ -2485,9 +2480,7 @@ print_hex:
 	test bl, bl
 	je .L1
 	mov rbx, [rsp+0]
-	dec rbx
-	mov [rsp+0], rbx
-	inc rbx
+	dec QWORD [rsp+0]
 	mov r8b, 0x30
 	mov [rbx], r8b
 	.L1:
@@ -2506,15 +2499,12 @@ print_hex:
 	mov rbx, [rbp+16]
 	shr rbx, 4
 	mov [rbp+16], rbx
+	dec QWORD [rsp+0]
 	mov rbx, [rsp+0]
-	dec rbx
-	mov [rsp+0], rbx
 	jmp .L3
 	.L5:
 	mov rbx, [rsp+0]
-	dec rbx
-	mov [rsp+0], rbx
-	inc rbx
+	dec QWORD [rsp+0]
 	mov r8b, 0x78
 	mov [rbx], r8b
 	mov rbx, [rsp+0]
@@ -3162,9 +3152,7 @@ print_format:
 	mov [rsp+29], dil
 	mov rbx, [rbp+24]
 	mov r8, [rsp+72]
-	inc r8
-	mov [rsp+72], r8
-	dec r8
+	inc QWORD [rsp+72]
 	mov r9, [rbx+r8*8]
 	mov [rsp+0], r9
 	mov rbx, [rbp+32]
@@ -3190,9 +3178,7 @@ print_format:
 	mov [rsp+29], dil
 	mov rbx, [rbp+24]
 	mov r8, [rsp+72]
-	inc r8
-	mov [rsp+72], r8
-	dec r8
+	inc QWORD [rsp+72]
 	mov r9, [rbx+r8*8]
 	mov [rsp+0], r9
 	mov rbx, [rbp+32]
@@ -3218,9 +3204,7 @@ print_format:
 	mov [rsp+29], dil
 	mov rbx, [rbp+24]
 	mov r8, [rsp+72]
-	inc r8
-	mov [rsp+72], r8
-	dec r8
+	inc QWORD [rsp+72]
 	mov r9, [rbx+r8*8]
 	mov [rsp+0], r9
 	mov rbx, [rbp+32]
@@ -3246,9 +3230,7 @@ print_format:
 	mov [rsp+29], dil
 	mov rbx, [rbp+24]
 	mov r8, [rsp+72]
-	inc r8
-	mov [rsp+72], r8
-	dec r8
+	inc QWORD [rsp+72]
 	mov r9, [rbx+r8*8]
 	mov [rsp+0], r9
 	mov rbx, 0xffffffffffffffff
@@ -3276,9 +3258,7 @@ print_format:
 	mov [rsp+29], dil
 	mov rbx, [rbp+24]
 	mov r8, [rsp+72]
-	inc r8
-	mov [rsp+72], r8
-	dec r8
+	inc QWORD [rsp+72]
 	mov r9, [rbx+r8*8]
 	mov [rsp+0], r9
 	mov rbx, [rbp+32]
@@ -3304,9 +3284,7 @@ print_format:
 	mov [rsp+13], dil
 	mov rbx, [rbp+24]
 	mov r8, [rsp+56]
-	inc r8
-	mov [rsp+56], r8
-	dec r8
+	inc QWORD [rsp+56]
 	mov r9b, [rbx+r8*8]
 	mov [rsp+0], r9b
 	mov rbx, QWORD [stdout]
@@ -3349,9 +3327,7 @@ print_format:
 	mov [rsp+8], rbx
 	mov rbx, [rbp+24]
 	mov r8, [rsp+88]
-	inc r8
-	mov [rsp+88], r8
-	dec r8
+	inc QWORD [rsp+88]
 	mov r9, [rbx+r8*8]
 	mov [rsp+16], r9
 	mov bl, 0x20
@@ -3381,9 +3357,7 @@ print_format:
 	mov [rsp+8], rbx
 	mov rbx, [rbp+24]
 	mov r8, [rsp+88]
-	inc r8
-	mov [rsp+88], r8
-	dec r8
+	inc QWORD [rsp+88]
 	mov r9, [rbx+r8*8]
 	mov [rsp+16], r9
 	mov bl, 0x20
@@ -3413,9 +3387,7 @@ print_format:
 	mov [rsp+8], rbx
 	mov rbx, [rbp+24]
 	mov r8, [rsp+88]
-	inc r8
-	mov [rsp+88], r8
-	dec r8
+	inc QWORD [rsp+88]
 	mov r9, [rbx+r8*8]
 	mov [rsp+16], r9
 	mov bl, 0x20
@@ -3438,9 +3410,7 @@ print_format:
 	sub rsp, 16
 	mov rbx, [rbp+24]
 	mov r8, [rsp+56]
-	inc r8
-	mov [rsp+56], r8
-	dec r8
+	inc QWORD [rsp+56]
 	mov r9, [rbx+r8*8]
 	mov [rsp+8], r9
 	sub rsp, 48
@@ -3493,9 +3463,7 @@ print_format:
 	.L20:
 	mov rbx, [rbp+24]
 	mov r8, [rsp+56]
-	inc r8
-	mov [rsp+56], r8
-	dec r8
+	inc QWORD [rsp+56]
 	mov r9, [rbx+r8*8]
 	mov [rsp+8], r9
 	mov r8, [rbp+32]
@@ -3552,9 +3520,7 @@ print_format:
 	je .L23
 	mov rbx, [rbp+24]
 	mov r8, [rsp+40]
-	inc r8
-	mov [rsp+40], r8
-	dec r8
+	inc QWORD [rsp+40]
 	mov r9, [rbx+r8*8]
 	test r9, r9
 	je .L24
@@ -3607,9 +3573,7 @@ print_format:
 	mov [rsp+13], dil
 	mov rbx, [rbp+24]
 	mov r8, [rsp+56]
-	inc r8
-	mov [rsp+56], r8
-	dec r8
+	inc QWORD [rsp+56]
 	mov r9d, [rbx+r8*8]
 	mov [rsp+0], r9d
 	mov rbx, [rbp+32]
@@ -3635,9 +3599,7 @@ print_format:
 	mov [rsp+29], dil
 	mov rbx, [rbp+24]
 	mov r8, [rsp+72]
-	inc r8
-	mov [rsp+72], r8
-	dec r8
+	inc QWORD [rsp+72]
 	fld QWORD [rbx+r8*8]
 	fstp QWORD [rsp+0]
 	mov rbx, 0x4
@@ -3660,9 +3622,8 @@ print_format:
 	test bl, bl
 	je .L28
 	sub rsp, 80
+	inc QWORD [rbp+16]
 	mov rbx, [rbp+16]
-	inc rbx
-	mov [rbp+16], rbx
 	mov rbx, [rbp+16]
 	inc rbx
 	mov r8b, [rbx]
@@ -3708,9 +3669,7 @@ print_format:
 	mov [rsp+45], dil
 	mov rbx, [rbp+24]
 	mov r8, [rsp+200]
-	inc r8
-	mov [rsp+200], r8
-	dec r8
+	inc QWORD [rsp+200]
 	mov r9, [rbx+r8*8]
 	mov [rsp+8], r9
 	lea rbx, [rsp+96]
@@ -3771,17 +3730,13 @@ print_format:
 	test bl, bl
 	je .L33
 	sub rsp, 16
+	inc QWORD [rbp+16]
 	mov rbx, [rbp+16]
-	inc rbx
-	mov [rbp+16], rbx
+	dec QWORD [rsp+48]
 	mov rbx, [rsp+48]
-	dec rbx
-	mov [rsp+48], rbx
 	mov rbx, [rbp+24]
 	mov r8, [rsp+56]
-	inc r8
-	mov [rsp+56], r8
-	dec r8
+	inc QWORD [rsp+56]
 	mov r9, [rbx+r8*8]
 	mov [rsp+8], r9
 	mov rbx, [rbp+16]
@@ -3798,9 +3753,7 @@ print_format:
 	mov [rsp+29], dil
 	mov rbx, [rbp+24]
 	mov r8, [rsp+88]
-	inc r8
-	mov [rsp+88], r8
-	dec r8
+	inc QWORD [rsp+88]
 	mov r9, [rbx+r8*8]
 	mov [rsp+0], r9
 	mov rbx, [rsp+40]
@@ -3825,9 +3778,7 @@ print_format:
 	sub rsp, 16
 	mov rbx, [rbp+24]
 	mov r8, [rsp+72]
-	inc r8
-	mov [rsp+72], r8
-	dec r8
+	inc QWORD [rsp+72]
 	mov r9b, [rbx+r8*8]
 	mov [rsp+15], r9b
 	mov rbx, [rsp+24]
@@ -3867,9 +3818,7 @@ print_format:
 	sub rsp, 16
 	mov rbx, [rbp+24]
 	mov r8, [rsp+72]
-	inc r8
-	mov [rsp+72], r8
-	dec r8
+	inc QWORD [rsp+72]
 	mov r9b, [rbx+r8*8]
 	mov [rsp+15], r9b
 	sub rsp, 48
@@ -3903,9 +3852,7 @@ print_format:
 	sub rsp, 16
 	mov rbx, [rbp+24]
 	mov r8, [rsp+72]
-	inc r8
-	mov [rsp+72], r8
-	dec r8
+	inc QWORD [rsp+72]
 	mov r9b, [rbx+r8*8]
 	mov [rsp+15], r9b
 	sub rsp, 48
@@ -3939,9 +3886,7 @@ print_format:
 	sub rsp, 16
 	mov rbx, [rbp+24]
 	mov r8, [rsp+72]
-	inc r8
-	mov [rsp+72], r8
-	dec r8
+	inc QWORD [rsp+72]
 	mov r9b, [rbx+r8*8]
 	mov [rsp+15], r9b
 	sub rsp, 48
@@ -3975,9 +3920,7 @@ print_format:
 	sub rsp, 16
 	mov rbx, [rbp+24]
 	mov r8, [rsp+72]
-	inc r8
-	mov [rsp+72], r8
-	dec r8
+	inc QWORD [rsp+72]
 	mov r9b, [rbx+r8*8]
 	mov [rsp+15], r9b
 	sub rsp, 48
@@ -4108,9 +4051,7 @@ print_format:
 	mov [rsp+29], dil
 	mov rbx, [rbp+24]
 	mov r8, [rsp+88]
-	inc r8
-	mov [rsp+88], r8
-	dec r8
+	inc QWORD [rsp+88]
 	fld QWORD [rbx+r8*8]
 	fstp QWORD [rsp+0]
 	mov rbx, [rsp+40]
@@ -4348,9 +4289,8 @@ input:
 	.L1:
 	.L2:
 	mov rbx, [rbp+24]
+	dec QWORD [rsp+8]
 	mov r8, [rsp+8]
-	dec r8
-	mov [rsp+8], r8
 	xor r9b, r9b
 	mov [rbx+r8*1], r9b
 	mov rbx, [rsp+8]
@@ -4427,9 +4367,8 @@ int_to_string:
 	mov rbp, rsp
 	sub rsp, 16
 	mov r8, [rbp+32]
+	dec QWORD [rbp+40]
 	mov r9, [rbp+40]
-	dec r9
-	mov [rbp+40], r9
 	lea rbx, [r8+r9*1]
 	mov [rsp+8], rbx
 	mov rbx, [rbp+24]
@@ -4448,9 +4387,8 @@ int_to_string:
 	mov rbx, [rsp+8]
 	xor r8b, r8b
 	mov [rbx], r8b
+	dec QWORD [rsp+8]
 	mov rbx, [rsp+8]
-	dec rbx
-	mov [rsp+8], rbx
 	mov rbx, [rbp+24]
 	xor r8, r8
 	cmp rbx, r8
@@ -4458,14 +4396,11 @@ int_to_string:
 	test bl, bl
 	je .L3
 	mov rbx, [rsp+8]
-	dec rbx
-	mov [rsp+8], rbx
-	inc rbx
+	dec QWORD [rsp+8]
 	mov r8b, 0x30
 	mov [rbx], r8b
+	dec QWORD [rbp+40]
 	mov rbx, [rbp+40]
-	dec rbx
-	mov [rbp+40], rbx
 	.L3:
 	.L4:
 	.L5:
@@ -4493,12 +4428,10 @@ int_to_string:
 	xor rdx, rdx
 	idiv rbx
 	mov [rbp+24], rax
+	dec QWORD [rbp+40]
 	mov rbx, [rbp+40]
-	dec rbx
-	mov [rbp+40], rbx
+	dec QWORD [rsp+8]
 	mov rbx, [rsp+8]
-	dec rbx
-	mov [rsp+8], rbx
 	jmp .L5
 	.L7:
 	mov bl, [rbp+48]
@@ -4509,9 +4442,7 @@ int_to_string:
 	test rbx, rbx
 	je .L13
 	mov r8, [rsp+8]
-	dec r8
-	mov [rsp+8], r8
-	inc r8
+	dec QWORD [rsp+8]
 	mov r9b, [rbp+48]
 	mov [r8], r9b
 	.L12:
@@ -4524,9 +4455,7 @@ int_to_string:
 	test bl, bl
 	je .L14
 	mov rbx, [rsp+8]
-	dec rbx
-	mov [rsp+8], rbx
-	inc rbx
+	dec QWORD [rsp+8]
 	mov r8b, 0x2d
 	mov [rbx], r8b
 	.L14:
@@ -4544,17 +4473,15 @@ uint_to_string:
 	mov rbp, rsp
 	sub rsp, 16
 	mov r8, [rbp+32]
+	dec QWORD [rbp+40]
 	mov r9, [rbp+40]
-	dec r9
-	mov [rbp+40], r9
 	lea rbx, [r8+r9*1]
 	mov [rsp+8], rbx
 	mov rbx, [rsp+8]
 	xor r8b, r8b
 	mov [rbx], r8b
+	dec QWORD [rsp+8]
 	mov rbx, [rsp+8]
-	dec rbx
-	mov [rsp+8], rbx
 	mov rbx, [rbp+24]
 	xor r8, r8
 	cmp rbx, r8
@@ -4562,14 +4489,11 @@ uint_to_string:
 	test bl, bl
 	je .L1
 	mov rbx, [rsp+8]
-	dec rbx
-	mov [rsp+8], rbx
-	inc rbx
+	dec QWORD [rsp+8]
 	mov r8b, 0x30
 	mov [rbx], r8b
+	dec QWORD [rbp+40]
 	mov rbx, [rbp+40]
-	dec rbx
-	mov [rbp+40], rbx
 	.L1:
 	.L2:
 	.L3:
@@ -4597,12 +4521,10 @@ uint_to_string:
 	xor rdx, rdx
 	div rbx
 	mov [rbp+24], rax
+	dec QWORD [rbp+40]
 	mov rbx, [rbp+40]
-	dec rbx
-	mov [rbp+40], rbx
+	dec QWORD [rsp+8]
 	mov rbx, [rsp+8]
-	dec rbx
-	mov [rsp+8], rbx
 	jmp .L3
 	.L5:
 	mov bl, [rbp+48]
@@ -4613,9 +4535,7 @@ uint_to_string:
 	test rbx, rbx
 	je .L11
 	mov r8, [rsp+8]
-	dec r8
-	mov [rsp+8], r8
-	inc r8
+	dec QWORD [rsp+8]
 	mov r9b, [rbp+48]
 	mov [r8], r9b
 	.L10:
@@ -4705,12 +4625,10 @@ string_to_int:
 	.L8:
 	.L7:
 	.L4:
+	inc QWORD [rbp+24]
 	mov rbx, [rbp+24]
-	inc rbx
-	mov [rbp+24], rbx
+	dec QWORD [rbp+32]
 	mov rbx, [rbp+32]
-	dec rbx
-	mov [rbp+32], rbx
 	jmp .L3
 	.L5:
 	mov bl, [rsp+7]

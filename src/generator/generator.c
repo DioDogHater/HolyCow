@@ -4,6 +4,7 @@
 #include "regs.h"
 #include "target_requirements.h"
 #include "../targets/target_x64_Linux.h"
+#include "user_defined.h"
 
 // Global variables
 size_t stack_ptr = 0;
@@ -760,6 +761,83 @@ bool save_expr(HC_FILE fptr, node_expr* expr, node_expr* value){
     return false;
 }
 
+bool inc_expr(HC_FILE fptr, node_expr* expr, reg_t* dest, bool before, bool inc){
+    type_t expr_type = typeof_expr(expr);
+    if(!expr_type.data){
+        print_context_expr("Cannot increment / decrement", expr);
+        return NULL;
+    }
+    size_t sz = SIZEOF_T(expr_type), dsz = dest->size;
+    bool sign = (dest->occupied == OCCUP_SIGNED);
+    if(expr->type == tk_identifier){
+        var_t* var = get_var(expr->term.str, expr->term.strlen);
+        if(!var){
+            print_context_expr("Unknown identifier", expr);
+            return false;
+        }
+        if(var->location == VAR_STACK){
+            if(!before)
+                (dsz > sz) ? gen_loadx_stack(fptr, dest, stack_sz - var->stack_ptr, sz, sign) : gen_load_stack(fptr, dest, stack_sz - var->stack_ptr);
+            gen_inc_stack(fptr, stack_sz - var->stack_ptr, sz, inc);
+            if(before)
+                (dsz > sz) ? gen_loadx_stack(fptr, dest, stack_sz - var->stack_ptr, sz, sign) : gen_load_stack(fptr, dest, stack_sz - var->stack_ptr);
+        }else if(var->location == VAR_ARG){
+            if(!before)
+                (dsz > sz) ? gen_loadx_arg(fptr, dest, var->stack_ptr, sz, sign) : gen_load_arg(fptr, dest, var->stack_ptr);
+            gen_inc_arg(fptr, var->stack_ptr, SIZEOF_T(var->type), inc);
+            if(before)
+                (dsz > sz) ? gen_loadx_arg(fptr, dest, var->stack_ptr, sz, sign) : gen_load_arg(fptr, dest, var->stack_ptr);
+        }else if(var->location == VAR_GLOBAL){
+            if(!before)
+                (dsz > sz) ? gen_loadx_global(fptr, dest, var->str, var->strlen, sz, sign) :
+                             gen_load_global(fptr, dest, var->str, var->strlen);
+            gen_inc_global(fptr, var->str, var->strlen, SIZEOF_T(var->type), inc);
+            if(before)
+                (dsz > sz) ? gen_loadx_global(fptr, dest, var->str, var->strlen, sz, sign) :
+                             gen_load_global(fptr, dest, var->str, var->strlen);
+        }else{
+            print_context_expr("Cannot increment / decrement an array", expr);
+            return false;
+        }
+    }else if(expr->type == tk_deref){
+        expr_type.ptr_depth++;
+        reg_t* ptr = generate_expr(fptr, expr->unary_op.lhs, expr_type, NULL);
+        if(!before)
+            (dsz > sz) ? gen_loadx_ptr(fptr, dest, ptr, sz, sign) : gen_load_ptr(fptr, dest, ptr);
+        gen_inc_ptr(fptr, ptr, SIZEOF_T(expr_type), inc);
+        if(before)
+            (dsz > sz) ? gen_loadx_ptr(fptr, dest, ptr, sz, sign) : gen_load_ptr(fptr, dest, ptr);
+        (void) free_reg(ptr);
+    }else if(expr->type == tk_open_bracket){
+        expr_type.ptr_depth++;
+        reg_t* ptr = generate_expr(fptr, expr->bin_op.lhs, expr_type, NULL);
+        reg_t* idx = generate_expr(fptr, expr->bin_op.rhs,
+                        (type_t){target_address_size, GET_DUMMY_TYPE(uint64), false, DATA_INT, target_address_size, 0}, NULL);
+        expr_type.ptr_depth--;
+        if(!before)
+            (dsz > sz) ? gen_loadx_idx(fptr, dest, ptr, idx, sz, sign) : gen_load_idx(fptr, dest, ptr, idx, sz);
+        gen_inc_idx(fptr, ptr, idx, sz, inc);
+        if(before)
+            (dsz > sz) ? gen_loadx_idx(fptr, dest, ptr, idx, sz, sign) : gen_load_idx(fptr, dest, ptr, idx, sz);
+        (void) free_reg(ptr);
+        (void) free_reg(idx);
+    }else if(expr->type == tk_dot){
+        reg_t* ptr = alloc_reg(GET_FREE_REG(target_address_size), false);
+        if(!get_expr_address(fptr, ptr, expr))
+            return false;
+        if(!before)
+            (dsz > sz) ? gen_loadx_ptr(fptr, dest, ptr, sz, sign) : gen_load_ptr(fptr, dest, ptr);
+        gen_inc_ptr(fptr, ptr, sz, inc);
+        if(before)
+            (dsz > sz) ? gen_loadx_ptr(fptr, dest, ptr, sz, sign) : gen_load_ptr(fptr, dest, ptr);
+        (void) free_reg(ptr);
+    }else{
+        print_context_expr("Cannot increment / decrement value", expr);
+        return false;
+    }
+    return true;
+}
+
 // Generates a function call.
 // expr = the function call expression.
 // ret_func = pointer to function we just called, where this function will modify it.
@@ -1121,34 +1199,20 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
     }
     NEG_LIKE_EXPR(tk_neg, neg)
     NEG_LIKE_EXPR(tk_bin_flip, flip)
-
-// TODO Optimize this so that it uses gen_inc_...()
-#define INC_LIKE_EXPR(n, m) \
-    case n:{\
-        reg_t* tmp = generate_expr(fptr, expr->unary_op.lhs, target_type, prefered ? prefered : GET_FREE_REG(sz));\
-        gen_##m##_reg(fptr, tmp);\
-        node_reg_expr tmp_expr = (node_reg_expr){tk_reg_expr, NULL, tmp};\
-        if(!save_expr(fptr, expr->unary_op.lhs, (node_expr*) &tmp_expr))\
-            fail_gen_expr(fptr);\
-        (void) alloc_reg(tmp, sign);\
-        return tmp;\
+    case tk_inc:
+    case tk_dec:{
+        reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(sz), sign);
+        if(!inc_expr(fptr, expr->unary_op.lhs, tmp, true, expr->type == tk_inc))
+            return false;
+        return tmp;
     }
-    INC_LIKE_EXPR(tk_inc, inc)
-    INC_LIKE_EXPR(tk_dec, dec)
-// TODO Optimize this so that it uses gen_inc_...()
-#define POST_INC_LIKE_EXPR(n, m, l) \
-    case n:{\
-        reg_t* tmp = generate_expr(fptr, expr->unary_op.lhs, expr_type, prefered ? prefered : GET_FREE_REG(sz));\
-        gen_##m##_reg(fptr, tmp);\
-        node_reg_expr tmp_expr = (node_reg_expr){tk_reg_expr, NULL, tmp};\
-        if(!save_expr(fptr, expr->unary_op.lhs, (node_expr*) &tmp_expr))\
-            fail_gen_expr(fptr);\
-        (void) alloc_reg(tmp, sign);\
-        gen_##l##_reg(fptr, tmp);\
-        return tmp;\
+    case tk_post_inc:
+    case tk_post_dec:{
+        reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(sz), sign);
+        if(!inc_expr(fptr, expr->unary_op.lhs, tmp, false, expr->type == tk_post_inc))
+            return false;
+        return tmp;
     }
-    POST_INC_LIKE_EXPR(tk_post_inc, inc, dec)
-    POST_INC_LIKE_EXPR(tk_post_dec, dec, inc)
 #define ADD_LIKE_EXPR(n, m) \
     case n:{\
         int64_t cexpr = 0;\

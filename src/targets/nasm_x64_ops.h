@@ -79,7 +79,7 @@ static void x64_loadx_reg(HC_FILE fptr, reg_t* op, size_t sz, bool sign){
 #define x64_LOADX(fmt, ...) do{ x64_loadx_reg(fptr, op, sz, sign); HC_FPRINTF(fptr, fmt "\n",##__VA_ARGS__); }while(0)
 #define x64_PTR(fmt, ...) HC_FPRINTF(fptr, "\tlea %s, " fmt "\n", op->name,##__VA_ARGS__)
 #define x64_SAVE(fmt, ...) HC_FPRINTF(fptr, "\tmov " fmt ", %s\n",##__VA_ARGS__, op->name)
-#define x64_INC(fmt, ...) HC_FPRINTF(fptr, "\t%s %s " fmt "",(inc)?"inc":"dec",x64_sz_names[sz],##__VA_ARGS__)
+#define x64_INC(fmt, ...) HC_FPRINTF(fptr, "\t%s %s " fmt "\n",(inc)?"inc":"dec",x64_sz_names[sz],##__VA_ARGS__)
 #define x64_ARGS(...) __VA_ARGS__
 #define x64_LOCATION_L(name, args, fmt, ...) \
 void gen_load_##name(HC_FILE fptr, reg_t* op, args){ x64_LOAD(fmt,##__VA_ARGS__); }
@@ -125,6 +125,7 @@ x64_LOCATION(arg, size_t ptr, "[rbp+%lu]", ptr + 16);
 x64_LOCATION_L(ptr, reg_t* ptr, "[%s]", ptr->name);
 x64_LOCATION_LX(ptr, reg_t* ptr, "[%s]", ptr->name);
 x64_LOCATION_SV(ptr, reg_t* ptr, "[%s]", ptr->name);
+x64_LOCATION_INC(ptr, reg_t* ptr, "[%s]", ptr->name);
 
 // Index
 #define x64_INDEX_ARGS x64_ARGS(reg_t* ptr, reg_t* idx, size_t elem_sz)

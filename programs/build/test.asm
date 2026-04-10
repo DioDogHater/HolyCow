@@ -58,9 +58,8 @@ frame:
 	mov [rsp+32], rcx
 	.L4:
 	.L5:
+	inc QWORD [rsp+24]
 	mov rcx, [rsp+24]
-	inc rcx
-	mov [rsp+24], rcx
 	.L2:
 	dec rbx
 	jmp .L1

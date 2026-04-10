@@ -161,9 +161,8 @@ food.generate:
 	add rbx, 0x8
 	mov [rsp+24], rbx
 	.L2:
+	inc QWORD [rsp+8]
 	mov rbx, [rsp+8]
-	inc rbx
-	mov [rsp+8], rbx
 	jmp .L1
 	.L3:
 	add rsp, 16
@@ -475,10 +474,9 @@ snake.eat_food:
 	test bl, bl
 	je .L1
 	lea rbx, [snake+16]
-	mov rcx, QWORD [snake+8]
-	inc rcx
-	mov [snake+8], rcx
-	dec rcx
+	lea rsi, [snake+8]
+	mov rcx, [rsi]
+	inc QWORD [rsi]
 	lea rbx, [rbx+rcx*8]
 	lea rcx, [snake+16]
 	mov rsi, QWORD [snake+8]

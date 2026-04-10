@@ -105,10 +105,9 @@ fibo_recursive_cached:
 	test bl, bl
 	je .L4
 	lea rbx, [fibo+8]
-	mov rcx, QWORD [fibo+0]
-	inc rcx
-	mov [fibo+0], rcx
-	dec rcx
+	lea rsi, [fibo+0]
+	mov rcx, [rsi]
+	inc QWORD [rsi]
 	mov rsi, [rbp+16]
 	mov [rbx+rcx*8], rsi
 	.L4:

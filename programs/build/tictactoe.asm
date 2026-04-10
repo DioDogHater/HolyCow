@@ -257,9 +257,7 @@ Board.print_board:
 	add rsp, 48
 	.L2:
 	mov rbx, [rsp+8]
-	inc rbx
-	mov [rsp+8], rbx
-	dec rbx
+	inc QWORD [rsp+8]
 	jmp .L1
 	.L3:
 	add rsp, 16
@@ -363,9 +361,8 @@ Board.check_win:
 	jmp .L0
 	.L11:
 	.L12:
+	inc QWORD [rsp+8]
 	mov rcx, [rsp+8]
-	inc rcx
-	mov [rsp+8], rcx
 	.L9:
 	dec rbx
 	jmp .L8
@@ -469,9 +466,8 @@ Board.check_tie:
 	jmp .L0
 	.L4:
 	.L5:
+	inc QWORD [rsp+8]
 	mov rcx, [rsp+8]
-	inc rcx
-	mov [rsp+8], rcx
 	.L2:
 	dec rbx
 	jmp .L1

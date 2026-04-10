@@ -50,6 +50,7 @@ void gen_quit_scope(HC_FILE, scope_t scope);
 bool save_struct(HC_FILE, struct_t* stru, reg_t* dest, node_expr* src);
 bool save_union(HC_FILE, union_t* unio, reg_t* dest, node_expr* src);
 bool save_expr(HC_FILE, node_expr* dest, node_expr* src);
+bool inc_expr(HC_FILE, node_expr* expr, reg_t* dest, bool before, bool inc);
 bool get_expr_address(HC_FILE, reg_t* dest, node_expr* expr);
 size_t generate_func_call(HC_FILE, node_expr* expr, func_t** func, reg_t* struct_ptr);
 

@@ -1,2 +1,5 @@
 int read(uint fd, uint8* dest, uint sz);
 int write(uint fd, uint8* dest, uint sz);
+
+int open(char* filepath, uint flags, uint mode);
+int close(int fd);

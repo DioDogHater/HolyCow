@@ -76,4 +76,7 @@ size_t sizeof_type(token_t* tk);
 // Interpret the type of an expression
 type_t typeof_expr(node_expr* expr);
 
+// Check if types are compatible (includes wether one type can be converted to the other)
+bool types_compatible(type_t a, type_t b);
+
 #endif

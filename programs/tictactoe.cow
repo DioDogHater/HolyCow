@@ -1,8 +1,8 @@
 #include "../std/stdlib.hcw"
 
 class Board {
-    char board[3 * 3];
-    char player = ' ';
+    private char board[3 * 3];
+    private char player = ' ';
 
     void reset(){
         memset(this.board, ' ', 3 * 3);

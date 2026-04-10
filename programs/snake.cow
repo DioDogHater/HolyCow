@@ -28,90 +28,143 @@ struct vec2 {
     int32 y;
 }
 
-vec2 snake[Game.width * Game.height];
-vec2 last_direction;
-uint snake_length;
+// We define the snake module's members first
+module snake {
+    vec2 direction;
 
-vec2 food;
-
-// Get the player's direction using input
-bool get_direction(){
-    char input[16];
-    int sz = stdin.read(input, 16);
-
-    @return = false;
-    if(sz <= 0)
-        return;
-
-    char c = input[sz-1];
-
-    if(c == 'w' && !last_direction.y)
-        last_direction = vec2{0, -1};
-    else if(c == 's' && !last_direction.y)
-        last_direction = vec2{0, 1};
-    else if(c == 'a' && !last_direction.x)
-        last_direction = vec2{-1, 0};
-    else if(c == 'd' && !last_direction.x)
-        last_direction = vec2{1, 0};
-    else if(c == 'q')
-        @return = true;
+    uint length;
+    vec2 body[Game.width * Game.height];
 }
 
-// Give food a random position
-void generate_food(){
-    food = vec2{randint(0, Game.width), randint(0, Game.height)};
-    vec2* body = snake;
-    for(uint i = 0; i < snake_length; ++i){
-        // If food is on a snake's body part, try again
-        // Repeat until food is no longer colliding with snake
-        if(food.x == body.x && food.y == body.y){
-            food = vec2{randint(0, Game.width), randint(0, Game.height)};
-            body = snake;
-            i = 0;
+module food {
+    vec2 pos;
+
+    // Give food a random position
+    void generate(){
+        food.pos = vec2{ randint(0, Game.width), randint(0, Game.height) };
+        vec2* body = snake.body;
+        for(uint i = 0; i < snake.length; ++i){
+            // If food is on a snake's body part, try again
+            // Repeat until food is no longer colliding with snake
+            if(food.pos.x == body.x && food.pos.y == body.y){
+                food.pos = vec2{randint(0, Game.width), randint(0, Game.height)};
+                body = snake.body;
+                i = 0;
+                continue;
+            }
+            body += sizeof(vec2);
         }
-        body += sizeof(vec2);
+    }
+}
+
+// Here we define the module's methods
+module snake {
+    void init(){
+        memset(snake.body, 0, Game.width * Game.height * sizeof(vec2));
+        *snake.body = vec2{Game.width / 2, Game.height / 2};
+        snake.length = 1;
+        snake.direction = vec2{0, 0};
+    }
+
+    // Get the player's direction using input
+    // Returns true if the user wants to quit the game
+    bool get_direction(){
+        char input[16];
+        int sz = stdin.read(input, 16);
+
+        @return = false;
+        if(sz <= 0)
+            return;
+
+        char c = input[sz-1];
+
+        if(c == 'w' && !snake.direction.y)
+            snake.direction = vec2{0, -1};
+        else if(c == 's' && !snake.direction.y)
+            snake.direction = vec2{0, 1};
+        else if(c == 'a' && !snake.direction.x)
+            snake.direction = vec2{-1, 0};
+        else if(c == 'd' && !snake.direction.x)
+            snake.direction = vec2{1, 0};
+        else if(c == 'q')
+            @return = true;
+    }
+
+    void move_body(){
+        // Move every body part of the snake
+        // to the position of the one in front of it
+
+        // We can optimize that step by copying the raw memory of every body part in front
+        // to those behind them
+        if(snake.length > 1)
+            memmove(snake.body + sizeof(vec2), snake.body, (snake.length - 1) * sizeof(vec2));
+
+        // Move the head
+        snake.body.x += snake.direction.x;
+        snake.body.y += snake.direction.y;
+    }
+
+    bool check_collisions(){
+        // Collision check with borders
+        if(snake.body.x < 0 || snake.body.x >= Game.width || snake.body.y < 0 || snake.body.y >= Game.height)
+            return true;
+
+        // Collision check with the snake's body
+        vec2* body = snake.body + sizeof(vec2);
+        repeat(snake.length - 1){
+            if(snake.body.x == body.x && snake.body.y == body.y)
+                return true;
+            body += sizeof(vec2);
+        }
+
+        @return = false;
+    }
+
+    // Eat food if possible
+    void eat_food(){
+        if(snake.body.x == food.pos.x && snake.body.y == food.pos.y){
+            snake.body[snake.length++] = snake.body[snake.length-2];
+            food.generate();
+        }
     }
 }
 
 void init_game(){
-    memset(snake, 0, Game.width * Game.height * sizeof(vec2));
-    snake[0] = vec2{Game.width / 2, Game.height / 2};
-    snake_length = 1;
-    last_direction = vec2{0, 0};
-    generate_food();
+    snake.init();
+    food.generate();
 }
 
 void draw_game(){
     char screen[Game.width * Game.height];
     memset(screen, ' ', Game.width * Game.height);
 
-    vec2* body = snake;
+    vec2* body = snake.body;
 
     // Draw the head of the snake, pointing
     // to where it is heading
-    if(last_direction.x > 0)
+    if(snake.direction.x > 0)
         screen[body.x + body.y * Game.width] = '>';
-    else if(last_direction.x < 0)
+    else if(snake.direction.x < 0)
         screen[body.x + body.y * Game.width] = '<';
-    else if(last_direction.y < 0)
+    else if(snake.direction.y < 0)
         screen[body.x + body.y * Game.width] = '^';
     else
         screen[body.x + body.y * Game.width] = 'v';
     body += sizeof(vec2);
 
     // Put a '@' where every body part of the snake is
-    vec2* last_body = snake;
-    repeat(snake_length - 1){
+    vec2* last_body = snake.body;
+    repeat(snake.length - 1){
         if(body.x - last_body.x)
             screen[body.x + body.y * Game.width] = '-';
         else
             screen[body.x + body.y * Game.width] = '|';
+        last_body = body;
         body += sizeof(vec2);
-        last_body += sizeof(vec2);
     }
 
     // Put a 'o' where the food is
-    screen[food.x + food.y * Game.width] = 'o';
+    screen[food.pos.x + food.pos.y * Game.width] = 'o';
 
     // Draw the screen, line by line
     char* ptr = screen;
@@ -143,54 +196,28 @@ int main(uint argc, char** argv){
     // Initialize the game state
     init_game();
 
-    float now = time();
-    float last_frame = now - 0.1;
-
     // Game loop
     bool gameover = false;
     loop{
         draw_game();
 
-        now = time();
-        println("SCORE: %04%APress q to quit.", snake_length, Game.width - 16);
-        last_frame = now;
+        println("SCORE: %04%APress q to quit.", snake.length, Game.width - 16);
 
-        // Update the head's direction
-        gameover = get_direction();
+        gameover = snake.get_direction();
 
-        // Move every body part of the snake
-        // to the position of the one in front of it
-        // We can optimize this by using memmove()
-        if(snake_length > 1)
-            memmove((uint8*)snake + sizeof(vec2), (uint8*)snake, (snake_length - 1) * sizeof(vec2));
+        snake.move_body();
 
-        // Move the head
-        snake.x += last_direction.x;
-        snake.y += last_direction.y;
-
-        // Collision check with borders
-        if(snake.x < 0 || snake.x >= Game.width || snake.y < 0 || snake.y >= Game.height)
+        if(snake.check_collisions())
             gameover = true;
 
-        // Collision check with the snake's body
-        vec2* body = snake + sizeof(vec2);
-        repeat(snake_length - 1){
-            if(snake.x == body.x && snake.y == body.y){
-                gameover = true;
-                break;
-            }
-            body += sizeof(vec2);
-        }
+        snake.eat_food();
 
-        // Check if we eat the food
-        if(snake.x == food.x && snake.y == food.y){
-            snake[snake_length++] = snake[snake_length-2];
-            generate_food();
-        }
+        if(snake.length == Game.width * Game.height)
+            gameover = true;
 
         // Wait for 0.075 seconds
         // Gives us ~13 FPS
-        sleep(0.075);
+        sleep(0.125 - 0.0025 * snake.length);
 
         // Game over screen
         if(gameover){

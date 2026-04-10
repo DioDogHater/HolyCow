@@ -15,7 +15,7 @@ uint fibo_recursive(int n){
 // Recursive solution, with caching
 // Way faster, but trades time complexity with space complexity
 
-module fibo{
+module fibo {
     // Maximum number of cached results
     // 256 * 8 bytes = 2 kB
     constexpr int max_cache = 256;

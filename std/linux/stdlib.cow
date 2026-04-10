@@ -1,4 +1,7 @@
 #include "../stdlib.hcw"
+#include "syscall.hcw"
+#include "unistd.hcw"
+#include "fcntl.hcw"
 
 class File {
     // Its ok to have members as public
@@ -21,16 +24,28 @@ class File {
             this.buff[this.cursor++] = *src;
             if(this.buff_mode == Buffering.line && *src == '\n')
                 this.flush();
-            else if(this.cursor >= this.buff_size)
+            else if(this.cursor >= this.buff_size){
+                if(this.fd < 0)
+                    break;
                 this.flush();
+            }
             ++src;
         }
     }
 
     int read(uint8* dest, uint sz){
-        if(!(this.flags & File.read))
-            return -1;
+        if(this.fd < 0 || !(this.flags & File.read))
+            return 0;
         @return = read(this.fd, dest, sz);
+    }
+
+    void print(char* fmt, ...){
+        print_format(fmt, VARGS, this);
+    }
+
+    void println(char* fmt, ...){
+        print_format(fmt, VARGS, this);
+        this.write("\n", 1);
     }
 
     void set_buffering(uint mode){
@@ -45,10 +60,16 @@ class File {
     }
 
     void flush(){
-        if(this.buff_mode != Buffering.none)
+        if(this.fd < 0)
+            return;
+        if((this.flags & File.write) && this.buff_mode != Buffering.none)
             write(this.fd, this.buff, this.cursor);
         this.cursor = 0;
     }
+}
+
+module File = {
+
 }
 
 private char stdout_buffer[STDOUT_BUFF_SZ];
@@ -74,7 +95,7 @@ double absf(double x){
     fstp QWORD [rbp+16]");
 }
 
-void random(uint8* data, uint size){
+void random(void* data, uint size){
     @asm(rax, rdi, rsi, rdx,
     "mov rax, 318
     mov rdi, @0
@@ -258,7 +279,7 @@ module fixed = {
 // STR operations
 
 // Sets bytes to a certain 8 bit value
-void memset(uint8* mem, uint8 data, uint mem_size){
+void memset(void* mem, uint8 data, uint mem_size){
     @asm(al,rcx,rdi,
     "mov rdi, @0
     mov al, @1
@@ -268,7 +289,7 @@ void memset(uint8* mem, uint8 data, uint mem_size){
 }
 
 // Copies bytes from src to dest
-void memcpy(uint8* dest, uint8* src, uint mem_size){
+void memcpy(void* dest, void* src, uint mem_size){
     @asm(rcx, rsi, rdi,
     "mov rdi, @0
     mov rsi, @1
@@ -277,7 +298,7 @@ void memcpy(uint8* dest, uint8* src, uint mem_size){
     rep movsb", dest, src, mem_size);
 }
 
-void memmove(uint8* dest, uint8* src, uint mem_size){
+void memmove(void* dest, void* src, uint mem_size){
     if(dest > src){
         @asm("std");
         dest += mem_size - 1;
@@ -393,39 +414,104 @@ bool strequal(char* s1, char* s2){
     @return = (strcmp(s1, s2) == 0);
 }
 
+// String class
+enum string {
+    unknown   = 0x00,   // Cannot be freed (we dont know where it comes from)
+    heap      = 0x01,   // Allocated on the heap
+    shared    = 0x02    // Shared with another string
+}
+
+class string {
+    private void set(char* str, uint len, uint type){
+        this.str = str;
+        this.length = (len == -1) ? strlen(str) : len;
+        this.offset = 0;
+        this.type = type;
+    }
+
+    char* str(){
+        if(this.type == string.shared)
+            return ((string*)this.str).str();
+        @return = (this.str) ? this.str + this.offset : NULL;
+    }
+    uint length(){
+        if(this.type == string.shared)
+            return ((string*)this.str).length();
+        @return = this.length;
+    }
+
+    void print(File* f){
+        f.write(this.str(), this.length());
+    }
+
+    int compare(string* b){
+        uint len = (this.length() < b.length()) ? this.length() : b.length();
+        @return = strcmp(this.str(), b.str(), len);
+    }
+    bool is_equal(string* b){
+        @return = (this.compare(b) == 0);
+    }
+
+    bool is_heap(){
+        @return = (this.type == string.heap);
+    }
+    bool is_stack(){
+        if(this.type == string.shared)
+            @return = ((string*)this.str).is_stack();
+        @return = (this.type == string.unknown);
+    }
+
+    // void free(){
+    //     if(this.type == string.heap)
+    //         free(this.str);
+    // }
+}
+
+module string = {
+    string from_str(char* str, uint len){
+        @return.set(str, len, string.unknown);
+    }
+    string from_heap(char* str, uint len){
+        @return.set(str, len, string.heap);
+    }
+    string share(string* og){
+        @return.set((char*)og, 0, string.shared);
+    }
+}
+
 // Terminal IO
 
 // Prints a string with a specified length
 // If len = -1 (so no length provided), len = strlen(str)
-void print_str(char* str, uint len){
+void print_str(char* str, uint len, File* f){
     if(!str){
         print_str("(NULL)");
         return;
     }
     if(len == -1)
         len = strlen(str);
-    stdout.write(str, len);
+    f.write(str, len);
 }
 
 // Prints a single character
-void print_char(char c){
-    stdout.write(&c, 1);
+void print_char(char c, File* f){
+    f.write(&c, 1);
 }
 
 // Prints a signed 64 bit int in decimal form
-void print_decimal(int x){
+void print_decimal(int x, File* f){
     char buffer[64];
-    print_str(int_to_string(x, buffer, 64));
+    print_str(int_to_string(x, buffer, 64),, f);
 }
 
 // Prints an unsigned 64 bit int in decimal form
-void print_udecimal(uint x){
+void print_udecimal(uint x, File* f){
     char buffer[64];
-    print_str(uint_to_string(x, buffer, 64));
+    print_str(uint_to_string(x, buffer, 64),, f);
 }
 
 // Prints an unsigned 64 bit int in hexadecimal form
-void print_hex(uint x){
+void print_hex(uint x, File* f){
     char buffer[64];
     buffer[63] = 0;
     char* lookup = "0123456789ABCDEF";
@@ -436,68 +522,68 @@ void print_hex(uint x){
         *ptr = lookup[x & 0xF];
     *(ptr--) = 'x';
     *(ptr) = '0';
-    print_str(ptr);
+    print_str(ptr,, f);
 }
 
 // Prints a fixed point number
-void print_fixed(fixed_t x){
+void print_fixed(fixed_t x, File* f){
     if(x < 0){
-        print_char('-');
+        print_char('-', f);
         x = -x;
     }
     uint integer = x >> fixed.precision;
     uint fractional = (x & fixed.frac_mask) * 10000 / (1 << fixed.precision);
-    print_udecimal(integer);
-    print_char('.');
+    print_udecimal(integer, f);
+    print_char('.', f);
     char buffer[32];
-    print_str(uint_to_string(fractional, buffer, 5, '0'));
+    print_str(uint_to_string(fractional, buffer, 5, '0'),, f);
 }
 
-void print_double(double x, uint digits){
+void print_double(double x, uint digits, File* f){
     char buffer[128];
     bool sign = (x < 0.0);
     if(sign){
-        print_char('-');
+        print_char('-', f);
         x = -x;
     }
     uint integer = x;
     uint fractional = round((x - (double)integer) * pow(10.0, (double)digits));
-    print_udecimal(integer);
-    print_char('.');
-    print_str(uint_to_string(fractional, buffer, digits+1, '0'));
+    print_udecimal(integer, f);
+    print_char('.', f);
+    print_str(uint_to_string(fractional, buffer, digits+1, '0'),, f);
 }
 
-private void left_align_stdout(uint last, uint target, char fill = ' '){
+private void left_align(File* f, uint last, uint target, char fill = ' '){
     if(last == -1)
         error("\nExpected %[ before %L to enclose text to align left");
-    if(stdout.cursor - last >= target) return;
-    memset(stdout.buff + stdout.cursor, fill, target - stdout.cursor + last);
-    stdout.cursor = last + target;
+    if(f.cursor - last >= target) return;
+    memset(f.buff + f.cursor, fill, target - f.cursor + last);
+    f.cursor = last + target;
 }
 
-private void right_align_stdout(uint last, uint target, char fill = ' '){
+private void right_align(File* f, uint last, uint target, char fill = ' '){
     if(last == -1)
         error("\nExpected %[ before %R to enclose text to align right");
-    if(stdout.cursor - last >= target) return;
-    uint target_idx = last + target - (stdout.cursor - last);
-    memmove(stdout.buff + target_idx, stdout.buff + last, stdout.cursor - last);
-    memset(stdout.buff + last, fill, target_idx - last);
-    stdout.cursor = last + target;
+    if(f.cursor - last >= target) return;
+    uint target_idx = last + target - (f.cursor - last);
+    memmove(f.buff + target_idx, f.buff + last, f.cursor - last);
+    memset(f.buff + last, fill, target_idx - last);
+    f.cursor = last + target;
 }
 
-private void center_stdout(uint last, uint target, char fill = ' '){
+private void center(File* f, uint last, uint target, char fill = ' '){
     if(last == -1)
         error("\nExpected %[ before %C to enclose text to center");
-    if(stdout.cursor - last >= target) return;
-    uint space = target - (stdout.cursor - last);
+    if(f.cursor - last >= target) return;
+    uint space = target - (f.cursor - last);
     uint target_idx = last + (space >> 1);
-    memmove(stdout.buff + target_idx, stdout.buff + last, stdout.cursor - last);
-    memset(stdout.buff + last, fill, target_idx - last);
-    memset(stdout.buff + target_idx + stdout.cursor - last, fill, (space >> 1) + (space & 1));
-    stdout.cursor = last + target;
+    memmove(f.buff + target_idx, f.buff + last, f.cursor - last);
+    memset(f.buff + last, fill, target_idx - last);
+    memset(f.buff + target_idx + f.cursor - last, fill, (space >> 1) + (space & 1));
+    f.cursor = last + target;
 }
 
-void print_format(char* fmt, uint* argv){
+void print_format(char* fmt, uint* argv, File* f){
     // Go through each part of the format string
     uint argc = 0;
     uint len = strlen(fmt);
@@ -505,89 +591,90 @@ void print_format(char* fmt, uint* argv){
 
     while(len){
         int n = strfind(fmt, '%', len);
-        if(n == -1){ n = len; }
+        if(n == -1)
+            n = len;
         if(n)
-            print_str(fmt, n);
+            print_str(fmt, n, f);
         else if(*(fmt+1) == 'i')
-            print_decimal(argv[argc++]);
+            print_decimal(argv[argc++],f);
         else if(*(fmt+1) == 'u')
-            print_udecimal(argv[argc++]);
+            print_udecimal(argv[argc++],f);
         else if(*(fmt+1) == 'x')
-            print_hex(argv[argc++]);
+            print_hex(argv[argc++],f);
         else if(*(fmt+1) == 's')
-            print_str((char*)argv[argc++]);
+            print_str((char*)argv[argc++],,f);
+        else if(*(fmt+1) == 'S')
+            ((string*)argv[argc++]).print(f);
         else if(*(fmt+1) == 'c')
             print_char(argv[argc++]);
         else if(*(fmt+1) == '[')
-            last = stdout.cursor;
+            last = f.cursor;
         else if(*(fmt+1) == 'L')
-            left_align_stdout(last, argv[argc++]);
+            left_align(f, last, argv[argc++]);
         else if(*(fmt+1) == 'R')
-            right_align_stdout(last, argv[argc++]);
+            right_align(f, last, argv[argc++]);
         else if(*(fmt+1) == 'C')
-            center_stdout(last, argv[argc++]);
+            center(f, last, argv[argc++]);
         else if(*(fmt+1) == 'A'){
             uint target = argv[argc++];
-            left_align_stdout(0, target);
+            left_align(f, 0, target);
         }else if(*(fmt+1) == 'T'){
-            if(last == -1){
-                print_str("\nExpected %[ before %T to enclose text to truncate\n");
-                exit(1);
-            }
+            if(last == -1)
+                error("\nExpected %[ before %T to enclose text to truncate\n");
             uint target = argv[argc++];
-            if(stdout.cursor - last > target){
-                memset(stdout.buff + last + target, 0, stdout.cursor - last - target);
-                stdout.cursor = last + target;
+            if(f.cursor - last > target){
+                memset(f.buff + last + target, 0, f.cursor - last - target);
+                f.cursor = last + target;
             }
         }else if(*(fmt+1) == 'b'){
             if(argv[argc++])
-                print_str("true");
+                print_str("true",, f);
             else
-                print_str("false");
+                print_str("false",, f);
         }else if(*(fmt+1) == 'F')
-            print_fixed( (fixed_t) argv[argc++] );
+            print_fixed( (fixed_t) argv[argc++], f );
         else if(*(fmt+1) == 'f')
-            print_double( ((double*) argv)[argc++] );
+            print_double( ((double*) argv)[argc++],, f );
         else if(*(fmt+1) == '0'){
             char buffer[64];
             ++fmt;
             if(*(fmt+1) < '1' || *(fmt+1) > '9')
-                error("\nExpected in to be in the range [1, 9] in format specifier %0n");
+                error("\nExpected in to be in the range [1, 9] in format specifier %%0n");
             uint n_len = *(fmt+1) - '0';
-            print_str(uint_to_string(argv[argc++], buffer, n_len + 1, '0'));
+            print_str(uint_to_string(argv[argc++], buffer, n_len + 1, '0'),, f);
         }else if(*(fmt+1) == '%')
-            print_char('%');
+            print_char('%', f);
         else if(*(fmt+1) == '*'){
             ++fmt;
             --len;
             uint mod = argv[argc++];
             if(*(fmt+1) == 's')
-                print_str((char*) argv[argc++], mod);
+                print_str((char*) argv[argc++], mod, f);
             else if(*(fmt+1) == 'c'){
                 char c = argv[argc++];
-                repeat(mod){ print_char(c); }
+                repeat(mod){ print_char(c, f); }
             }else if(*(fmt+1) == 'L'){
                 char c = argv[argc++];
-                left_align_stdout(last, mod, c);
+                left_align(f, last, mod, c);
             }else if(*(fmt+1) == 'R'){
                 char c = argv[argc++];
-                right_align_stdout(last, mod, c);
+                right_align(f, last, mod, c);
             }else if(*(fmt+1) == 'C'){
                 char c = argv[argc++];
-                center_stdout(last, mod, c);
+                center(f, last, mod, c);
             }else if(*(fmt+1) == 'A'){
                 char c = argv[argc++];
-                left_align_stdout(0, mod, c);
+                left_align(f, 0, mod, c);
             }else if(*(fmt+1) == 'T'){
                 if(last == -1)
                     error("\nExpected %[ before %*T to enclose text to truncate");
-                if(stdout.cursor - last > mod){
-                    memmove(stdout.buff + last, stdout.buff + stdout.cursor - mod, mod);
-                    memset(stdout.buff + last + mod, 0, stdout.cursor - last - mod);
-                    stdout.cursor = last + mod;
+                if(f.cursor - last > mod){
+                    memmove(f.buff + last, f.buff + f.cursor - mod, mod);
+                    memset(f.buff + last + mod, 0, f.cursor - last - mod);
+                    f.cursor = last + mod;
                 }
             }else if(*(fmt+1) == 'f')
-                print_double(((double*) argv)[argc++], mod);
+                print_double(((double*) argv)[argc++], mod, f);
             else
                 error("\nUnexpected format specifier %%%*s", 2, fmt-1);
         }else
@@ -632,7 +719,7 @@ uint input(char* buff, uint len){
 char input_char(){
     stdout.flush();
     uint16 c = 0;
-    int result = stdin.read(&c, 2);
+    int result = stdin.read((char*) &c, 2);
     if(result < 0)
         error("input_char() error: %i", result);
     @return = c;

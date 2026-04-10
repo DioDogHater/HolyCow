@@ -136,6 +136,9 @@ int main(uint argc, char** argv){
     test.print(a);
     test.print(test.get());
 
+    string s = string.from_str("Hello world!");
+    println("%S", &s);
+
     msg m = msg{};
     m.print();
 

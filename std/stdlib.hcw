@@ -21,14 +21,15 @@ class File {
     void write(uint8* src, uint sz);
     int read(uint8* dest, uint sz);
 
+    void print(char* fmt, ...);
+    void println(char* fmt, ...);
+
     void set_buffering(uint mode);
     void set_buffer(uint8* buff, uint buff_size);
     void flush();
 }
 
 module File extern {
-    char* test = "Hello world!";
-
     File* open(char* filepath, uint mode = File.read);
     void close();
 }
@@ -61,7 +62,7 @@ int absi(int x);
 // Get absolute (positive) doubleing point number
 double absf(double x);
 // Randomize memory
-void random(uint8* data, uint size);
+void random(void* data, uint size);
 // Get a random int from min to max
 int randint(int min, int max);
 // Check if character is alphabetic
@@ -130,11 +131,11 @@ module fixed extern {
 
 // ============ String operations ============
 // Set bytes in memory to a value
-void memset(uint8* mem, uint8 data, uint mem_size);
+void memset(void* mem, uint8 data, uint mem_size);
 // Copy memory from src to dest
-void memcpy(uint8* dest, uint8* src, uint mem_size);
+void memcpy(void* dest, void* src, uint mem_size);
 // Move memory from src to dest (copying without corrupting data)
-void memmove(uint8* dest, uint8* src, uint mem_size);
+void memmove(void* dest, void* src, uint mem_size);
 // Get length of string
 uint strlen(char* str);
 // Find first occurence of character in string
@@ -153,12 +154,32 @@ int8 strcmp(char* s1, char* s2, uint len = -1);
 bool strequal(char* s1, char* s2);
 
 class string {
-    char* str;
-    uint length;
+    private char* str = NULL;
+    private uint length = 0;
+    private uint offset = 0;
+    private uint type = 0;
+
+    // Properties
+    char* str();
+    uint length();
+
+    void print(File* f = stdout);
+
+    int compare(string* str);
+    bool is_equal(string* str);
+
+    bool is_heap();
+    bool is_stack();
+    void free();
 }
 
 module string extern {
+    string from_str(char* str, uint len = -1);
+    string from_heap(char* str, uint len = -1);
+    string share(string* original);
     string new(char* str, uint len = -1);
+
+    string format(char* fmt, ...);
 }
 
 // ========== Terminal IO ==============
@@ -166,13 +187,13 @@ module string extern {
 void flush_stdout();
 
 // Specific printing functions
-void print_str(char* str, uint len = -1);
-void print_char(char c);
-void print_decimal(int x);
-void print_udecimal(uint x);
-void print_hex(uint x);
-void print_fixed(fixed_t x);
-void print_double(double x, uint digits = 4);
+void print_str(char* str, uint len = -1, File* f = stdout);
+void print_char(char c, File* f = stdout);
+void print_decimal(int x, File* f = stdout);
+void print_udecimal(uint x, File* f = stdout);
+void print_hex(uint x, File* f = stdout);
+void print_fixed(fixed_t x, File* f = stdout);
+void print_double(double x, uint digits = 4, File* f = stdout);
 
 // Print formatted text
 // fmt is the string to format
@@ -202,6 +223,9 @@ void print_double(double x, uint digits = 4);
  *  Print string s entirely or the n first characters of s if %*s is used
  *      print("%s", s);
  *      print("%*s", n, s);
+ * %S:
+ *  print string class instance (give instance as pointer)
+ *      print("%S", &s);
  *
  * %f, %*f:
  *  Print double x up to 4 decimals or n decimals if %*f is used
@@ -260,7 +284,7 @@ void print_double(double x, uint digits = 4);
  */
 
 // argv should be the array of arguments given to format the string
-void print_format(char* fmt, uint* argv);
+void print_format(char* fmt, uint* argv, File* f = stdout);
 void print(char* fmt, ...);
 void println(char* fmt = "", ...);
 

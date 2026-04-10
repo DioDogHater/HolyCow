@@ -257,7 +257,7 @@ static void sysV_load_arg(HC_FILE fptr, size_t* int_idx, size_t* float_idx, size
     }
 
     // Verify if expression is compatible with argument
-    if(DATAOF_T(arg_type) != DATAOF_T(expr_type) || arg_type.ptr_depth != expr_type.ptr_depth){
+    if(!types_compatible(arg_type, expr_type)){
         print_context_expr("Incompatible argument type", arg_expr);
         print_context("Expected argument type", arg->var_type);
         print_type("Type ", expr_type, " is not compatible!");

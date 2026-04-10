@@ -138,6 +138,25 @@ bool eval_##name##_expr(node_expr* expr, T* result){\
         }\
     }case tk_type_cast:\
         return eval_##name##_expr(expr->type_cast.rhs, result);\
+    case tk_sizeof:{\
+        type_t value_type = INVALID_TYPE;\
+        if(expr->unary_op.lhs->type == tk_int8)\
+            value_type = type_from_tk(expr->unary_op.lhs->type_expr.start);\
+        else if(expr->unary_op.lhs->type == tk_identifier){\
+            struct_t* stru = get_struct(expr->unary_op.lhs->term.str, expr->unary_op.lhs->term.strlen);\
+            if(stru)\
+                value_type = (type_t){stru->size, .data = DATA_STRUCT, .ptr_depth = 0};\
+            union_t* unio = get_union(expr->unary_op.lhs->term.str, expr->unary_op.lhs->term.strlen);\
+            if(unio)\
+                value_type = (type_t){unio->size, .data = DATA_UNION, .ptr_depth = 0};\
+        }\
+        if(!value_type.data)\
+            value_type = typeof_expr(expr->unary_op.lhs);\
+        if(!value_type.data)\
+            return false;\
+        *result = (T) SIZEOF_T(value_type);\
+        return true;\
+    }\
     EVAL_UNARY_OP(tk_neg, -, name, T)\
     EVAL_UNARY_OP(tk_bin_flip, ~, name, T)\
     EVAL_UNARY_OP(tk_not, !, name, T)\

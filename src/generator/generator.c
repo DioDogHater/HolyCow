@@ -288,6 +288,9 @@ bool save_union(HC_FILE fptr, union_t* unio, reg_t* ptr, node_expr* value){
     return save_memory(fptr, unio->size, ptr, value);
 }
 
+// If we're inside a module, this will be set to current module
+static module_t* current_module = NULL;
+
 // Check if a member / method is private and cannot be accessed
 static bool check_private(size_t flags, node_expr* obj, bool write){
     if((!(flags & FLAG_PEEK) || write) && ((flags & FLAG_PRIVATE) || (flags & FLAG_PROTECT))){
@@ -295,6 +298,8 @@ static bool check_private(size_t flags, node_expr* obj, bool write){
         if(!((flags & FLAG_INHERITED) && (flags & FLAG_PRIVATE)) && obj->type == tk_identifier){
             var_t* var = get_var(obj->term.str, obj->term.strlen);
             if(var && (var->flags & FLAG_INHERITED))
+                accessible = true;
+            if(var && var->strlen == 7 && strncmp(var->str, "@return", 7) == 0)
                 accessible = true;
         }
         if(!accessible){
@@ -305,8 +310,6 @@ static bool check_private(size_t flags, node_expr* obj, bool write){
     return true;
 }
 
-// If we're inside a module, this will be set to current module
-static module_t* current_module = NULL;
 static bool check_module_private(size_t flags, module_t* mod, token_t* var, bool write){
     if((!(flags & FLAG_PEEK) || write) && ((flags & FLAG_PRIVATE) || (flags & FLAG_PROTECT))){
         if(((flags & FLAG_INHERITED) && (flags & FLAG_PRIVATE)) || current_module != mod){
@@ -554,6 +557,7 @@ bool save_expr(HC_FILE fptr, node_expr* expr, node_expr* value){
                         if(!save_union(fptr, unio, tmp, value))
                             return false;
                     }
+                    (void) free_reg(tmp);
                 }
                 return true;
             }
@@ -568,6 +572,10 @@ bool save_expr(HC_FILE fptr, node_expr* expr, node_expr* value){
         if(obj_type.data == DATA_STRUCT){
             struct_t* stru = get_struct_tk(obj_type.repr);
             var_t* member = get_member(stru, expr->access.member->str, expr->access.member->strlen);
+            if(!member){
+                print_context("Unknown member", expr->access.member);
+                return false;
+            }
             if(member->location == VAR_ARRAY){
                 print_context_expr("Cannot give value to an array member", expr);
                 return false;
@@ -930,8 +938,7 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
         size_t arg_size = SIZEOF_T(arg_type), arg_align = ALIGNOF_T(arg_type);
 
         // If the argument isn't compatible
-        if(DATAOF_T(expr_type) != DATAOF_T(arg_type) ||
-            expr_type.ptr_depth != arg_type.ptr_depth){
+        if(!types_compatible(arg_type, expr_type)){
             print_context_expr("Incompatible argument type", arg_expr);
             print_context("Expected argument type", arg->var_type);
             print_type("Type ", expr_type, " is not compatible!");
@@ -1114,6 +1121,8 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
     }
     NEG_LIKE_EXPR(tk_neg, neg)
     NEG_LIKE_EXPR(tk_bin_flip, flip)
+
+// TODO Optimize this so that it uses gen_inc_...()
 #define INC_LIKE_EXPR(n, m) \
     case n:{\
         reg_t* tmp = generate_expr(fptr, expr->unary_op.lhs, target_type, prefered ? prefered : GET_FREE_REG(sz));\
@@ -1126,6 +1135,7 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
     }
     INC_LIKE_EXPR(tk_inc, inc)
     INC_LIKE_EXPR(tk_dec, dec)
+// TODO Optimize this so that it uses gen_inc_...()
 #define POST_INC_LIKE_EXPR(n, m, l) \
     case n:{\
         reg_t* tmp = generate_expr(fptr, expr->unary_op.lhs, expr_type, prefered ? prefered : GET_FREE_REG(sz));\
@@ -1141,6 +1151,16 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
     POST_INC_LIKE_EXPR(tk_post_dec, dec, inc)
 #define ADD_LIKE_EXPR(n, m) \
     case n:{\
+        int64_t cexpr = 0;\
+        bool lc = false, rc = false;\
+        if((lc = eval_int_expr(expr->bin_op.lhs, &cexpr)) || (rc = eval_int_expr(expr->bin_op.rhs, &cexpr))){\
+            node_expr* c = lc ? expr->bin_op.rhs : expr->bin_op.lhs;\
+            reg_t* tmp = generate_expr(fptr, c, target_type, prefered);\
+            if(cexpr == 1 && (n == tk_add || n == tk_sub)) (n == tk_sub) ? gen_dec_reg(fptr, tmp) : gen_inc_reg(fptr, tmp);\
+            else if(cexpr == -1 && (n == tk_add || n == tk_sub)) (n == tk_add) ? gen_dec_reg(fptr, tmp) : gen_inc_reg(fptr, tmp);\
+            else gen_##m##_reg(fptr, tmp, cexpr);\
+            return tmp;\
+        }\
         reg_t* tmp1 = generate_expr(fptr, expr->bin_op.lhs, target_type,\
                                     (prefered && REG_IN_MASK(prefered, GET_ALLOWED_REGS1(m))) ? prefered : GET_OP_REG1(sz, m));\
         reg_t* tmp2 = generate_expr(fptr, expr->bin_op.rhs, target_type, GET_OP_REG2(sz, m));\
@@ -1155,6 +1175,39 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
     ADD_LIKE_EXPR(tk_bin_xor, xor)
 #define MULT_LIKE_EXPR(n, m) \
     case n:{\
+        int64_t cexpr;\
+        bool lc = false, rc = false, _sign;\
+        if(n == tk_mult && ((lc = eval_int_expr(expr->bin_op.lhs, &cexpr)) || (rc = eval_int_expr(expr->bin_op.rhs, &cexpr)))){\
+            cexpr = (_sign = cexpr < 0) ? -cexpr : cexpr;\
+            node_expr* c = lc ? expr->bin_op.rhs : expr->bin_op.lhs;\
+            if(cexpr == 0){ reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(sz), sign); gen_clear_reg(fptr, tmp); return tmp; }\
+            if(cexpr == 1){ reg_t* tmp = generate_expr(fptr, c, target_type, prefered); if(_sign) gen_neg_reg(fptr, tmp); return tmp; }\
+            size_t i = 0; for(; (cexpr % 2 == 0) && cexpr > 1; cexpr /= 2, i++);\
+            if(cexpr == 1){\
+                reg_t* tmp = generate_expr(fptr, c, target_type, prefered); gen_shl_reg(fptr, tmp, i);\
+                if(_sign) gen_neg_reg(fptr, tmp); return tmp;\
+            }else if(cexpr == 3){\
+                reg_t* tmp = generate_expr(fptr, c, target_type, prefered); if(i) gen_shl_reg(fptr, tmp, i);\
+                gen_load_idx_ptr(fptr, tmp, tmp, tmp, 2);\
+                if(_sign) gen_neg_reg(fptr, tmp); return tmp;\
+            }else if(cexpr == 5){\
+                reg_t* tmp = generate_expr(fptr, c, target_type, prefered); if(i) gen_shl_reg(fptr, tmp, i);\
+                gen_load_idx_ptr(fptr, tmp, tmp, tmp, 4);\
+                if(_sign) gen_neg_reg(fptr, tmp); return tmp;\
+            }\
+        }else if(n != tk_mult && eval_int_expr(expr->bin_op.rhs, &cexpr) && IS_POW2(ABS(cexpr))){\
+            cexpr = (_sign = cexpr < 0) ? -cexpr : cexpr;\
+            if(cexpr == 0){ print_context_expr("Division by zero", expr->bin_op.rhs); fail_gen_expr(fptr); }\
+            if(cexpr == 1) return generate_expr(fptr, expr->bin_op.lhs, target_type, prefered);\
+            reg_t* tmp = generate_expr(fptr, expr->bin_op.lhs, target_type, prefered);\
+            if(n == tk_div){\
+                size_t i = 0; for(; cexpr > 1; cexpr /= 2, i++);\
+                (sign) ? gen_sshr_reg(fptr, tmp, i) : gen_shr_reg(fptr, tmp, i);\
+            }else\
+                gen_and_reg(fptr, tmp, cexpr - 1);\
+            if(_sign) gen_neg_reg(fptr, tmp);\
+            return tmp;\
+        }\
         reg_mask op1 = SIGNED_OP1(sign, m), op2 = SIGNED_OP2(sign, m), affected = SIGNED_AFFECTED(sign, m);\
         reg_t* tmp1 = generate_expr(fptr, expr->bin_op.lhs, target_type, (prefered && REG_IN_MASK(prefered, op1)) ? prefered : GET_MASK_REG(sz, op1));\
         reg_t* tmp2 = generate_expr(fptr, expr->bin_op.rhs, target_type, GET_MASK_REG(sz, op2));\
@@ -1165,6 +1218,7 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
         if(!REG_IN_MASK(tmp1, op1)){\
             reg_t* tmp3 = GET_OCC_MASK_REG(sz, op1);\
             reg_t* tmp4 = GET_MASK_REG(sz, ALL_REGS_EXCEPT(affected));\
+            if(!tmp3) tmp3 = GET_MASK_REG(sz, op1), tmp4 = NULL;\
             (void) transfer_reg(fptr, tmp3, tmp4);\
             (void) transfer_reg(fptr, tmp1, tmp3);\
             (sign) ? gen_s##m##_regs(fptr, tmp3, tmp2) : gen_##m##_regs(fptr, tmp3, tmp2);\
@@ -1175,7 +1229,8 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
             return tmp1;\
         }else if(!REG_IN_MASK(tmp2, op2)){\
             reg_t* tmp3 = GET_OCC_MASK_REG(sz, op2);\
-            reg_t* tmp4 = GET_MASK_REG(sz, ALL_REGS_EXCEPT(SIGNED_AFFECTED(sign, m)));\
+            reg_t* tmp4 = GET_MASK_REG(sz, ALL_REGS_EXCEPT(affected));\
+            if(!tmp3) tmp3 = GET_MASK_REG(sz, op2), tmp4 = NULL;\
             (void) transfer_reg(fptr, tmp3, tmp4);\
             (void) transfer_reg(fptr, tmp2, tmp3);\
             (sign) ? gen_s##m##_regs(fptr, tmp1, tmp3) : gen_##m##_regs(fptr, tmp1, tmp3);\
@@ -1195,6 +1250,17 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
     MULT_LIKE_EXPR(tk_mod, mod)
     case tk_shl:
     case tk_shr:{
+        int64_t i = 0;
+        if(eval_int_expr(expr->bin_op.rhs, &i)){
+            if(i < 0){ print_context_expr("Cannot shift negative bits left / right", expr->bin_op.rhs); fail_gen_expr(fptr); }
+            if(i == 0){ reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(sz), sign); gen_clear_reg(fptr, tmp); return tmp; }
+            reg_t* tmp = generate_expr(fptr, expr->bin_op.lhs, target_type, prefered);
+            if(expr->type == tk_shl) gen_shl_reg(fptr, tmp, i);
+            else if(sign) gen_sshr_reg(fptr, tmp, i);
+            else gen_shr_reg(fptr, tmp, i);
+            return tmp;
+        }
+
         reg_mask lhs, rhs;
         if(expr->type == tk_shl) lhs = GET_ALLOWED_REGS1(shl), rhs = GET_ALLOWED_REGS2(shl);
         else lhs = SIGNED_OP1(sign, shr), rhs = SIGNED_OP2(sign, shr);
@@ -1285,11 +1351,11 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
     case tk_cmp_l:
     case tk_cmp_le:{
         type_t t1 = typeof_expr(expr->bin_op.lhs), t2 = typeof_expr(expr->bin_op.rhs);
-        if(!t1.data || !t2.data || DATAOF_T(t1) != DATAOF_T(t2)){
+        if(!types_compatible(t1, t2)){
             print_context_expr("Cannot compare two values of incompatible types", expr);
             fail_gen_expr(fptr);
         }
-        type_t biggest_t = (t1.size > t2.size) ? t1 : t2;
+        type_t biggest_t = (DATAOF_T(t1) > DATAOF_T(t2) || SIZEOF_T(t1) > SIZEOF_T(t2)) ? t1 : t2;
         reg_t* tmp = alloc_reg((prefered && prefered->size == 1) ? prefered : NULL, sign);
         if(biggest_t.ptr_depth || biggest_t.data == DATA_INT){
             reg_t *lhs = generate_expr(fptr, expr->bin_op.lhs, biggest_t, NULL), *rhs = generate_expr(fptr, expr->bin_op.rhs, biggest_t, NULL);
@@ -1299,8 +1365,11 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
         }else if(biggest_t.data == DATA_FLOAT){
             t1.sign = t2.sign = false;
             if(!generate_float_expr(fptr, expr->bin_op.rhs) || !generate_float_expr(fptr, expr->bin_op.lhs))
-                return false;
+                fail_gen_expr(fptr);
             gen_cmp_floats(fptr);
+        }else{
+            print_context_expr("Cannot compare things other than ints / floats", expr);
+            fail_gen_expr(fptr);
         }
         if(!tmp) tmp = alloc_reg(GET_FREE_REG(1), sign);
         gen_cond_set(fptr, expr->type, tmp, t1.sign || t2.sign);
@@ -1620,26 +1689,9 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
         stack_sz -= func_call_sz;
         return tmp;
     }
-    case tk_sizeof:{
-        type_t value_type = INVALID_TYPE;
-        if(expr->unary_op.lhs->type == tk_int8)
-            value_type = type_from_tk(expr->unary_op.lhs->type_expr.start);
-        else if(expr->unary_op.lhs->type == tk_identifier){
-            struct_t* stru = get_struct(expr->unary_op.lhs->term.str, expr->unary_op.lhs->term.strlen);
-            if(stru)
-                value_type = (type_t){stru->size, .data = DATA_STRUCT, .ptr_depth = 0};
-            union_t* unio = get_union(expr->unary_op.lhs->term.str, expr->unary_op.lhs->term.strlen);
-            if(unio)
-                value_type = (type_t){unio->size, .data = DATA_UNION, .ptr_depth = 0};
-        }
-        if(!value_type.data)
-            value_type = typeof_expr(expr->unary_op.lhs);
-        if(!value_type.data)
-            fail_gen_expr(fptr);
-        reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(sz), sign);
-        gen_set_reg_raw(fptr, tmp, SIZEOF_T(value_type));
-        return tmp;
-    }
+    case tk_sizeof:
+        print_context_expr("Size cannot be determined", expr);
+        fail_gen_expr(fptr);
     case tk_ternary:{
         size_t other_label = label_count++, end_label = label_count++;
         reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(sz), sign);
@@ -1900,6 +1952,9 @@ bool generate_func(HC_FILE fptr, func_t* target, node_stmt* stmt, token_t* paren
         type_from_tk(stmt->func_decl.func_type)
     };
 
+    // Good way to know where something happens
+    // print_context_ex("Test", func.str, func.strlen);
+
     if(!func.type.data || (!func.type.ptr_depth && func.type.data != DATA_INT && !func.type.size)){
         print_context("Type returned by function is invalid", stmt->func_decl.identifier);
         return false;
@@ -1920,6 +1975,8 @@ bool generate_func(HC_FILE fptr, func_t* target, node_stmt* stmt, token_t* paren
         func.type.ptr_depth == target->type.ptr_depth &&
         func.type.data == target->type.data);
         node_var_decl* last_arg = &target->args->var_decl;
+        if((last_arg == NULL) != (func.args == NULL))
+            same = false;
         for(node_var_decl* arg = &func.args->var_decl; same && arg; arg = &arg->next->var_decl, last_arg = &last_arg->next->var_decl){
             if((arg->type == tk_var_args) != (last_arg->type == tk_var_args)){
                 if(arg->type != tk_var_args)
@@ -2163,7 +2220,9 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
         // Go through the if's scope if its condition is true
         if(!generate_stmt(fptr, stmt->if_stmt.stmts, fn_type, parent))
             return false;
-        gen_jump(fptr, end_label);
+
+        if(stmt->next && (stmt->next->type == tk_else_if || stmt->next->type == tk_else))
+            gen_jump(fptr, end_label);
 
         // The "other" label is a label that precedes the next statement
         // in a if -> else if ... -> else chain
@@ -2286,7 +2345,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
         parent.break_label = end_label;
 
         // Start the loop
-        reg_t* cond = generate_expr(fptr, stmt->repeat_stmt.cond, typeof_expr(stmt->repeat_stmt.cond), NULL);
+        reg_t* cond = generate_expr(fptr, stmt->repeat_stmt.cond, (type_t){8, GET_DUMMY_TYPE(uint64), false, DATA_INT, 8, 0}, NULL);
         scope_t repeat_scope = gen_init_scope(fptr, stmt->repeat_stmt.stmts);
         gen_label(fptr, start_label);
 
@@ -2678,6 +2737,8 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             if(func->flags & FLAG_CFUNC)
                 first_member_def = false;
         }
+
+        current_module = get_module(str, strlen);
 
         for(node_stmt* ptr = stmt->struct_decl.members; ptr; ptr = ptr->next){
             // Scalar members
@@ -3099,6 +3160,14 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
                     print_context_ex("Modifiers extern, static, @cfunc and @peek are prohibited on functions inside modules", func->str, func->strlen);
                     return false;
                 }
+                if(mod->external && func->flags & FLAG_FDEF){
+                    print_context_ex("Cannot define functions in module if it is external", func->str, func->strlen);
+                    if(stmt->struct_decl.identifier->next->type != tk_extern)
+                        print_context_ex("Consider adding = after module name to start its definition", mod->str, mod->strlen);
+                    else
+                        print_context("Consider replacing extern with = to start its definition", stmt->struct_decl.identifier->next);
+                    return false;
+                }
             }else{
                 print_context("Can only declare constants, variables and functions in a module", stmt->struct_decl.identifier);
                 return false;
@@ -3299,7 +3368,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
 }
 
 static bool generate_constant(HC_FILE fptr, type_t target_type, node_expr* expr){
-    if((expr->type == tk_str_lit || expr->type == tk_getaddr || expr->type == tk_identifier) && !target_type.ptr_depth){
+    if((expr->type == tk_str_lit || expr->type == tk_getaddr) && !target_type.ptr_depth){
         print_context_expr("Cannot assign pointer value to non-pointer type", expr);
         print_type("Type ", target_type, " is not a pointer type!");
         return false;
@@ -3327,12 +3396,19 @@ static bool generate_constant(HC_FILE fptr, type_t target_type, node_expr* expr)
             print_context_ex("Unknown identifier", expr->term.str, expr->term.strlen);
             return false;
         }
-        if(var->location != VAR_GLOBAL_ARR){
-            print_context_ex("Expected global array known at compile time", var->str, var->strlen);
-            HC_WARN("Cannot assign a global variable's value to a global variable during initialisation.");
+        if(var->location == VAR_GLOBAL_ARR)
+            gen_declare_global_ptr(fptr, var->str, var->strlen);
+        else if(var->location == VAR_GLOBAL && var->stack_ptr != ~0){
+            if(!types_compatible(var->type, target_type)){
+                print_context_ex("Types are incompatible!", expr->term.str, expr->term.strlen);
+                return false;
+            }
+            node_expr* var_expr = vector_at(global_var_values, var->stack_ptr);
+            return generate_constant(fptr, target_type, var_expr);
+        }else{
+            print_context_ex("Expected global variable with known initialisation value or global array", expr->term.str, expr->term.strlen);
             return false;
         }
-        gen_declare_global_ptr(fptr, var->str, var->strlen);
     }else if(target_type.ptr_depth || target_type.data == DATA_INT){
         size_t sz = SIZEOF_T(target_type);
         bool sign = SIGNOF_T(target_type);

@@ -60,6 +60,10 @@ int write(uint fd, char* buff, uint len){
     @return = syscall3(1, fd, (uint)buff, len);
 }
 
+int open(char* filepath, uint flags, uint mode){
+    @return = syscall3(2, (uint)filepath, flags, mode);
+}
+
 // Exits the program instantly with a code
 void exit(int code){
     syscall1(60, code);
@@ -96,20 +100,20 @@ uint32 htons(uint16 n){
 
 // Termios
 int ioctl(int fd, uint op, void* argp){
-    return syscall3(16, fd, op, (uint)argp);
+    return syscall3(16, fd, op, (uint) argp);
 }
 
 int tcgetattr(int fd, termios *term){
-    return ioctl(fd, TCGETS, term);
+    return ioctl(fd, TCGETS, (void*)term);
 }
 
 int tcsetattr(int fd, int actions, termios* term){
     if(actions == TCSANOW)
-        return ioctl(fd, TCSETS , term);
+        return ioctl(fd, TCSETS, (void*) term);
     else if(actions == TCSADRAIN)
-        return ioctl(fd, TCSETSW, term);
+        return ioctl(fd, TCSETSW, (void*) term);
     else if(actions == TCSAFLUSH)
-        return ioctl(fd, TCSETSF, term);
+        return ioctl(fd, TCSETSF, (void*) term);
     return -1;
 }
 

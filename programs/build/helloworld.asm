@@ -70,8 +70,7 @@ print_numbers:
 	mov rbx, [rsp+24]
 	add rsp, 32
 	mov rcx, [rsp+8]
-	mov rsi, 0x8
-	add rcx, rsi
+	add rcx, 0x8
 	mov [rsp+8], rcx
 	mov cl, 0x2c
 	mov [rsp+7], cl
@@ -82,6 +81,8 @@ print_numbers:
 	sub rsp, 16
 	mov bl, 0xa
 	mov [rsp+0], bl
+	mov rbx, QWORD [stdout]
+	mov [rsp+8], rbx
 	call print_char
 	add rsp, 16
 	.L0:
@@ -92,7 +93,7 @@ global main:function
 main:
 	push rbp
 	mov rbp, rsp
-	sub rsp, 16
+	sub rsp, 48
 	sub rsp, 16
 	mov rbx, STR1
 	mov [rsp+0], rbx
@@ -158,15 +159,31 @@ main:
 	mov [rsp+16], rbx
 	call println
 	add rsp, 32
-	sub rsp, 16
+	lea rbx, [rsp+16]
+	sub rsp, 32
+	mov [rsp+0], rbx
 	mov rbx, STR12
+	mov [rsp+8], rbx
+	mov rbx, 0xffffffffffffffff
+	mov [rsp+16], rbx
+	call string.from_str
+	add rsp, 32
+	sub rsp, 16
+	mov rbx, STR13
+	mov [rsp+0], rbx
+	lea rbx, [rsp+32]
+	mov [rsp+8], rbx
+	call println
+	add rsp, 16
+	sub rsp, 16
+	mov rbx, STR14
 	mov [rsp+0], rbx
 	mov rbx, 0x40
 	mov [rsp+8], rbx
 	call println
 	add rsp, 16
 	sub rsp, 32
-	mov rbx, STR13
+	mov rbx, STR15
 	mov [rsp+0], rbx
 	mov rbx, 0x5
 	mov [rsp+8], rbx
@@ -175,42 +192,42 @@ main:
 	call println
 	add rsp, 32
 	sub rsp, 16
-	mov rbx, STR14
+	mov rbx, STR16
 	mov [rsp+0], rbx
 	mov rbx, 0xfffffffffffffd79
 	mov [rsp+8], rbx
 	call println
 	add rsp, 16
 	sub rsp, 16
-	mov rbx, STR15
+	mov rbx, STR17
 	mov [rsp+0], rbx
 	mov rbx, 0x19084
 	mov [rsp+8], rbx
 	call println
 	add rsp, 16
 	sub rsp, 16
-	mov rbx, STR16
+	mov rbx, STR18
 	mov [rsp+0], rbx
 	mov rbx, 0x19
 	mov [rsp+8], rbx
 	call println
 	add rsp, 16
 	sub rsp, 16
-	mov rbx, STR17
+	mov rbx, STR19
 	mov [rsp+0], rbx
 	mov rbx, 0xbeef
 	mov [rsp+8], rbx
 	call println
 	add rsp, 16
 	sub rsp, 16
-	mov rbx, STR18
+	mov rbx, STR20
 	mov [rsp+0], rbx
 	mov rbx, 0x1
 	mov [rsp+8], rbx
 	call println
 	add rsp, 16
 	sub rsp, 32
-	mov rbx, STR19
+	mov rbx, STR21
 	mov [rsp+8], rbx
 	mov rbx, 0xffffffffffffffff
 	mov [rsp+16], rbx
@@ -219,14 +236,14 @@ main:
 	add rsp, 32
 	mov [rsp+12], ebx
 	sub rsp, 16
-	mov rbx, STR20
+	mov rbx, STR22
 	mov [rsp+0], rbx
 	movsxd rbx, DWORD [rsp+28]
 	mov [rsp+8], rbx
 	call println
 	add rsp, 16
 	sub rsp, 16
-	mov rbx, STR21
+	mov rbx, STR23
 	mov [rsp+0], rbx
 	mov DWORD [__FP_TMP], 0xc181b368
 	fld DWORD [__FP_TMP]
@@ -234,7 +251,7 @@ main:
 	call println
 	add rsp, 16
 	sub rsp, 32
-	mov rbx, STR22
+	mov rbx, STR24
 	mov [rsp+0], rbx
 	mov rbx, 0x6
 	mov [rsp+8], rbx
@@ -301,9 +318,19 @@ extern atan2:function
 extern is_alnum:function
 extern File.write:function
 extern File.read:function
+extern File.print:function
+extern File.println:function
 extern File.set_buffering:function
 extern File.set_buffer:function
 extern File.flush:function
+extern string.str:function
+extern string.length:function
+extern string.print:function
+extern string.compare:function
+extern string.is_equal:function
+extern string.is_heap:function
+extern string.is_stack:function
+extern string.free:function
 extern File.open:function
 extern File.close:function
 extern fixed.from_int:function
@@ -314,7 +341,11 @@ extern fixed.to_float:function
 extern fixed.mul:function
 extern fixed.div:function
 extern fixed.mod:function
+extern string.from_str:function
+extern string.from_heap:function
+extern string.share:function
 extern string.new:function
+extern string.format:function
 
 
 section .data
@@ -357,24 +388,28 @@ db "length string:     ",34,"%*s",34,"",0
 STR11:
 db "1234567890",0
 STR12:
-db "character:         '%c'",0
+db "HolyCow string object!",0
 STR13:
-db "repeated character: %*c",0
+db "string object:     ",34,"%S",34,"",0
 STR14:
-db "signed int:         %i",0
+db "character:         '%c'",0
 STR15:
-db "unsigned int:       %u",0
+db "repeated character: %*c",0
 STR16:
-db "n length uint:      %04",0
+db "signed int:         %i",0
 STR17:
-db "uint (hex):         %x",0
+db "unsigned int:       %u",0
 STR18:
-db "bool:               %b",0
+db "n length uint:      %04",0
 STR19:
-db "-16.2126",0
+db "uint (hex):         %x",0
 STR20:
-db "fixed point:        %F",0
+db "bool:               %b",0
 STR21:
-db "float:              %f",0
+db "-16.2126",0
 STR22:
+db "fixed point:        %F",0
+STR23:
+db "float:              %f",0
+STR24:
 db "float (n digits):   %*f",0

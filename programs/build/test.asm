@@ -56,7 +56,6 @@ frame:
 	je .L4
 	mov rcx, [rsp+8]
 	mov [rsp+32], rcx
-	jmp .L5
 	.L4:
 	.L5:
 	mov rcx, [rsp+24]
@@ -68,8 +67,7 @@ frame:
 	.L3:
 	add rsp, 16
 	mov rbx, [rsp+16]
-	mov rcx, 0x4
-	add rbx, rcx
+	add rbx, 0x4
 	mov [rsp+16], rbx
 	mov rbx, [rbp+16]
 	movzx rcx, BYTE [rbx]
@@ -118,8 +116,7 @@ frame:
 	mov rbx, [rsp+24]
 	add rsp, 32
 	mov rcx, [rsp+24]
-	mov rsi, 0x8
-	add rcx, rsi
+	add rcx, 0x8
 	mov [rsp+24], rcx
 	.L9:
 	dec rbx
@@ -371,13 +368,13 @@ global main:function
 main:
 	push rbp
 	mov rbp, rsp
-	sub rsp, 64
+	sub rsp, 96
 	fld QWORD [FP0]
-	fstp QWORD [rsp+56]
+	fstp QWORD [rsp+88]
 	fld QWORD [FP1]
-	fstp QWORD [rsp+48]
-	fld QWORD [rsp+48]
-	fld QWORD [rsp+56]
+	fstp QWORD [rsp+80]
+	fld QWORD [rsp+80]
+	fld QWORD [rsp+88]
 	fsubp
 	fabs
 	fld QWORD [FP_PRECISION]
@@ -391,17 +388,16 @@ main:
 	mov [rsp+0], rbx
 	mov rbx, 0xa
 	mov [rsp+8], rbx
-	fld QWORD [rsp+104]
+	fld QWORD [rsp+136]
 	fstp QWORD [rsp+16]
 	mov rbx, 0xa
 	mov [rsp+24], rbx
-	fld QWORD [rsp+96]
+	fld QWORD [rsp+128]
 	fstp QWORD [rsp+32]
 	fld QWORD [FP_PRECISION]
 	fstp QWORD [rsp+40]
 	call println
 	add rsp, 48
-	jmp .L2
 	.L1:
 	.L2:
 	sub rsp, 48
@@ -417,7 +413,7 @@ main:
 	mov [rsp+32], rbx
 	call frame
 	add rsp, 48
-	lea rbx, [rsp+16]
+	lea rbx, [rsp+48]
 	mov rcx, 0x6
 	mov [rbx+0], rcx
 	xor rcx, rcx
@@ -431,7 +427,7 @@ main:
 	lea rbx, [rsp+0]
 	cld
 	mov rdi, rbx
-	lea rsi, [rsp+48]
+	lea rsi, [rsp+80]
 	mov rcx, 4
 	rep movsq
 	call test.print
@@ -444,6 +440,22 @@ main:
 	add rsp, 16
 	call test.print
 	add rsp, 32
+	lea rbx, [rsp+16]
+	sub rsp, 32
+	mov [rsp+0], rbx
+	mov rbx, STR8
+	mov [rsp+8], rbx
+	mov rbx, 0xffffffffffffffff
+	mov [rsp+16], rbx
+	call string.from_str
+	add rsp, 32
+	sub rsp, 16
+	mov rbx, STR20
+	mov [rsp+0], rbx
+	lea rbx, [rsp+32]
+	mov [rsp+8], rbx
+	call println
+	add rsp, 16
 	lea rbx, [rsp+0]
 	lea r8, [rbx+0]
 	xor rcx, rcx
@@ -515,12 +527,14 @@ extern int_to_string:function
 extern string_to_int:function
 extern write:function
 extern print_format:function
+extern close:function
 extern strcmp:function
 extern strfind:function
 extern absf:function
 extern print_fixed:function
 extern absi:function
 extern floor:function
+extern open:function
 extern uint_to_string:function
 extern strdfind:function
 extern free:function
@@ -551,9 +565,19 @@ extern atan2:function
 extern is_alnum:function
 extern File.write:function
 extern File.read:function
+extern File.print:function
+extern File.println:function
 extern File.set_buffering:function
 extern File.set_buffer:function
 extern File.flush:function
+extern string.str:function
+extern string.length:function
+extern string.print:function
+extern string.compare:function
+extern string.is_equal:function
+extern string.is_heap:function
+extern string.is_stack:function
+extern string.free:function
 extern File.open:function
 extern File.close:function
 extern fixed.from_int:function
@@ -564,7 +588,11 @@ extern fixed.to_float:function
 extern fixed.mul:function
 extern fixed.div:function
 extern fixed.mod:function
+extern string.from_str:function
+extern string.from_heap:function
+extern string.share:function
 extern string.new:function
+extern string.format:function
 
 
 section .data
@@ -628,6 +656,8 @@ STR18:
 db "3. Foo-bar",0
 STR19:
 db "Foo bar",0
+STR20:
+db "%S",0
 FP0:
 dq 3.14159265359
 FP1:

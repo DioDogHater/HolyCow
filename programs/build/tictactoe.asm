@@ -75,13 +75,12 @@ Board.get:
 	mov rbp, rsp
 	mov rcx, [rbp+24]
 	lea rbx, [rcx+0]
-	mov rax, [rbp+32]
-	mov rcx, 0x3
-	mul rcx
-	mov rcx, [rbp+40]
-	add rax, rcx
-	mov cl, [rbx+rax*1]
-	mov [rbp+16], cl
+	mov rcx, [rbp+32]
+	lea rcx, [rcx+rcx*2]
+	mov rdi, [rbp+40]
+	add rcx, rdi
+	mov dil, [rbx+rcx*1]
+	mov [rbp+16], dil
 	.L0:
 	leave
 	ret
@@ -131,7 +130,6 @@ Board.place:
 	xor bl, bl
 	mov [rbp+16], bl
 	jmp .L0
-	jmp .L2
 	.L1:
 	.L2:
 	sub rsp, 48
@@ -169,19 +167,17 @@ Board.place:
 	xor bl, bl
 	mov [rbp+16], bl
 	jmp .L0
-	jmp .L7
 	.L6:
 	.L7:
 	mov rcx, [rbp+24]
 	lea rbx, [rcx+0]
-	mov rax, [rbp+32]
-	mov rcx, 0x3
-	mul rcx
-	mov rcx, [rbp+40]
-	add rax, rcx
-	mov rdi, [rbp+24]
-	mov cl, [rdi+9]
-	mov [rbx+rax*1], cl
+	mov rcx, [rbp+32]
+	lea rcx, [rcx+rcx*2]
+	mov rdi, [rbp+40]
+	add rcx, rdi
+	mov r8, [rbp+24]
+	mov dil, [r8+9]
+	mov [rbx+rcx*1], dil
 	mov bl, 0x1
 	mov [rbp+16], bl
 	jmp .L0
@@ -227,7 +223,6 @@ Board.print_board:
 	call println
 	mov sil, [rsp+31]
 	add rsp, 32
-	jmp .L5
 	.L4:
 	.L5:
 	sub rsp, 48
@@ -235,34 +230,28 @@ Board.print_board:
 	mov rbx, STR7
 	mov [rsp+0], rbx
 	mov rbx, [rsp+56]
-	mov rcx, 0x1
-	add rbx, rcx
+	inc rbx
 	mov [rsp+8], rbx
 	mov rcx, [rbp+16]
 	lea rbx, [rcx+0]
-	mov rax, [rsp+56]
-	mov rcx, 0x3
-	mul rcx
-	movzx rcx, BYTE [rbx+rax*1]
-	mov [rsp+16], rcx
+	mov rcx, [rsp+56]
+	lea rcx, [rcx+rcx*2]
+	movzx rdi, BYTE [rbx+rcx*1]
+	mov [rsp+16], rdi
 	mov rcx, [rbp+16]
 	lea rbx, [rcx+0]
-	mov rax, [rsp+56]
-	mov rcx, 0x3
-	mul rcx
-	mov rcx, 0x1
-	add rax, rcx
-	movzx rcx, BYTE [rbx+rax*1]
-	mov [rsp+24], rcx
+	mov rcx, [rsp+56]
+	lea rcx, [rcx+rcx*2]
+	inc rcx
+	movzx rdi, BYTE [rbx+rcx*1]
+	mov [rsp+24], rdi
 	mov rcx, [rbp+16]
 	lea rbx, [rcx+0]
-	mov rax, [rsp+56]
-	mov rcx, 0x3
-	mul rcx
-	mov rcx, 0x2
-	add rax, rcx
-	movzx rcx, BYTE [rbx+rax*1]
-	mov [rsp+32], rcx
+	mov rcx, [rsp+56]
+	lea rcx, [rcx+rcx*2]
+	add rcx, 0x2
+	movzx rdi, BYTE [rbx+rcx*1]
+	mov [rsp+32], rdi
 	call println
 	mov sil, [rsp+47]
 	add rsp, 48
@@ -301,8 +290,7 @@ Board.check_win:
 	mov r8, [rbp+24]
 	lea rdi, [r8+0]
 	mov r8, [rsp+8]
-	mov r9, 0x1
-	add r8, r9
+	inc r8
 	mov r9b, [rdi+r8*1]
 	mov dil, [rbp+32]
 	cmp r9b, dil
@@ -313,8 +301,7 @@ Board.check_win:
 	mov r8, [rbp+24]
 	lea rdi, [r8+0]
 	mov r8, [rsp+8]
-	mov r9, 0x2
-	add r8, r9
+	add r8, 0x2
 	mov r9b, [rdi+r8*1]
 	mov dil, [rbp+32]
 	cmp r9b, dil
@@ -325,12 +312,10 @@ Board.check_win:
 	mov cl, 0x1
 	mov [rbp+16], cl
 	jmp .L0
-	jmp .L5
 	.L4:
 	.L5:
 	mov rcx, [rsp+8]
-	mov rdi, 0x3
-	add rcx, rdi
+	add rcx, 0x3
 	mov [rsp+8], rcx
 	.L2:
 	dec rbx
@@ -353,9 +338,8 @@ Board.check_win:
 	je .L14
 	mov r8, [rbp+24]
 	lea rdi, [r8+0]
-	mov r8, 0x3
-	mov r9, [rsp+8]
-	add r8, r9
+	mov r8, [rsp+8]
+	add r8, 0x3
 	mov r9b, [rdi+r8*1]
 	mov dil, [rbp+32]
 	cmp r9b, dil
@@ -365,9 +349,8 @@ Board.check_win:
 	je .L13
 	mov r8, [rbp+24]
 	lea rdi, [r8+0]
-	mov r8, 0x6
-	mov r9, [rsp+8]
-	add r8, r9
+	mov r8, [rsp+8]
+	add r8, 0x6
 	mov r9b, [rdi+r8*1]
 	mov dil, [rbp+32]
 	cmp r9b, dil
@@ -378,7 +361,6 @@ Board.check_win:
 	mov cl, 0x1
 	mov [rbp+16], cl
 	jmp .L0
-	jmp .L12
 	.L11:
 	.L12:
 	mov rcx, [rsp+8]
@@ -420,7 +402,6 @@ Board.check_win:
 	mov bl, 0x1
 	mov [rbp+16], bl
 	jmp .L0
-	jmp .L16
 	.L15:
 	.L16:
 	mov rcx, [rbp+24]
@@ -455,7 +436,6 @@ Board.check_win:
 	mov bl, 0x1
 	mov [rbp+16], bl
 	jmp .L0
-	jmp .L20
 	.L19:
 	.L20:
 	xor bl, bl
@@ -487,7 +467,6 @@ Board.check_tie:
 	xor cl, cl
 	mov [rbp+16], cl
 	jmp .L0
-	jmp .L5
 	.L4:
 	.L5:
 	mov rcx, [rsp+8]
@@ -558,7 +537,6 @@ main:
 	test bl, bl
 	je .L5
 	jmp .L0
-	jmp .L6
 	.L5:
 	.L6:
 	mov rbx, [rsp+24]
@@ -609,14 +587,12 @@ main:
 	mov sil, [rsp+15]
 	add rsp, 16
 	jmp .L3
-	jmp .L8
 	.L7:
 	.L8:
-	lea rcx, [rsp+32]
-	movzx rbx, BYTE [rcx]
-	mov rcx, 0x31
-	sub rbx, rcx
-	mov [rsp+16], rbx
+	lea rbx, [rsp+32]
+	movzx rcx, BYTE [rbx]
+	sub rcx, 0x31
+	mov [rsp+16], rcx
 	sub rsp, 16
 	mov [rsp+15], sil
 	lea rbx, [rsp+48]
@@ -627,8 +603,7 @@ main:
 	mov sil, [rsp+15]
 	movzx rbx, BYTE [rsp+0]
 	add rsp, 16
-	mov rcx, 0x41
-	sub rbx, rcx
+	sub rbx, 0x41
 	mov [rsp+8], rbx
 	sub rsp, 48
 	mov [rsp+47], sil
@@ -645,7 +620,6 @@ main:
 	test bl, bl
 	je .L11
 	jmp .L4
-	jmp .L12
 	.L11:
 	.L12:
 	jmp .L3
@@ -817,9 +791,19 @@ extern atan2:function
 extern is_alnum:function
 extern File.write:function
 extern File.read:function
+extern File.print:function
+extern File.println:function
 extern File.set_buffering:function
 extern File.set_buffer:function
 extern File.flush:function
+extern string.str:function
+extern string.length:function
+extern string.print:function
+extern string.compare:function
+extern string.is_equal:function
+extern string.is_heap:function
+extern string.is_stack:function
+extern string.free:function
 extern File.open:function
 extern File.close:function
 extern fixed.from_int:function
@@ -830,7 +814,11 @@ extern fixed.to_float:function
 extern fixed.mul:function
 extern fixed.div:function
 extern fixed.mod:function
+extern string.from_str:function
+extern string.from_heap:function
+extern string.share:function
 extern string.new:function
+extern string.format:function
 
 
 section .data

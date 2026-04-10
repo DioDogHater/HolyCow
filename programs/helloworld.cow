@@ -74,6 +74,10 @@ int main(uint argc, char** argv){
     // length must be followed by string
     println("length string:     \"%*s\"", 5, "1234567890");
 
+    // Print a string object (class instance)
+    string s = string.from_str("HolyCow string object!");
+    println("string object:     \"%S\"", &s);
+
     // Print a single character
     println("character:         '%c'", '@');
 

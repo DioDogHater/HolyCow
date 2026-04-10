@@ -312,18 +312,18 @@ type_t typeof_expr(node_expr* expr){
         case tk_bin_or:
         case tk_bin_xor:{
             type_t t1 = typeof_expr(expr->bin_op.lhs), t2 = typeof_expr(expr->bin_op.rhs);
-            short dt1 = (t1.ptr_depth) ? DATA_INT : DATA_FLOAT, dt2 = (t2.ptr_depth) ? DATA_INT : DATA_FLOAT;
-            if(t1.data && t2.data && t1.data == DATA_INT && t2.data == DATA_INT){
-                size_t sz1 = (t1.ptr_depth) ? target_address_size : t1.size, sz2 = (t2.ptr_depth) ? target_address_size : t2.size;
+            short dt1 = DATAOF_T(t1), dt2 = DATAOF_T(t2);
+            if(t1.data && t2.data && dt1 == DATA_INT && dt2 == DATA_INT){
+                size_t sz1 = SIZEOF_T(t1), sz2 = SIZEOF_T(t2);
                 if(sz1 > sz2 || t1.ptr_depth > t2.ptr_depth || (sz1 == sz2 && t1.sign > t2.sign))
                     max = t1;
                 else
                     max = t2;
-            }else if(t1.data == DATA_FLOAT && t2.data == DATA_INT)
+            }else if(dt1 == DATA_FLOAT && dt2 == DATA_INT)
                 max = t1;
-            else if(t2.data == DATA_FLOAT && t1.data == DATA_INT)
+            else if(dt1 == DATA_FLOAT && dt2 == DATA_INT)
                 max = t2;
-            else if(t1.data == DATA_FLOAT && t2.data == DATA_FLOAT)
+            else if(dt1 == DATA_FLOAT && dt2 == DATA_FLOAT)
                 max = t1;
             break;
         }
@@ -364,4 +364,21 @@ type_t typeof_expr(node_expr* expr){
         }
     }
     return max;
+}
+
+bool types_compatible(type_t a, type_t b){
+    uint8_t d1 = DATAOF_T(a), d2 = DATAOF_T(b);
+    if(!d1 || !d2)
+        return false;
+    if(a.ptr_depth != b.ptr_depth)
+        return false;
+    else if(a.ptr_depth && (a.size != b.size || a.data != b.data) && (!a.repr || a.repr->type != tk_void) && (!b.repr || b.repr->type != tk_void))
+        return false;
+    if((d1 == DATA_STRUCT && d2 == DATA_STRUCT) || (d1 == DATA_UNION && d2 == DATA_UNION))
+        return (a.repr->strlen == b.repr->strlen) && strncmp(a.repr->str, b.repr->str, a.repr->strlen) == 0;
+    else if((d1 == DATA_INT && d2 == DATA_FLOAT) || (d1 == DATA_FLOAT && d2 == DATA_INT))
+        return true;
+    else if(d1 == d2)
+        return true;
+    return false;
 }

@@ -39,19 +39,24 @@ void gen_pop_stack(HC_FILE fptr, reg_t* op){
 
 // Unary ops
 void gen_set_reg(HC_FILE fptr, reg_t* reg, const char* val, size_t strlen){ HC_FPRINTF(fptr, "\tmov %s, %.*s\n", reg->name, (int)strlen, val); }
-void gen_set_reg_raw(HC_FILE fptr, reg_t* reg, uint64_t val){
+static uint64_t clip_val(reg_t* reg, uint64_t val){
     if(reg->size == 4)
-        val &= 0xFFFFFFFF;
+        return val & 0xFFFFFFFF;
     else if(reg->size == 2)
-        val &= 0xFFFF;
+        return val & 0xFFFF;
     else if(reg->size == 1)
-        val &= 0xFF;
-    HC_FPRINTF(fptr, "\tmov %s, 0x%" HC_FMT_64HEX "\n", reg->name, val);
+        return val & 0xFF;
+    return val;
+}
+void gen_set_reg_raw(HC_FILE fptr, reg_t* reg, uint64_t val){
+    HC_FPRINTF(fptr, "\tmov %s, 0x%" HC_FMT_64HEX "\n", reg->name, clip_val(reg, val));
 }
 void gen_clear_reg(HC_FILE fptr, reg_t* op){ HC_FPRINTF(fptr, "\txor %s, %s\n", op->name, op->name); }
-void gen_add_reg(HC_FILE fptr, reg_t* op, uint64_t x){ HC_FPRINTF(fptr, "\tadd %s, %lu\n", op->name, x); }
-void gen_sub_reg(HC_FILE fptr, reg_t* op, uint64_t x){ HC_FPRINTF(fptr, "\tsub %s, %lu\n", op->name, x); }
-void gen_and_reg(HC_FILE fptr, reg_t* op, uint64_t mask){ HC_FPRINTF(fptr, "\tand %s, %lu\n", op->name, mask); }
+void gen_add_reg(HC_FILE fptr, reg_t* op, uint64_t x){ HC_FPRINTF(fptr, "\tadd %s, 0x%" HC_FMT_64HEX "\n", op->name, clip_val(op, x)); }
+void gen_sub_reg(HC_FILE fptr, reg_t* op, uint64_t x){ HC_FPRINTF(fptr, "\tsub %s, 0x%" HC_FMT_64HEX "\n", op->name, clip_val(op, x)); }
+void gen_and_reg(HC_FILE fptr, reg_t* op, uint64_t mask){ HC_FPRINTF(fptr, "\tand %s, 0x%" HC_FMT_64HEX "\n", op->name, clip_val(op, mask)); }
+void gen_or_reg(HC_FILE fptr, reg_t* op, uint64_t mask){ HC_FPRINTF(fptr, "\tor %s, 0x%" HC_FMT_64HEX "\n", op->name, clip_val(op, mask)); }
+void gen_xor_reg(HC_FILE fptr, reg_t* op, uint64_t mask){ HC_FPRINTF(fptr, "\txor %s, 0x%" HC_FMT_64HEX "\n", op->name, clip_val(op, mask)); }
 void gen_shl_reg(HC_FILE fptr, reg_t* op, uint64_t n){ HC_FPRINTF(fptr, "\tshl %s, %lu\n", op->name, n); }
 void gen_shr_reg(HC_FILE fptr, reg_t* op, uint64_t n){ HC_FPRINTF(fptr, "\tshr %s, %lu\n", op->name, n); }
 void gen_sshr_reg(HC_FILE fptr, reg_t* op, uint64_t n){ HC_FPRINTF(fptr, "\tsar %s, %lu\n", op->name, n); }
@@ -74,6 +79,7 @@ static void x64_loadx_reg(HC_FILE fptr, reg_t* op, size_t sz, bool sign){
 #define x64_LOADX(fmt, ...) do{ x64_loadx_reg(fptr, op, sz, sign); HC_FPRINTF(fptr, fmt "\n",##__VA_ARGS__); }while(0)
 #define x64_PTR(fmt, ...) HC_FPRINTF(fptr, "\tlea %s, " fmt "\n", op->name,##__VA_ARGS__)
 #define x64_SAVE(fmt, ...) HC_FPRINTF(fptr, "\tmov " fmt ", %s\n",##__VA_ARGS__, op->name)
+#define x64_INC(fmt, ...) HC_FPRINTF(fptr, "\t%s %s " fmt "",(inc)?"inc":"dec",x64_sz_names[sz],##__VA_ARGS__)
 #define x64_ARGS(...) __VA_ARGS__
 #define x64_LOCATION_L(name, args, fmt, ...) \
 void gen_load_##name(HC_FILE fptr, reg_t* op, args){ x64_LOAD(fmt,##__VA_ARGS__); }
@@ -83,11 +89,14 @@ void gen_loadx_##name(HC_FILE fptr, reg_t* op, args, size_t sz, bool sign){ x64_
 void gen_load_##name##_ptr(HC_FILE fptr, reg_t* op, args){ x64_PTR(fmt,##__VA_ARGS__); }
 #define x64_LOCATION_SV(name, args, fmt, ...) \
 void gen_save_##name(HC_FILE fptr, reg_t* op, args){ x64_SAVE(fmt,##__VA_ARGS__); }
+#define x64_LOCATION_INC(name, args, fmt, ...) \
+void gen_inc_##name(HC_FILE fptr, args, size_t sz, bool inc){ x64_INC(fmt,##__VA_ARGS__); }
 #define x64_LOCATION(name, args, fmt, ...) \
 x64_LOCATION_L(name, args, fmt,##__VA_ARGS__) \
 x64_LOCATION_LX(name, args, fmt,##__VA_ARGS__) \
 x64_LOCATION_PTR(name, args, fmt,##__VA_ARGS__) \
-x64_LOCATION_SV(name, args, fmt,##__VA_ARGS__)
+x64_LOCATION_SV(name, args, fmt,##__VA_ARGS__) \
+x64_LOCATION_INC(name, args, fmt,##__VA_ARGS__)
 
 // Str
 void gen_load_str_lit(HC_FILE fptr, reg_t* op, size_t id){ x64_LOAD("STR%lu", id); }
@@ -103,6 +112,8 @@ x64_LOCATION_PTR(global, x64_GLOBAL_ARGS, "[%.*s]", (int)strlen, str);
 x64_LOCATION_PTR(global_offset, x64_GLOBAL_OFFSET_ARGS, "[%.*s+%lu]", (int)strlen, str, offset);
 x64_LOCATION_SV(global, x64_GLOBAL_ARGS, "[%.*s]", (int)strlen, str);
 x64_LOCATION_SV(global_offset, x64_GLOBAL_OFFSET_ARGS, "[%.*s+%lu]", (int)strlen, str, offset);
+x64_LOCATION_INC(global, x64_GLOBAL_ARGS, "[%.*s]", (int)strlen, str);
+x64_LOCATION_INC(global_offset, x64_GLOBAL_OFFSET_ARGS, "[%.*s+%lu]", (int)strlen, str, offset);
 
 // Stack
 x64_LOCATION(stack, size_t ptr, "[rsp+%lu]", ptr);
@@ -195,6 +206,7 @@ x64_LOCATION_L(idx, x64_INDEX_ARGS, "[%s+%s*%lu]", ptr->name, idx->name, x64_ind
 x64_LOCATION_LX(idx, x64_ARGS(reg_t* ptr, reg_t* idx), "[%s+%s*%lu]", ptr->name, idx->name, x64_index_scale(fptr, idx, sz));
 x64_LOCATION_PTR(idx, x64_INDEX_ARGS, "[%s+%s*%lu]", ptr->name, idx->name, x64_index_scale(fptr, idx, elem_sz));
 x64_LOCATION_SV(idx, x64_INDEX_ARGS, "[%s+%s*%lu]", ptr->name, idx->name, x64_index_scale(fptr, idx, elem_sz));
+x64_LOCATION_INC(idx, x64_ARGS(reg_t* ptr, reg_t* idx), "[%s+%s*%lu]", ptr->name, idx->name, x64_index_scale(fptr, idx, sz));
 
 // Pointer + offset IO
 #define x64_OFFSET_ARGS x64_ARGS(reg_t* ptr, size_t offset)
@@ -202,20 +214,21 @@ x64_LOCATION_L(offset, x64_OFFSET_ARGS, "[%s+%lu]", ptr->name, offset);
 x64_LOCATION_LX(offset, x64_OFFSET_ARGS, "[%s+%lu]", ptr->name, offset);
 x64_LOCATION_PTR(offset, x64_OFFSET_ARGS, "[%s+%lu]", ptr->name, offset);
 x64_LOCATION_SV(offset, x64_OFFSET_ARGS, "[%s+%lu]", ptr->name, offset);
+x64_LOCATION_INC(offset, x64_OFFSET_ARGS, "[%s+%lu]", ptr->name, offset);
 
 // Copy memory
 const reg_mask allowed_copy_regs = ALL_REGS_EXCEPT(REG(2) | REG(4) | REG(5));
 const reg_mask affected_copy_regs = REG(2) | REG(4) | REG(5);
 #define GEN_COPY_MEMORY(addr, ...) \
+    if(sz == 8){ HC_FPRINTF(fptr, "\tmov rdi, [" addr "]\n\tmov [%s], rdi\n",##__VA_ARGS__, dest->name); return; }\
+    else if(sz == 4){ HC_FPRINTF(fptr, "\tmov edi, [" addr "]\n\tmov [%s], edi\n",##__VA_ARGS__, dest->name); return; }\
+    else if(sz == 2){ HC_FPRINTF(fptr, "\tmov di, [" addr "]\n\tmov [%s], di\n",##__VA_ARGS__, dest->name); return; }\
+    else if(sz == 1){ HC_FPRINTF(fptr, "\tmov dil, [" addr "]\n\tmov [%s], dil\n",##__VA_ARGS__, dest->name); return; }\
     reg_t* affected_regs[MAX_REGS];\
     reg_t* replacement_regs[MAX_REGS];\
     int n = get_mask_occup_regs(affected_copy_regs, true, registers, affected_regs);\
     for(int i = 0; i < n; i++)\
         replacement_regs[i] = transfer_reg(fptr, affected_regs[i], GET_MASK_REG(affected_regs[i]->size, allowed_copy_regs));\
-    if(sz == 8){ HC_FPRINTF(fptr, "\tmov rdi, [" addr "]\n\tmov [%s], rdi\n",##__VA_ARGS__, dest->name); return; }\
-    else if(sz == 4){ HC_FPRINTF(fptr, "\tmov edi, [" addr "]\n\tmov [%s], edi\n",##__VA_ARGS__, dest->name); return; }\
-    else if(sz == 2){ HC_FPRINTF(fptr, "\tmov di, [" addr "]\n\tmov [%s], di\n",##__VA_ARGS__, dest->name); return; }\
-    else if(sz == 1){ HC_FPRINTF(fptr, "\tmov dil, [" addr "]\n\tmov [%s], dil\n",##__VA_ARGS__, dest->name); return; }\
     char op_size = 'b';\
     if(sz % 8 == 0) op_size = 'q', sz /= 8;\
     else if(sz % 4 == 0) op_size = 'd', sz /= 4;\

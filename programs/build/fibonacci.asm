@@ -30,8 +30,7 @@ fibo_recursive:
 	je .L1
 	sub rsp, 16
 	mov rbx, [rbp+24]
-	mov rcx, 0x1
-	sub rbx, rcx
+	dec rbx
 	mov [rsp+8], rbx
 	call fibo_recursive
 	mov rbx, [rsp+0]
@@ -39,8 +38,7 @@ fibo_recursive:
 	sub rsp, 32
 	mov [rsp+24], rbx
 	mov rcx, [rbp+24]
-	mov rsi, 0x2
-	sub rcx, rsi
+	sub rcx, 0x2
 	mov [rsp+8], rcx
 	call fibo_recursive
 	mov rbx, [rsp+24]
@@ -48,7 +46,6 @@ fibo_recursive:
 	add rsp, 32
 	add rbx, rcx
 	mov [rbp+16], rbx
-	jmp .L2
 	.L1:
 	.L2:
 	.L0:
@@ -70,8 +67,7 @@ fibo_recursive_cached:
 	jmp .L2
 	.L1:
 	mov rbx, [rbp+24]
-	mov rcx, 0x2
-	sub rbx, rcx
+	sub rbx, 0x2
 	mov rcx, QWORD [fibo+0]
 	cmp rbx, rcx
 	setl bl
@@ -79,16 +75,14 @@ fibo_recursive_cached:
 	je .L3
 	lea rbx, [fibo+8]
 	mov rcx, [rbp+24]
-	mov rsi, 0x2
-	sub rcx, rsi
+	sub rcx, 0x2
 	mov rsi, [rbx+rcx*8]
 	mov [rbp+16], rsi
 	jmp .L2
 	.L3:
 	sub rsp, 16
 	mov rbx, [rbp+24]
-	mov rcx, 0x1
-	sub rbx, rcx
+	dec rbx
 	mov [rsp+8], rbx
 	call fibo_recursive_cached
 	mov rbx, [rsp+0]
@@ -96,8 +90,7 @@ fibo_recursive_cached:
 	sub rsp, 32
 	mov [rsp+24], rbx
 	mov rcx, [rbp+24]
-	mov rsi, 0x2
-	sub rcx, rsi
+	sub rcx, 0x2
 	mov [rsp+8], rcx
 	call fibo_recursive_cached
 	mov rbx, [rsp+24]
@@ -118,7 +111,6 @@ fibo_recursive_cached:
 	dec rcx
 	mov rsi, [rbp+16]
 	mov [rbx+rcx*8], rsi
-	jmp .L5
 	.L4:
 	.L5:
 	.L2:
@@ -140,7 +132,6 @@ fibo_iterative:
 	mov rbx, [rbp+24]
 	mov [rbp+16], rbx
 	jmp .L0
-	jmp .L2
 	.L1:
 	.L2:
 	xor rbx, rbx
@@ -148,8 +139,7 @@ fibo_iterative:
 	mov rbx, 0x1
 	mov [rsp+0], rbx
 	mov rbx, [rbp+24]
-	mov rcx, 0x1
-	sub rbx, rcx
+	dec rbx
 	.L3:
 	test rbx, rbx
 	je .L5
@@ -174,13 +164,15 @@ main:
 	push rbp
 	mov rbp, rsp
 	sub rsp, 64
-	sub rsp, 16
+	sub rsp, 32
 	mov rbx, STR0
 	mov [rsp+0], rbx
 	mov rbx, 0xffffffffffffffff
 	mov [rsp+8], rbx
+	mov rbx, QWORD [stdout]
+	mov [rsp+16], rbx
 	call print_str
-	add rsp, 16
+	add rsp, 32
 	sub rsp, 32
 	lea rbx, [rsp+64]
 	mov [rsp+8], rbx
@@ -210,7 +202,6 @@ main:
 	mov [rsp+0], rbx
 	call error
 	add rsp, 16
-	jmp .L2
 	.L1:
 	.L2:
 	sub rsp, 16
@@ -287,9 +278,19 @@ extern atan2:function
 extern is_alnum:function
 extern File.write:function
 extern File.read:function
+extern File.print:function
+extern File.println:function
 extern File.set_buffering:function
 extern File.set_buffer:function
 extern File.flush:function
+extern string.str:function
+extern string.length:function
+extern string.print:function
+extern string.compare:function
+extern string.is_equal:function
+extern string.is_heap:function
+extern string.is_stack:function
+extern string.free:function
 extern File.open:function
 extern File.close:function
 extern fixed.from_int:function
@@ -300,7 +301,11 @@ extern fixed.to_float:function
 extern fixed.mul:function
 extern fixed.div:function
 extern fixed.mod:function
+extern string.from_str:function
+extern string.from_heap:function
+extern string.share:function
 extern string.new:function
+extern string.format:function
 
 
 section .data

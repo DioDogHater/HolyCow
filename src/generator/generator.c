@@ -1288,6 +1288,7 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
             (sign) ? gen_s##m##_regs(fptr, tmp3, tmp2) : gen_##m##_regs(fptr, tmp3, tmp2);\
             (void) transfer_reg(fptr, tmp3, tmp1);\
             (void) transfer_reg(fptr, tmp4, tmp3);\
+            (void) free_reg(tmp2);\
             for(int i = 0; i < n; i++)\
                 (void) transfer_reg(fptr, replacements[i], masked_regs[i]);\
             return tmp1;\
@@ -1299,6 +1300,7 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
             (void) transfer_reg(fptr, tmp2, tmp3);\
             (sign) ? gen_s##m##_regs(fptr, tmp1, tmp3) : gen_##m##_regs(fptr, tmp1, tmp3);\
             (void) transfer_reg(fptr, tmp4, tmp3);\
+            (void) free_reg(tmp2);\
             for(int i = 0; i < n; i++)\
                 (void) transfer_reg(fptr, replacements[i], masked_regs[i]);\
             return tmp1;\
@@ -1528,7 +1530,7 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
                 }
                 if(!check_module_private(var->flags, mod, expr->access.member, true))
                     fail_gen_expr(fptr);
-                reg_t* tmp = alloc_reg(GET_FREE_REG(sz), sign);
+                reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(sz), sign);
                 if(SIZEOF_T(var->type) < sz)
                     gen_loadx_global_offset(fptr, tmp, mod->str, mod->strlen, var->stack_ptr, var->type.size, sign);
                 else if(var->location == VAR_ARRAY)

@@ -1,0 +1,210 @@
+#include "../std/stdlib.hcw"
+#include "../std/linux/time.hcw"
+#include "stdin_control.hcw"
+
+module Game {
+    constexpr int width = 24;
+    constexpr int height = 16;
+    bool over = false;
+    uint score = 0;
+}
+
+class vec2 {
+    int32 x;
+    int32 y;
+
+    vec2 add(vec2 b){ return vec2{this.x + b.x, this.y + b.y}; }
+    void iadd(vec2 b){ this.x += b.x; this.y += b.y; }
+    vec2 sub(vec2 b){ return vec2{this.x - b.x, this.y - b.y}; }
+    void isub(vec2 b){ this.x -= b.x; this.y -= b.y; }
+    vec2 mul(int32 s){ return vec2{this.x * s, this.y * s}; }
+    void imul(int32 s){ this.x *= s; this.y *= s; }
+    vec2 div(int32 s){ return vec2{this.x / s, this.y / s}; }
+    void idiv(int32 s){ this.x *= s; this.y *= s; }
+    int dot(vec2 b){ return this.x * b.x + this.y * b.y; }
+
+    bool is_equal(vec2 b){ return (this.x == b.x) and (this.y == b.y); }
+
+    void print(){ println("(%i, %i)", this.x, this.y); }
+}
+
+module Input {
+    uint32 x;
+    bool space;
+
+    void get(){
+        Input.x = 0;
+        Input.space = false;
+
+        char buff[24];
+        int sz = stdin.read(buff, 24);
+        if(sz < 0)
+            return;
+        char* ptr = buff;
+        repeat(sz){
+            if(to_lower(*ptr) == 'a')
+                --Input.x;
+            else if(to_lower(*ptr) == 'd')
+                ++Input.x;
+            else if(*ptr == ' ')
+                Input.space = true;
+            else if(*ptr == 'q')
+                Game.over = true;
+        }
+    }
+}
+
+module Blocks {
+    constexpr int width = Game.width;
+    constexpr int height = Game.height / 3;
+    bool arr[Blocks.width * Blocks.height];
+
+    void init(){
+        memset(Blocks.arr, true, Blocks.width * Blocks.height);
+    }
+
+    private bool collide(int32 x, int32 y){
+        if(x < 0 || x >= Blocks.width * 2 || y < 0 || y >= Blocks.height)
+            return false;
+        bool* ptr = Blocks.arr + x / 2 + y * Blocks.width;
+        @return = *ptr;
+        if(@return){
+            *ptr = false;
+            Game.score++;
+        }
+    }
+
+    bool check_hit(vec2* pos, vec2* vel){
+        @return = true;
+        if(Blocks.collide(pos.x + vel.x, pos.y)){
+            vel.x = -vel.x;
+        }else if(Blocks.collide(pos.x, pos.y + vel.y)){
+            vel.y = -vel.y;
+        }else if(Blocks.collide(pos.x + vel.x, pos.y + vel.y)){
+            vel.x = -vel.x;
+            vel.y = -vel.y;
+        }else
+            @return = false;
+    }
+}
+
+module Paddle {
+    constexpr int width = 4;
+
+    int32 x = Game.width / 2 - Paddle.width / 2;
+    constexpr int y = Game.height - 1;
+
+    void update(){
+        Paddle.x += Input.x;
+        if(Paddle.x < 0)
+            Paddle.x = 0;
+        else if(Paddle.x >= Game.width - Paddle.width)
+            Paddle.x = Game.width - Paddle.width;
+    }
+
+    bool check_hit(vec2* pos, vec2* vel){
+        @return = false;
+        if(vel.y > 0 && pos.y + vel.y == Paddle.y){
+            int32 x = pos.x + vel.x;
+            if(x / 2 >= Paddle.x && x / 2 < Paddle.x + Paddle.width){
+                if((x / 2 == Paddle.x && vel.x > 0) || (x / 2 == Paddle.x + Paddle.width - 1 && vel.x < 0))
+                    vel.x = -vel.x;
+                vel.y = -vel.y;
+                @return = true;
+            }
+        }
+    }
+}
+
+module Ball {
+    vec2 pos = vec2{Game.width, Paddle.y - 1};
+    vec2 vel = vec2{0, 0};
+
+    private bool check_collisions(){
+        @return = true;
+        if(Ball.vel.is_equal(vec2{0, 0}) && Input.space)
+            Ball.vel = vec2{randint(0, 2) * 2 - 1, -1};
+            vec2 next_pos = Ball.pos.add(Ball.vel);
+            if(next_pos.x < 0 || next_pos.x >= Game.width * 2)
+                Ball.vel.x *= -1;
+        else if(next_pos.y < 0)
+            Ball.vel.y *= -1;
+        else if(next_pos.y >= Game.height){
+            Game.over = true;
+            return false;
+        }else
+            @return = false;
+        @return = @return | Blocks.check_hit(&Ball.pos, &Ball.vel);
+        @return = @return | Paddle.check_hit(&Ball.pos, &Ball.vel);
+    }
+
+    void update(){
+        while(Ball.check_collisions());
+        Ball.pos.iadd(Ball.vel);
+    }
+}
+
+module Screen {
+    constexpr int width = Game.width * 2;
+    constexpr int height = Game.height;
+    private char buff[Screen.width * Screen.height];
+
+    void clear(){
+        memset(Screen.buff, ' ', Screen.width * Screen.height);
+        print("\x1b[2H\x1b[J");
+        stdout.flush();
+    }
+
+    void print(){
+        // Render every block on the screen
+        char* ptr = Screen.buff;
+        bool* bl = Blocks.arr;
+        repeat(Blocks.width * Blocks.height){
+            if(*(bl++)){
+                *ptr = '[';
+                *(ptr+1) = ']';
+            }
+            ptr += 2;
+        }
+
+        // Render the paddle on the screen
+        ptr = &Screen.buff[Paddle.y * Screen.width];
+        int32 pdx = Paddle.x * 2;
+        *(ptr + pdx++) = '<';
+        repeat(Paddle.width * 2 - 2){ *(ptr + pdx++) = '='; }
+        *(ptr + pdx++) = '>';
+
+        // Render the ball on the screen
+        if(Ball.pos.x >= 0 && Ball.pos.x < Screen.width && Ball.pos.y >= 0 && Ball.pos.y < Screen.height)
+            Screen.buff[Ball.pos.x + Ball.pos.y * Screen.width] = '@';
+
+        // Print the screen row by row
+        ptr = Screen.buff;
+        repeat(Screen.height){
+            println("%*s", Screen.width, ptr);
+            ptr += Screen.width;
+        }
+        // Print the controls
+        println("%[|| SCORE: %03 %*L%[ q to exit game. ||%*R", Game.score, Screen.width / 2, '=', Screen.width / 2, '=');
+     }
+}
+
+int main(uint argc, char** argv){
+    Blocks.init();
+    TTY.raw_input();
+    TTY.unblock_stdin();
+
+    while(!Game.over){
+        Screen.clear();
+        Screen.print();
+
+        Input.get();
+        Paddle.update();
+        Ball.update();
+
+        sleep(0.15);
+    }
+
+    TTY.restore_old();
+    TTY.block_stdin();
+}

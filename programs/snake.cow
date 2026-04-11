@@ -1,19 +1,10 @@
 #include "../std/stdlib.hcw"
-#include "../std/linux/fcntl.hcw"
-#include "../std/linux/termios.hcw"
-#include "../std/linux/syscall.hcw"
 #include "../std/linux/time.hcw"
+
+#include "stdin_control.hcw"
 
 // SNAKE GAME
 // Will only work on a linux TTY as of now
-
-void nonblock_stdin(){
-    fcntl(STDIN, F_SETFL, fcntl(STDIN, F_GETFL) | O_NONBLOCK);
-}
-
-void block_stdin(){
-    fcntl(STDIN, F_SETFL, fcntl(STDIN, F_GETFL) & (~O_NONBLOCK));
-}
 
 // Game dimensions
 // Enums are kinda like structs but compile-time (constant)
@@ -178,20 +169,11 @@ void draw_game(){
 }
 
 int main(uint argc, char** argv){
-    termios old_term;
-    termios new_term;
-
-    // Save the old TTY
-    tcgetattr(STDIN, &old_term);
-
-    // Setup the new TTY
-    // This will make the terminal give input instantly
-    new_term = old_term;
-    new_term.c_lflag = new_term.c_lflag & ~(ICANON | ECHO);
-    tcsetattr(STDIN, TCSANOW, &new_term);
-
     // Set stdin to non-blocking
-    nonblock_stdin();
+    TTY.unblock_stdin();
+
+    // Setup the raw input
+    TTY.raw_input();
 
     // Initialize the game state
     init_game();
@@ -228,8 +210,8 @@ int main(uint argc, char** argv){
             stdin.read(NULL, 64);
 
             // Restore old STDIN setup for prompt
-            block_stdin();
-            tcsetattr(STDIN, TCSANOW, &old_term);
+            TTY.block_stdin();
+            TTY.restore_old();
 
             sleep(0.25); // Wait to let their loss simmer in the bottom of their soul
 
@@ -240,8 +222,8 @@ int main(uint argc, char** argv){
             // and we restore the new STDIN setup
             init_game();
             gameover = false;
-            nonblock_stdin();
-            tcsetattr(STDIN, TCSANOW, &new_term);
+            TTY.unblock_stdin();
+            TTY.raw_input();
         }
     }
 }

@@ -16,8 +16,8 @@ _start:
 	mov rdi, [rsp]
 	syscall
 
-global nonblock_stdin:function
-nonblock_stdin:
+global TTY.unblock_stdin:function
+TTY.unblock_stdin:
 	push rbp
 	mov rbp, rsp
 	sub rsp, 32
@@ -43,8 +43,8 @@ nonblock_stdin:
 	leave
 	ret
 
-global block_stdin:function
-block_stdin:
+global TTY.block_stdin:function
+TTY.block_stdin:
 	push rbp
 	mov rbp, rsp
 	sub rsp, 32
@@ -65,6 +65,77 @@ block_stdin:
 	and rbx, 0xfffffffffffff7ff
 	mov [rsp+24], rbx
 	call fcntl
+	add rsp, 32
+	.L0:
+	leave
+	ret
+
+global TTY.restore_old:function
+TTY.restore_old:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 32
+	xor rbx, rbx
+	mov [rsp+8], rbx
+	xor rbx, rbx
+	mov [rsp+16], rbx
+	lea rbx, [TTY+0]
+	mov [rsp+24], rbx
+	call tcsetattr
+	add rsp, 32
+	.L0:
+	leave
+	ret
+
+global TTY.raw_input:function
+TTY.raw_input:
+	push rbp
+	mov rbp, rsp
+	lea rcx, [TTY+0]
+	mov ebx, DWORD [rcx+0]
+	mov rcx, 0xdada
+	cmp rbx, rcx
+	sete bl
+	test bl, bl
+	je .L1
+	sub rsp, 32
+	xor rbx, rbx
+	mov [rsp+8], rbx
+	lea rbx, [TTY+0]
+	mov [rsp+16], rbx
+	call tcgetattr
+	add rsp, 32
+	.L1:
+	.L2:
+	lea rcx, [TTY+56]
+	mov ebx, DWORD [rcx+0]
+	mov rcx, 0xdada
+	cmp rbx, rcx
+	sete bl
+	test bl, bl
+	je .L3
+	lea rbx, [TTY+56]
+	lea r8, [TTY+0]
+	cld
+	mov rdi, rbx
+	lea rsi, [r8]
+	mov rcx, 7
+	rep movsq
+	lea rbx, [TTY+56]
+	lea rsi, [TTY+56]
+	mov ecx, [rsi+12]
+	and ecx, 0xfffffff5
+	mov [rbx+12], ecx
+	.L3:
+	.L4:
+	sub rsp, 32
+	xor rbx, rbx
+	mov [rsp+8], rbx
+	xor rbx, rbx
+	mov [rsp+16], rbx
+	lea rbx, [TTY+56]
+	mov [rsp+24], rbx
+	call tcsetattr
 	add rsp, 32
 	.L0:
 	leave
@@ -691,33 +762,9 @@ global main:function
 main:
 	push rbp
 	mov rbp, rsp
-	sub rsp, 128
-	sub rsp, 32
-	xor rbx, rbx
-	mov [rsp+8], rbx
-	lea rbx, [rsp+104]
-	mov [rsp+16], rbx
-	call tcgetattr
-	add rsp, 32
-	lea rbx, [rsp+16]
-	cld
-	mov rdi, rbx
-	lea rsi, [rsp+72]
-	mov rcx, 7
-	rep movsq
-	mov ebx, [rsp+28]
-	and ebx, 0xfffffff5
-	mov [rsp+28], ebx
-	sub rsp, 32
-	xor rbx, rbx
-	mov [rsp+8], rbx
-	xor rbx, rbx
-	mov [rsp+16], rbx
-	lea rbx, [rsp+48]
-	mov [rsp+24], rbx
-	call tcsetattr
-	add rsp, 32
-	call nonblock_stdin
+	sub rsp, 16
+	call TTY.unblock_stdin
+	call TTY.raw_input
 	call init_game
 	xor bl, bl
 	mov [rsp+15], bl
@@ -792,16 +839,8 @@ main:
 	mov [rsp+24], rbx
 	call File.read
 	add rsp, 32
-	call block_stdin
-	sub rsp, 32
-	xor rbx, rbx
-	mov [rsp+8], rbx
-	xor rbx, rbx
-	mov [rsp+16], rbx
-	lea rbx, [rsp+104]
-	mov [rsp+24], rbx
-	call tcsetattr
-	add rsp, 32
+	call TTY.block_stdin
+	call TTY.restore_old
 	sub rsp, 16
 	fld QWORD [FP2]
 	fstp QWORD [rsp+0]
@@ -827,16 +866,8 @@ main:
 	call init_game
 	xor bl, bl
 	mov [rsp+15], bl
-	call nonblock_stdin
-	sub rsp, 32
-	xor rbx, rbx
-	mov [rsp+8], rbx
-	xor rbx, rbx
-	mov [rsp+16], rbx
-	lea rbx, [rsp+48]
-	mov [rsp+24], rbx
-	call tcsetattr
-	add rsp, 32
+	call TTY.unblock_stdin
+	call TTY.raw_input
 	.L7:
 	.L8:
 	jmp .L1
@@ -955,6 +986,22 @@ extern stdin:data
 extern File:data
 extern fixed:data
 extern string:data
+global TTY:data
+TTY:
+dd 56026
+times 4 db 0
+times 4 db 0
+times 4 db 0
+times 32 db 0
+times 4 db 0
+times 4 db 0
+dd 56026
+times 4 db 0
+times 4 db 0
+times 4 db 0
+times 32 db 0
+times 4 db 0
+times 4 db 0
 global snake:data
 snake:
 times 8 db 0

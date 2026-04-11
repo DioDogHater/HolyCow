@@ -9,6 +9,7 @@ ifeq ($(OS),Windows_NT)
 	TEST := .\programs\build\test.exe
 	TICTACTOE := .\programs\build\tictactoe.exe
 	SNAKE := .\programs\build\snake.exe
+	BREAKOUT := .\programs\build\breakout.exe
 	FIBONACCI := .\programs\build\fibonacci.exe
 	RAYLIB := .\programs\build\raylib.exe
 	LIBRAYLIB := libraylibdll.a
@@ -19,6 +20,7 @@ else
 	TEST := ./programs/build/test
 	TICTACTOE := ./programs/build/tictactoe
 	SNAKE := ./programs/build/snake
+	BREAKOUT := ./programs/build/breakout
 	FIBONACCI := ./programs/build/fibonacci
 	RAYLIB := ./programs/build/raylib
 	LIBRAYLIB := libraylib.a
@@ -27,7 +29,7 @@ endif
 HCC_FLAGS := -d --silent
 
 
-all: $(HELLOWORLD) $(TEST) $(TICTACTOE) $(SNAKE) $(FIBONACCI) $(RAYLIB)
+all: $(HELLOWORLD) $(TEST) $(TICTACTOE) $(SNAKE) $(FIBONACCI) $(RAYLIB) $(BREAKOUT)
 
 helloworld: $(HELLOWORLD)
 	$<
@@ -39,6 +41,9 @@ tictactoe: $(TICTACTOE)
 	$<
 
 snake: $(SNAKE)
+	$<
+
+breakout: $(BREAKOUT)
 	$<
 
 fibonacci: $(FIBONACCI)
@@ -64,6 +69,9 @@ $(TICTACTOE): programs/tictactoe.cow std/stdlib.o std/stdlib.hcw $(HCC)
 	$(HCC) $(HCC_FLAGS) $< -o $@ -lstd/stdlib.o
 
 $(SNAKE): programs/snake.cow std/stdlib.o std/stdlib.hcw $(HCC)
+	$(HCC) $(HCC_FLAGS) $< -o $@ -lstd/stdlib.o
+
+$(BREAKOUT): programs/breakout.cow std/stdlib.o std/stdlib.hcw $(HCC)
 	$(HCC) $(HCC_FLAGS) $< -o $@ -lstd/stdlib.o
 
 # For now, linux by default

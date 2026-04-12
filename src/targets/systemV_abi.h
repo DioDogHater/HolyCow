@@ -6,9 +6,17 @@
 #include "../generator/hc_types.h"
 #include "../generator/generator.h"
 
+static size_t xmms_used = 0;
+static size_t xmm_idx = 0;
+
 // Load a QWORD / DWORD from a global (offset optionally) in a XMM register
 static void x64_load_global_XMM(HC_FILE fptr, size_t which, const char* str, size_t strlen, size_t offset, bool dp){
     HC_FPRINTF(fptr, "\tmovs%c xmm%lu, %s [%.*s+%lu]\n", dp?'d':'s', which, dp?"QWORD":"DWORD", (int)strlen, str, offset);
+}
+
+// Load a QWORD from the stack
+static void x64_load_stack_XMM(HC_FILE fptr, size_t which, size_t offset){
+    HC_FPRINTF(fptr, "\tmovsd xmm%lu, QWORD [rsp+%lu]\n", which, offset);
 }
 
 // Save a XMM register in a QWORD / DWORD on the stack
@@ -217,6 +225,9 @@ static void sysV_load_arg(HC_FILE fptr, size_t* int_idx, size_t* float_idx, size
         else if(*float_idx > SYSV_XMM_ARGS)
             *stack_ptr += (*float_idx - SYSV_XMM_ARGS) * 8;
 
+        xmms_used = MIN(*float_idx, SYSV_XMM_ARGS);
+        xmm_idx = xmms_used;
+
         // We want to allocate the space needed on the stack first.
         if(*stack_ptr){
             *stack_ptr = ALIGN(*stack_ptr, 16);
@@ -269,9 +280,9 @@ static void sysV_load_arg(HC_FILE fptr, size_t* int_idx, size_t* float_idx, size
     // size of the function call.
     if(arg_type.ptr_depth || arg_type.data == DATA_INT)
         (*int_idx)++;
-    else if(arg_type.data == DATA_FLOAT)
+    else if(arg_type.data == DATA_FLOAT){
         (*float_idx)++;
-    else if(arg_type.data == DATA_STRUCT){
+    }else if(arg_type.data == DATA_STRUCT){
         stru = get_struct_tk(arg_type.repr);
         stack_passed = sysV_check_struct(stru, int_idx, float_idx, xmm_stored);
         if(stack_passed)
@@ -292,6 +303,7 @@ static void sysV_load_arg(HC_FILE fptr, size_t* int_idx, size_t* float_idx, size
     if(arg_type.ptr_depth || arg_type.data == DATA_INT)
         sysV_load_int_arg(fptr, --(*int_idx), stack_ptr, arg_expr, arg_type);
     else if(arg_type.data == DATA_FLOAT){
+        if(*float_idx < SYSV_XMM_ARGS) xmm_idx--;
         sysV_load_float_arg(fptr, --(*float_idx), stack_ptr, arg_expr, var_arg || arg_type.size == 8);
         if(var_arg && *float_idx < SYSV_XMM_ARGS)
             gen_inc_reg(fptr, sysV_xmm_count);
@@ -305,14 +317,16 @@ static void sysV_load_arg(HC_FILE fptr, size_t* int_idx, size_t* float_idx, size
             gen_load_global_ptr(fptr, ptr, "__GP_TMP", 8);
             save_struct(fptr, stru, ptr, arg_expr);
             if(stru->size > 8){
-                if(xmm_stored[1])
+                if(xmm_stored[1]){
+                    if(*float_idx < SYSV_XMM_ARGS) xmm_idx--;
                     x64_load_global_XMM(fptr, --(*float_idx), "__GP_TMP", 8, 8, (stru->size - 8) == 8);
-                else
+                }else
                     gen_load_global_offset(fptr, alloc_reg(sysV_reg_order[--(*int_idx)], false), "__GP_TMP", 8, 8);
             }
-            if(xmm_stored[0])
+            if(xmm_stored[0]){
+                if(*float_idx < SYSV_XMM_ARGS) xmm_idx--;
                 x64_load_global_XMM(fptr, --(*float_idx), "__GP_TMP", 8, 0, true);
-            else
+            }else
                 gen_load_global_offset(fptr, alloc_reg(sysV_reg_order[--(*int_idx)], false), "__GP_TMP", 8, 0);
         }
         (void) free_reg(ptr);
@@ -326,14 +340,16 @@ static void sysV_load_arg(HC_FILE fptr, size_t* int_idx, size_t* float_idx, size
             gen_load_global_ptr(fptr, ptr, "__GP_TMP", 8);
             save_union(fptr, unio, ptr, arg_expr);
             if(unio->size > 8){
-                if(xmm_stored[0])
+                if(xmm_stored[0]){
+                    if(*float_idx < SYSV_XMM_ARGS) xmm_idx--;
                     x64_load_global_XMM(fptr, --(*float_idx), "__GP_TMP", 8, 8, true);
-                else
+                }else
                     gen_load_global_offset(fptr, alloc_reg(sysV_reg_order[--(*int_idx)], false), "__GP_TMP", 8, 8);
             }
-            if(xmm_stored[0])
+            if(xmm_stored[0]){
+                if(*float_idx < SYSV_XMM_ARGS) xmm_idx--;
                 x64_load_global_XMM(fptr, --(*float_idx), "__GP_TMP", 8, 0, true);
-            else
+            }else
                 gen_load_global_offset(fptr, alloc_reg(sysV_reg_order[--(*int_idx)], false), "__GP_TMP", 8, 0);
         }
         (void) free_reg(ptr);
@@ -387,6 +403,10 @@ size_t generate_cfunc_call(HC_FILE fptr, node_expr* expr, func_t* func, reg_t* s
     size_t int_count = 0, float_count = 0;
     size_t float_vargs = 0;
 
+    // Save last function's state
+    size_t og_xmms_used = xmms_used, og_xmm_idx = xmm_idx;
+    xmms_used = xmm_idx = 0;
+
     // Get the occupied registers to save on the stack
     // (because a function can affect registers)
     int n = get_mask_occup_regs(ALL_REGS, true, registers, masked_regs);
@@ -396,6 +416,7 @@ size_t generate_cfunc_call(HC_FILE fptr, node_expr* expr, func_t* func, reg_t* s
         func_call_sz = ALIGN(func_call_sz, masked_regs[i]->size);
         func_call_sz += masked_regs[i]->size;
     }
+    func_call_sz += (og_xmms_used - og_xmm_idx) * 8;
     func_call_sz = ALIGN(func_call_sz, 16);
     if(func_call_sz){
         gen_alloc_stack(fptr, func_call_sz);
@@ -412,6 +433,10 @@ size_t generate_cfunc_call(HC_FILE fptr, node_expr* expr, func_t* func, reg_t* s
         arg_ptr = ALIGN(arg_ptr, masked_regs[i]->size);
         arg_ptr += masked_regs[i]->size;
         gen_save_stack(fptr, masked_regs[i], func_call_sz - arg_ptr);
+    }
+    for(size_t idx = og_xmm_idx; idx < og_xmms_used; idx++){
+        arg_ptr += 8;
+        x64_save_stack_XMM(fptr, idx, func_call_sz - arg_ptr, true);
     }
 
     // Free every register to be able to use them for evaluating expressions
@@ -494,6 +519,13 @@ size_t generate_cfunc_call(HC_FILE fptr, node_expr* expr, func_t* func, reg_t* s
         arg_ptr += masked_regs[i]->size;
         gen_load_stack(fptr, alloc_reg(masked_regs[i], false), func_call_sz - arg_ptr);
     }
+    for(size_t idx = og_xmm_idx; idx < og_xmms_used; idx++){
+        arg_ptr += 8;
+        x64_load_stack_XMM(fptr, idx, func_call_sz - arg_ptr);
+    }
+
+    // Restore last function's state
+    xmms_used = og_xmms_used, xmm_idx = og_xmm_idx;
 
     return func_call_sz;
 }

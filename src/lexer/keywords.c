@@ -36,7 +36,7 @@ static struct keyword_pair keywords[] = {
     KEYWORD(continue),
     KEYWORD(return),
     KEYWORD(repeat),
-    KEYWORD(loop),
+    KEYWORD(forever),
     ALIAS_KW(true, bool_lit),
     ALIAS_KW(false, bool_lit),
     KEYWORD(and),

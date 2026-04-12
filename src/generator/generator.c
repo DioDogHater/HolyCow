@@ -145,15 +145,17 @@ static bool save_memory(HC_FILE fptr, size_t sz, reg_t* ptr, node_expr* value){
         else if(var->location == VAR_ARG)
             gen_copy_arg(fptr, ptr, var->stack_ptr, sz);
     }else if(value->type == tk_deref){
-        reg_t* src = EXPR_ONCE(value->unary_op.lhs, typeof_expr(value), GET_MASK_REG(target_address_size, allowed_copy_regs));
+        reg_t* src = generate_expr(fptr, value->unary_op.lhs, typeof_expr(value->unary_op.lhs), GET_MASK_REG(target_address_size, allowed_copy_regs));
         gen_copy_ptr(fptr, ptr, src, sz);
+        (void) free_reg(src);
     }else if(value->type == tk_dot){
-        reg_t* src = GET_MASK_REG(target_address_size, allowed_copy_regs);
+        reg_t* src = alloc_reg(GET_MASK_REG(target_address_size, allowed_copy_regs), false);
         if(!get_expr_address(fptr, src, value))
             return false;
         gen_copy_ptr(fptr, ptr, src, sz);
+        (void) free_reg(src);
     }else if(value->type == tk_open_bracket){
-        reg_t* src = generate_expr(fptr, value->bin_op.lhs, typeof_expr(value), NULL);
+        reg_t* src = generate_expr(fptr, value->bin_op.lhs, typeof_expr(value->bin_op.lhs), NULL);
         reg_t* idx = generate_expr(fptr, value->bin_op.rhs, (type_t){8, GET_DUMMY_TYPE(uint64), false, DATA_INT, 8, 0}, NULL);
         gen_copy_idx(fptr, ptr, src, idx, sz);
         (void) free_reg(src);
@@ -405,6 +407,16 @@ bool get_expr_address(HC_FILE fptr, reg_t* tmp,  node_expr* expr){
 
 // Save a value in an expression
 bool save_expr(HC_FILE fptr, node_expr* expr, node_expr* value){
+    {
+        type_t expr_type = typeof_expr(expr), val_type = typeof_expr(value);
+        if(!types_compatible(expr_type, val_type)){
+            print_context_expr("Types are incompatible", value);
+            print_type("Type ", val_type, " is not compatible with");
+            print_type("the expected type ", expr_type, "!");
+            return false;
+        }
+    }
+
     if(expr->type == tk_identifier){
         // Variable assignment
         var_t* var = get_var(expr->term.str, expr->term.strlen);
@@ -1765,6 +1777,7 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
         (void) free_reg(tmp);
         gen_cmpz_reg(fptr, cond);
         gen_cond_jump(fptr, tk_cmp_eq, other_label, false);
+        (void) free_reg(cond);
         tmp = generate_expr(fptr, expr->ternary.lhs, target_type, tmp);
         (void) free_reg(tmp);
         gen_jump(fptr, end_label);
@@ -2110,7 +2123,7 @@ bool generate_func(HC_FILE fptr, func_t* target, node_stmt* stmt, token_t* paren
     // @return variable in the function scope
     arg_ptr += (func.type.ptr_depth || func.type.data == DATA_STRUCT || func.type.data == DATA_UNION) ? target_address_size : func.type.size;
     var_t return_var;
-    if(func.type.ptr_depth || func.type.data == DATA_STRUCT || func.type.data == DATA_UNION){
+    if(!func.type.ptr_depth && (func.type.data == DATA_STRUCT || func.type.data == DATA_UNION)){
         func.type.ptr_depth++;
         return_var = (var_t){"@return", 7, 0, VAR_ARG, FLAG_NONE, func.type};
         func.type.ptr_depth--;
@@ -2438,7 +2451,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
         gen_quit_scope(fptr, repeat_scope);
         return true;
     }
-    case tk_loop:{
+    case tk_forever:{
         parent.end_label = 0;
         parent.stack_sz = stack_sz;
 

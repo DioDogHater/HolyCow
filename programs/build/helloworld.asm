@@ -323,13 +323,13 @@ extern File.println:function
 extern File.set_buffering:function
 extern File.set_buffer:function
 extern File.flush:function
-extern string.str:function
-extern string.length:function
+extern string.share:function
 extern string.print:function
 extern string.compare:function
 extern string.is_equal:function
+extern string.str_equals:function
 extern string.is_heap:function
-extern string.is_stack:function
+extern string.is_shared:function
 extern string.free:function
 extern File.open:function
 extern File.close:function
@@ -342,8 +342,7 @@ extern fixed.mul:function
 extern fixed.div:function
 extern fixed.mod:function
 extern string.from_str:function
-extern string.from_heap:function
-extern string.share:function
+extern string.from_shared:function
 extern string.new:function
 extern string.format:function
 

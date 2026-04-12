@@ -11,8 +11,8 @@ ifeq ($(OS),Windows_NT)
 	SNAKE := .\programs\build\snake.exe
 	BREAKOUT := .\programs\build\breakout.exe
 	FIBONACCI := .\programs\build\fibonacci.exe
-	RAYLIB := .\programs\build\raylib.exe
-	LIBRAYLIB := libraylibdll.a
+	TEST3D := .\programs\build\test3d.exe
+	LIBRAYLIB := libraylib_win64.a
 else
 	HCC := ./build/hcc
 	STDLIB := std/linux/linux.cow std/linux/stdlib.cow
@@ -22,14 +22,14 @@ else
 	SNAKE := ./programs/build/snake
 	BREAKOUT := ./programs/build/breakout
 	FIBONACCI := ./programs/build/fibonacci
-	RAYLIB := ./programs/build/raylib
-	LIBRAYLIB := libraylib.a
+	TEST3D := ./programs/build/test3d
+	LIBRAYLIB := libraylib_linux_x64.a
 endif
 
 HCC_FLAGS := -d --silent
 
 
-all: $(HELLOWORLD) $(TEST) $(TICTACTOE) $(SNAKE) $(FIBONACCI) $(RAYLIB) $(BREAKOUT)
+all: $(HELLOWORLD) $(TEST) $(TICTACTOE) $(SNAKE) $(FIBONACCI) $(TEST3D) $(BREAKOUT)
 
 helloworld: $(HELLOWORLD)
 	$<
@@ -49,10 +49,10 @@ breakout: $(BREAKOUT)
 fibonacci: $(FIBONACCI)
 	$<
 
-raylib: $(RAYLIB)
+test3d: $(TEST3D)
 	$<
 
-$(RAYLIB): programs/raylib/main.cow $(HCC)
+$(TEST3D): programs/test3d.cow $(HCC)
 	$(HCC) -c $(HCC_FLAGS) $< -o $@
 	cc -no-pie -nostdlib $@.o -o $@ -Lprograms/raylib -l:$(LIBRAYLIB) -lc -lm
 

@@ -422,60 +422,53 @@ enum string {
 }
 
 class string {
-    private void set(char* str, uint len, uint type){
-        this.str = str;
-        this.length = (len == -1) ? strlen(str) : len;
-        this.offset = 0;
-        this.type = type;
-    }
+    private uint64* ref_cnt(){ @return = (uint64*)(this.str - this.offset - 8); }
+    private uint mem_size(){ @return = this.offset + this.length; }
 
-    char* str(){
-        if(this.type == string.shared)
-            return ((string*)this.str).str();
-        @return = (this.str) ? this.str + this.offset : NULL;
-    }
-    uint length(){
-        if(this.type == string.shared)
-            return ((string*)this.str).length();
-        @return = this.length;
+    void share(){
+        if(this.type == string.unknown)
+            return;
+        this.type = string.shared;
+        (*this.ref_cnt())++;
     }
 
     void print(File* f){
-        f.write(this.str(), this.length());
+        f.write(this.str, this.length);
     }
 
     int compare(string* b){
-        uint len = (this.length() < b.length()) ? this.length() : b.length();
-        @return = strcmp(this.str(), b.str(), len);
+        uint len = (this.length < b.length) ? this.length : b.length;
+        @return = strcmp(this.str, b.str, len);
     }
     bool is_equal(string* b){
-        @return = (this.compare(b) == 0);
+        @return = this.length == b.length && (this.compare(b) == 0);
     }
 
     bool is_heap(){
         @return = (this.type == string.heap);
     }
-    bool is_stack(){
-        if(this.type == string.shared)
-            @return = ((string*)this.str).is_stack();
-        @return = (this.type == string.unknown);
+    bool is_shared(){
+        @return = (this.type == string.shared);
     }
 
     // void free(){
     //     if(this.type == string.heap)
     //         free(this.str);
+    //     else if(this.type == string.shared){
+    //         uint refs = --(*this.ref_cnt());
+    //         if(!refs) free(this.ref_cnt());
+    //     }
     // }
 }
 
 module string = {
     string from_str(char* str, uint len){
-        @return.set(str, len, string.unknown);
+        if(len < 0) len = strlen(str);
+        *@return = string{str, len, 0, string.unknown};
     }
-    string from_heap(char* str, uint len){
-        @return.set(str, len, string.heap);
-    }
-    string share(string* og){
-        @return.set((char*)og, 0, string.shared);
+    string from_shared(string* og){
+        og.share();
+        *@return = *og;
     }
 }
 

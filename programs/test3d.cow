@@ -1,0 +1,88 @@
+#include "../libc/stdio.hcw"
+#include "../libc/stdlib.hcw"
+#include "../libc/math.hcw"
+#include "raylib/raylib.hcw"
+#include "raylib/raymath.hcw"
+
+double FP_PRECISION = EPSILON;
+
+int main(uint argc, char** argv){
+    InitWindow(500, 500, "Hello world!");
+
+    SetTargetFPS(60);
+
+    Camera cam = Camera{
+        Vector3{0.0, 2.5, 10.0},      // position
+        Vector3{0.0, 0.0, 5.0},       // target
+        Vector3{0.0, 1.0, 0.0},       // up
+        60.0,                         // fovy
+        CameraProjection.PERSPECTIVE  // perspective
+    };
+    Vector3 cam_rot = Vector3{0.0, 0.0, 0.0};
+    Quaternion cam_quat = QuaternionFromEuler(cam_rot.x, cam_rot.y, cam_rot.z);
+
+    float angle = 0.5;
+
+    forever{
+        if(WindowShouldClose())
+            break;
+
+        float delta = GetFrameTime();
+
+        // Camera rotation
+        if(IsMouseButtonDown(MouseButton.RIGHT)){
+            Vector2 delta_mouse = GetMouseDelta();
+            cam_rot = Vector3Add(cam_rot, Vector3{-delta_mouse.y * 0.005, -delta_mouse.x * 0.005, 0.0});
+            cam_quat = QuaternionFromEuler(cam_rot.x, cam_rot.y, cam_rot.z);
+            cam.position = Vector3RotateByQuaternion(Vector3{0.0, 0.0, 5.0}, cam_quat);
+            cam.position = Vector3Add(cam.position, cam.target);
+        }
+
+        // Linear movement
+        Vector3 delta_pos = Vector3{IsKeyDown(Key.D) - IsKeyDown(Key.A), IsKeyDown(Key.SPACE) - IsKeyDown(Key.C), IsKeyDown(Key.S) - IsKeyDown(Key.W)};
+        delta_pos = Vector3Scale(Vector3Normalize(delta_pos), delta * 5.0);
+        delta_pos = Vector3RotateByAxisAngle(delta_pos, Vector3{0.0, 1.0, 0.0}, cam_rot.y);
+
+        // Apply the linear movement
+        cam.target = Vector3Add(cam.target, delta_pos);
+        cam.position = Vector3Add(cam.position, delta_pos);
+
+        BeginDrawing();
+            ClearBackground(BLACK);
+            BeginMode3D(cam);
+                // Cube and sphere
+                DrawCube(cam.target, 1.0, 1.0, 1.0, WHITE);
+
+                // Podium looking thing
+                DrawCylinder(Vector3{0.0, 0.0, 0.0}, 0.25, 0.5, 1.0, 16, GRAY);
+
+                // Orb
+                Vector3 orb_pos = Vector3{0.0, sinf(2.0 * GetTime()) * 0.1 + 1.5, 0.0};
+                DrawSphereWires(orb_pos, 0.25, 8, 8, DARKGREEN);
+                DrawSphere(orb_pos, 0.05, GREEN);
+
+                // 3D Grid
+                DrawGrid(32, 5.0);
+
+                // White diamond shape around the orb and podium
+                DrawSphereWires(Vector3Zero, 3.0, 1, 4, WHITE);
+
+                // Ring and sphere
+                Quaternion rot_axis = QuaternionFromEuler(cosf(angle * 0.1) * PI * 0.5, angle, 0.0);
+                Vector3 v = Vector3RotateByQuaternion(Vector3{0.0, 0.0, 3.0}, rot_axis);
+                DrawCircle3D(Vector3{0.0, v.y, 0.0}, hypot(v.x, v.z), Vector3{1.0, 0.0, 0.0}, 90.0, BLUE);
+
+                angle += 5.0 * delta;
+                DrawSphere(v, 0.25, BLUE);
+            EndMode3D();
+
+            // FPS counter in top-left corner
+            DrawFPS(0, 0);
+
+            // Test text
+            DrawText("WASD to move, Space and C to go up and down\nDrag right click to unlock and move camera", 0, 20, 16, GREEN);
+        EndDrawing();
+    }
+
+    CloseWindow();
+}

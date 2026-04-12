@@ -1,7 +1,11 @@
 #include "../std/stdlib.hcw"
 #include "../std/linux/time.hcw"
-#include "stdin_control.hcw"
+#include "../std/linux/TTY.hcw"
 
+// BREAKOUT
+// Will only work on a linux TTY as of now
+
+// Global game state
 module Game {
     constexpr int width = 24;
     constexpr int height = 16;
@@ -9,6 +13,8 @@ module Game {
     uint score = 0;
 }
 
+// 2D integer vector
+// Use this in your projects if you want, dont reinvent the wheel yo
 class vec2 {
     int32 x;
     int32 y;
@@ -28,6 +34,7 @@ class vec2 {
     void print(){ println("(%i, %i)", this.x, this.y); }
 }
 
+// Global current input state
 module Input {
     uint32 x;
     bool space;
@@ -54,6 +61,7 @@ module Input {
     }
 }
 
+// Blocks to destroy
 module Blocks {
     constexpr int width = Game.width;
     constexpr int height = Game.height / 3;
@@ -74,6 +82,7 @@ module Blocks {
         }
     }
 
+    // Check if we hit a block and change direction if we did
     bool check_hit(vec2* pos, vec2* vel){
         @return = true;
         if(Blocks.collide(pos.x + vel.x, pos.y)){
@@ -88,12 +97,16 @@ module Blocks {
     }
 }
 
+// The player controlled paddle at the bottom of the screen
 module Paddle {
     constexpr int width = 4;
 
     int32 x = Game.width / 2 - Paddle.width / 2;
+
+    // The paddle can only move in the X axis, y is constant
     constexpr int y = Game.height - 1;
 
+    // Move the paddle left / right
     void update(){
         Paddle.x += Input.x;
         if(Paddle.x < 0)
@@ -102,11 +115,13 @@ module Paddle {
             Paddle.x = Game.width - Paddle.width;
     }
 
+    // Check if the ball hits the paddle, change its direction if it did
     bool check_hit(vec2* pos, vec2* vel){
         @return = false;
         if(vel.y > 0 && pos.y + vel.y == Paddle.y){
             int32 x = pos.x + vel.x;
             if(x / 2 >= Paddle.x && x / 2 < Paddle.x + Paddle.width){
+                // Reflect the ball horizontally if it hit the corner of the paddle (to make the game more fun)
                 if((x / 2 == Paddle.x && vel.x > 0) || (x / 2 == Paddle.x + Paddle.width - 1 && vel.x < 0))
                     vel.x = -vel.x;
                 vel.y = -vel.y;
@@ -116,10 +131,13 @@ module Paddle {
     }
 }
 
+// The ball we have to keep in the game as the player
+// Bouncy ball goes like boing boing boing boing
 module Ball {
     vec2 pos = vec2{Game.width, Paddle.y - 1};
     vec2 vel = vec2{0, 0};
 
+    // Check all collisions, return wether we hit something
     private bool check_collisions(){
         @return = true;
         if(Ball.vel.is_equal(vec2{0, 0}) && Input.space)
@@ -138,6 +156,8 @@ module Ball {
         @return = @return | Paddle.check_hit(&Ball.pos, &Ball.vel);
     }
 
+    // Everytime we hit something, we check for collisions
+    // yet again to make sure we dont go through stuff
     void update(){
         while(Ball.check_collisions());
         Ball.pos.iadd(Ball.vel);

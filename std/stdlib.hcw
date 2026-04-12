@@ -154,31 +154,39 @@ int8 strcmp(char* s1, char* s2, uint len = -1);
 bool strequal(char* s1, char* s2);
 
 class string {
-    private char* str = NULL;
-    private uint length = 0;
-    private uint offset = 0;
+    private @peek char* str = NULL;
+    private @peek uint length = 0;
+    private @peek uint offset = 0;
     private uint type = 0;
 
-    // Properties
-    char* str();
-    uint length();
+    // Share the string (increments the reference count)
+    void share();
 
     void print(File* f = stdout);
 
     int compare(string* str);
     bool is_equal(string* str);
+    bool str_equals(char* str, uint len = -1);
 
     bool is_heap();
-    bool is_stack();
+    bool is_shared();
     void free();
 }
 
 module string extern {
+    // Keeps the string on stack
     string from_str(char* str, uint len = -1);
-    string from_heap(char* str, uint len = -1);
-    string share(string* original);
+
+    // Shares a string with another string object
+    // Will simply copy original if original is not on the heap
+    // Keeps count of references to the string
+    string from_shared(string* original);
+
+    // Copy string into a newly allocated memory block
+    // Adds 8 bytes before string to hold reference count
     string new(char* str, uint len = -1);
 
+    // Create a formatted string
     string format(char* fmt, ...);
 }
 

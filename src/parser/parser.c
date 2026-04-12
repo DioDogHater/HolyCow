@@ -25,9 +25,7 @@ bool print_context_expr(const char* msg, node_expr* expr){
     case tk_cmp_approx:
     case tk_open_bracket:
         // Boolean operations
-        if(print_context_expr(msg, expr->bin_op.lhs))
-            return true;
-        return print_context_expr(msg, expr->bin_op.rhs);
+        return print_context_expr(msg, expr->bin_op.lhs) || print_context_expr(msg, expr->bin_op.rhs);
     case tk_neg:
     case tk_not:
     case tk_bin_flip:
@@ -63,6 +61,9 @@ bool print_context_expr(const char* msg, node_expr* expr){
     case tk_dot:
         print_context(msg, expr->access.member);
         return true;
+    case tk_ternary:
+        return print_context_expr(msg, expr->ternary.cond) ||
+                print_context_expr(msg, expr->ternary.lhs) || print_context_expr(msg, expr->ternary.rhs);
     case tk_str_lit:
     case tk_bool_lit:
     case tk_char_lit:
@@ -656,10 +657,10 @@ node_stmt* parse_stmt(token_t** tokens, bool sc_necessary){
         }
         return stmt;
     }// loop statement
-    else if(token->type == tk_loop){
+    else if(token->type == tk_forever){
         (void) consume_token(tokens);
         stmt = (node_stmt*) ARENA_ALLOC(arena, node_scope);
-        stmt->scope = (node_scope){tk_loop, NULL, parse_scope(tokens)};
+        stmt->scope = (node_scope){tk_forever, NULL, parse_scope(tokens)};
         if(!stmt->scope.stmts){
             print_context("Expected scope", token);
             return NULL;

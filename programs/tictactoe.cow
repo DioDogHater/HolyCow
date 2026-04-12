@@ -93,12 +93,12 @@ int main(uint argc, char** argv){
     println("Controls:\nEnter 'q' to leave.\nEnter the row number + column letter to choose a square to fill.\n");
 
     // Game loop
-    loop{
+    forever{
         game.print_board();
         game.change_turn();
 
         // Input loop (will repeat until input is valid)
-        loop{
+        forever{
             char buffer[16];
             int n = input(buffer, 16);
 

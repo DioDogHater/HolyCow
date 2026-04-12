@@ -303,6 +303,13 @@ type_t typeof_expr(node_expr* expr){
         case tk_shr:
             max = typeof_expr(expr->bin_op.lhs);
             break;
+        case tk_ternary:
+            max = typeof_expr(expr->bin_op.lhs);
+            if(!types_compatible(max, typeof_expr(expr->bin_op.rhs))){
+                print_context_expr("Ternary operator must give the same type", expr->bin_op.lhs);
+                return INVALID_TYPE;
+            }
+            break;
         case tk_add:
         case tk_sub:
         case tk_mult:

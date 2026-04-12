@@ -71,7 +71,7 @@ int16 my_variable = 0;
 module test{
     constexpr int test_constant = 42;
     
-    // You can make things private
+    // You can make things private (only accessible inside)
     private int bar = -51;
     
     void greet(){
@@ -90,7 +90,7 @@ constexpr float five_over_2 = 5.0 / 2.0;
 // defined in the scope where they are called, but that is not
 // recommended.
 
-void hello_world(string msg = string{"Default"}){
+void hello_world(string msg = string.from_str("Default")){
     // "ln" -> adds a new line after printing
     println("%s", msg.str);
     
@@ -112,7 +112,7 @@ void hello_world(string msg = string{"Default"}){
         println("%s", s.str);
     }else if(value == 0){       // <- @next will jump here
         println("Null.");
-    }elif(value == 1){
+    }elif(value == 1){          // else if = elif   (shortcut)
         println();      // Adds a newline
     }else{
         println("Bro...");
@@ -121,12 +121,27 @@ void hello_world(string msg = string{"Default"}){
     // Switch statements
     switch(value){
     case 0 .. 5:
-        print("Between 0 and 5, inclusive\n");
+        println("Between 0 and 5, inclusive");
+    case value * 2 - 1:
+        if(value > 5)
+            @end;           // break but for switch / if statements
+        println("As the prophecy foretold!");
     case 6 || 7:
-        print("6 ... 7?");
+        println("6 ... 7?");
         @next;              // Goes to next case
     default:
-        print("Value: %l\n",value);
+        println("Value: %i", value);
+    }
+    
+    // Switch statements for objects
+    // You use its methods / members with the @ temporary variable
+    switch(msg){
+    // Returns a boolean, so checks if it's true
+    case @.str_equals("Test"):
+        println("Test confirmed!");
+    // Comparisons work
+    case @.length == 0:
+        println("Empty string??? ;(");
     }
     
     // While loop
@@ -138,7 +153,7 @@ void hello_world(string msg = string{"Default"}){
     
     // For loop
     for(int i = 0; i < 50; i += 2){
-        print("i = %i\n", i);
+        println("i = %i", i);
     }
     
     // Repeat loop
@@ -149,8 +164,8 @@ void hello_world(string msg = string{"Default"}){
     // Add a newline
     println();
     
-    // Loop loop (infinite loop)
-    loop{
+    // Forever loop (infinite loop)
+    forever{
         println("Hello world!");
         break;
     }
@@ -288,8 +303,9 @@ class Pet : Animal{
         this.owner_count = count;
         this.owners = @stack_alloc;
         char** vargs = VARGS;
-        for(int i = 0; i < count; i++)
+        for(int i = 0; i < count; i++){
             owners[i] = vargs[i];
+        }
     }
     
     virtual string to_string(){

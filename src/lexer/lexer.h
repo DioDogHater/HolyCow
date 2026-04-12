@@ -76,7 +76,7 @@ enum{
     tk_while,
     tk_for,            // for(init; cond; step){ ... }
     tk_repeat,         // repeat(n){ ... } -> repeats n times
-    tk_loop,           // loop{ ... } -> repeats infinitely
+    tk_forever,           // forever{ ... } -> repeats infinitely
     tk_switch,
     tk_return,
     tk_break,

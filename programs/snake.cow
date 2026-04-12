@@ -1,7 +1,7 @@
 #include "../std/stdlib.hcw"
 #include "../std/linux/time.hcw"
 
-#include "stdin_control.hcw"
+#include "../std/linux/TTY.hcw"
 
 // SNAKE GAME
 // Will only work on a linux TTY as of now
@@ -180,7 +180,7 @@ int main(uint argc, char** argv){
 
     // Game loop
     bool gameover = false;
-    loop{
+    forever{
         draw_game();
 
         println("SCORE: %04%APress q to quit.", snake.length, Game.width - 16);

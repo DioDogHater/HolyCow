@@ -5,73 +5,39 @@ ifeq ($(OS),Windows_NT)
 	HCC := .\build\hcc.exe
 	# For now, STDLIB will be the linux standard library even in Windows
 	STDLIB := std/linux/linux.cow std/linux/stdlib.cow
-	HELLOWORLD := .\programs\build\helloworld.exe
-	TEST := .\programs\build\test.exe
-	TICTACTOE := .\programs\build\tictactoe.exe
-	SNAKE := .\programs\build\snake.exe
-	BREAKOUT := .\programs\build\breakout.exe
-	FIBONACCI := .\programs\build\fibonacci.exe
-	TEST3D := .\programs\build\test3d.exe
 	LIBRAYLIB := libraylib_win64.a
+	EXT := .exe
 else
 	HCC := ./build/hcc
 	STDLIB := std/linux/linux.cow std/linux/stdlib.cow
-	HELLOWORLD := ./programs/build/helloworld
-	TEST := ./programs/build/test
-	TICTACTOE := ./programs/build/tictactoe
-	SNAKE := ./programs/build/snake
-	BREAKOUT := ./programs/build/breakout
-	FIBONACCI := ./programs/build/fibonacci
-	TEST3D := ./programs/build/test3d
 	LIBRAYLIB := libraylib_linux_x64.a
+	EXT :=
 endif
 
 HCC_FLAGS := -d --silent
 
+# Add your own projects here to compile
+stdlib_projects = helloworld test tictactoe snake
+raylib_projects = test3d
 
-all: $(HELLOWORLD) $(TEST) $(TICTACTOE) $(SNAKE) $(FIBONACCI) $(TEST3D) $(BREAKOUT)
+build := programs/build
+src := programs
+stdlib_execs = $(addsuffix $(EXT), $(addprefix $(build)/, $(stdlib_projects)))
+raylib_execs = $(addsuffix $(EXT), $(addprefix $(build)/, $(raylib_projects)))
+all_projects = $(stdlib_projects) $(raylib_projects)
 
-helloworld: $(HELLOWORLD)
+.PHONY: all $(all_projects)
+
+all: $(stdlib_execs) $(raylib_execs)
+
+$(all_projects): %: $(build)/%$(EXT)
 	$<
 
-test: $(TEST)
-	$<
-
-tictactoe: $(TICTACTOE)
-	$<
-
-snake: $(SNAKE)
-	$<
-
-breakout: $(BREAKOUT)
-	$<
-
-fibonacci: $(FIBONACCI)
-	$<
-
-test3d: $(TEST3D)
-	$<
-
-$(TEST3D): programs/test3d.cow $(HCC)
+$(raylib_execs): $(build)/%$(EXT): $(src)/%.cow $(HCC)
 	$(HCC) -c $(HCC_FLAGS) $< -o $@
-	cc -no-pie -nostdlib $@.o -o $@ -Lprograms/raylib -l:$(LIBRAYLIB) -lc -lm
+	$(CC) -no-pie -nostdlib $@.o -o $@ -Lprograms/raylib -l:$(LIBRAYLIB) -lc -lm
 
-$(FIBONACCI): programs/fibonacci.cow std/stdlib.o std/stdlib.hcw $(HCC)
-	$(HCC) $(HCC_FLAGS) $< -o $@ -lstd/stdlib.o
-
-$(HELLOWORLD): programs/helloworld.cow std/stdlib.o std/stdlib.hcw $(HCC)
-	$(HCC) $(HCC_FLAGS) $< -o $@ -lstd/stdlib.o
-
-$(TEST): programs/test.cow std/stdlib.o std/stdlib.hcw $(HCC)
-	$(HCC) $(HCC_FLAGS) $< -o $@ -lstd/stdlib.o
-
-$(TICTACTOE): programs/tictactoe.cow std/stdlib.o std/stdlib.hcw $(HCC)
-	$(HCC) $(HCC_FLAGS) $< -o $@ -lstd/stdlib.o
-
-$(SNAKE): programs/snake.cow std/stdlib.o std/stdlib.hcw $(HCC)
-	$(HCC) $(HCC_FLAGS) $< -o $@ -lstd/stdlib.o
-
-$(BREAKOUT): programs/breakout.cow std/stdlib.o std/stdlib.hcw $(HCC)
+$(stdlib_execs): $(build)/%$(EXT): $(src)/%.cow std/stdlib.o std/stdlib.hcw $(HCC)
 	$(HCC) $(HCC_FLAGS) $< -o $@ -lstd/stdlib.o
 
 # For now, linux by default

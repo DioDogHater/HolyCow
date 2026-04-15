@@ -18,7 +18,8 @@ int main(uint argc, char** argv){
         60.0,                         // fovy
         CameraProjection.PERSPECTIVE  // perspective
     };
-    Vector3 cam_rot = Vector3{0.0, 0.0, 0.0};
+
+    Vector3 cam_rot = Vector3_ZERO;
     Quaternion cam_quat = QuaternionFromEuler(cam_rot.x, cam_rot.y, cam_rot.z);
 
     float angle = 0.5;
@@ -65,7 +66,7 @@ int main(uint argc, char** argv){
                 DrawGrid(32, 5.0);
 
                 // White diamond shape around the orb and podium
-                DrawSphereWires(Vector3Zero, 3.0, 1, 4, WHITE);
+                DrawSphereWires(Vector3_ZERO, 3.0, 1, 4, WHITE);
 
                 // Ring and sphere
                 Quaternion rot_axis = QuaternionFromEuler(cosf(angle * 0.1) * PI * 0.5, angle, 0.0);

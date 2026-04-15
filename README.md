@@ -51,14 +51,14 @@ This the end goal of how my language will look like.
 Pointers are the same as in C.
 */
 
-string x = "Hello world!";
+string x = string.from_str("Hello world!");
 int16 my_variable = 0;
 
 // Preprocessor directives
 // Source files end with .cow
 // Header files end with .hcw
 // Not enforced, so choose what you like.
-#include "header_file.h"
+#include "header_file.hcw"
 
 // Simple find & replace macro
 #define twenty_five "twenty_five"
@@ -92,7 +92,7 @@ constexpr float five_over_2 = 5.0 / 2.0;
 
 void hello_world(string msg = string.from_str("Default")){
     // "ln" -> adds a new line after printing
-    println("%s", msg.str);
+    println("%S", &msg);
     
     // Gets a value from stdin (input)
     // try ... except ... is a way to handle exceptions
@@ -119,28 +119,27 @@ void hello_world(string msg = string.from_str("Default")){
     }
     
     // Switch statements
-    switch(value){
+    switch(value : val){
     case 0 .. 5:
         println("Between 0 and 5, inclusive");
-    case value * 2 - 1:
-        if(value > 5)
+    case val * 2 - 1:
+        if(val > 5)
             @end;           // break but for switch / if statements
         println("As the prophecy foretold!");
     case 6 || 7:
         println("6 ... 7?");
         @next;              // Goes to next case
     default:
-        println("Value: %i", value);
+        println("Value: %i", val);
     }
     
     // Switch statements for objects
-    // You use its methods / members with the @ temporary variable
-    switch(msg){
+    switch(msg : m){
     // Returns a boolean, so checks if it's true
-    case @.str_equals("Test"):
+    case m.str_equals("Test"):
         println("Test confirmed!");
     // Comparisons work
-    case @.length == 0:
+    case m.length == 0:
         println("Empty string??? ;(");
     }
     

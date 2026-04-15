@@ -230,9 +230,9 @@ static void sysV_load_arg(HC_FILE fptr, size_t* int_idx, size_t* float_idx, size
 
         // We want to allocate the space needed on the stack first.
         if(*stack_ptr){
-            *stack_ptr = ALIGN(*stack_ptr, 16);
-            gen_alloc_stack(fptr, *stack_ptr);
-            stack_sz += *stack_ptr;
+            size_t aligned = ALIGN(*stack_ptr, 16);
+            gen_alloc_stack(fptr, aligned);
+            stack_sz += aligned;
         }
         return;
     }

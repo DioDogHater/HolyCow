@@ -25,10 +25,10 @@ LIBC_FUNC int32 strfromf (char* __dest, size_t __size, char* __format, float __f
  The `rand' and `srand' functions are required by the ANSI standard.
  We provide both interfaces to the same random number generator.  */
 /* Return a random long integer between 0 and 2^31-1 inclusive.  */
-LIBC_FUNC int random ();
+LIBC_FUNC int rand();
 
 /* Seed the random number generator with the given number.  */
-LIBC_FUNC void srandom (uint32 __seed);
+LIBC_FUNC void srand(uint32 __seed);
 
 /* Initialize the random number generator to use state buffer STATEBUF,
  o f length STATELEN, and seed it with SEED.  Optimal lengths are 8, 1*6,

@@ -291,28 +291,13 @@ bool save_union(HC_FILE fptr, union_t* unio, reg_t* ptr, node_expr* value){
     return save_memory(fptr, unio->size, ptr, value);
 }
 
+// If we're inside a class, this will be set to the current class
+static struct_t* current_class = NULL;
+
 // If we're inside a module, this will be set to current module
 static module_t* current_module = NULL;
 
-// Check if a member / method is private and cannot be accessed
-static bool check_private(size_t flags, node_expr* obj, bool write){
-    if((!(flags & FLAG_PEEK) || write) && ((flags & FLAG_PRIVATE) || (flags & FLAG_PROTECT))){
-        bool accessible = false;
-        if(!((flags & FLAG_INHERITED) && (flags & FLAG_PRIVATE)) && obj->type == tk_identifier){
-            var_t* var = get_var(obj->term.str, obj->term.strlen);
-            if(var && (var->flags & FLAG_INHERITED))
-                accessible = true;
-            if(var && var->strlen == 7 && strncmp(var->str, "@return", 7) == 0)
-                accessible = true;
-        }
-        if(!accessible){
-            print_context_expr("Cannot access private / protected member", obj);
-            return false;
-        }
-    }
-    return true;
-}
-
+// Check if a variable / function is private
 static bool check_module_private(size_t flags, module_t* mod, token_t* var, bool write){
     if((!(flags & FLAG_PEEK) || write) && ((flags & FLAG_PRIVATE) || (flags & FLAG_PROTECT))){
         if(((flags & FLAG_INHERITED) && (flags & FLAG_PRIVATE)) || current_module != mod){
@@ -322,6 +307,47 @@ static bool check_module_private(size_t flags, module_t* mod, token_t* var, bool
     }
     return true;
 }
+
+// Check if a member / method is private and cannot be accessed
+static bool check_private(size_t flags, struct_t* stru, node_expr* expr, bool write){
+    bool is_accessible = true;
+    if(expr->access.obj->type == tk_dot){
+        node_access* dot = &expr->access.obj->access;
+        module_t* mod = get_module(dot->obj->term.str, dot->obj->term.strlen);
+        if(mod){
+            var_t* var = get_module_var(mod, dot->member->str, dot->member->strlen);
+            is_accessible = check_module_private(var->flags, mod, dot->member, write);
+        }else{
+            type_t obj_type = typeof_expr(dot->obj);
+            struct_t* stru2 = get_struct_tk(obj_type.repr);
+            var_t* member = get_member(stru2, dot->member->str, dot->member->strlen);
+            is_accessible = check_private(member->flags, stru2, (node_expr*) dot, write);
+        }
+    }else if(expr->access.obj->type == tk_func_call && expr->access.obj->func.func->type == tk_dot){
+        node_access* dot = &expr->access.obj->func.func->access;
+        module_t* mod = get_module(dot->obj->term.str, dot->obj->term.strlen);
+        if(mod){
+            func_t* func = get_module_func(mod, dot->member->str, dot->member->strlen);
+            is_accessible = check_module_private(func->flags, mod, dot->member, write);
+        }else{
+            type_t obj_type = typeof_expr(dot->obj);
+            struct_t* stru2 = get_struct_tk(obj_type.repr);
+            func_t* method = get_method(stru2, dot->member->str, dot->member->strlen);
+            is_accessible = check_private(method->flags, stru2, (node_expr*) dot, write);
+        }
+    }
+    if(!is_accessible)
+        return false;
+    if((!(flags & FLAG_PEEK) || write) && ((flags & FLAG_PRIVATE) || (flags & FLAG_PROTECT))){
+        if(((flags & FLAG_INHERITED) && (flags & FLAG_PRIVATE)) || current_class != stru){
+            print_context("Cannot access private / protected member", expr->access.member);
+            return false;
+        }
+    }
+    return true;
+}
+
+
 
 // Get the address of a value
 bool get_expr_address(HC_FILE fptr, reg_t* tmp,  node_expr* expr){
@@ -386,7 +412,7 @@ bool get_expr_address(HC_FILE fptr, reg_t* tmp,  node_expr* expr){
                 print_context("Cannot get address to array, array is the address itself", expr->access.member);
                 return false;
             }
-            if(!check_private(member->flags, expr->access.obj, false))
+            if(!check_private(member->flags, stru, expr, false))
                 return false;
             if(obj_type.ptr_depth){
                 generate_expr(fptr, expr->access.obj, obj_type, free_reg(tmp));
@@ -593,7 +619,7 @@ bool save_expr(HC_FILE fptr, node_expr* expr, node_expr* value){
                 print_context_expr("Cannot give value to an array member", expr);
                 return false;
             }
-            if(!check_private(member->flags, expr->access.obj, true))
+            if(!check_private(member->flags, stru, expr, true))
                 return false;
             if(obj_type.ptr_depth || expr->access.obj->type == tk_deref || expr->access.obj->type == tk_open_bracket || expr->access.obj->type == tk_dot){
                 reg_t* ptr;
@@ -890,7 +916,7 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
             method = t;
             struct_t* stru = get_struct_tk(t.repr);
             func = get_method(stru, expr->func.func->access.member->str, expr->func.func->access.member->strlen);
-            if(!check_private(func->flags, expr->func.func->access.obj, false))
+            if(!check_private(func->flags, stru, expr->func.func, false))
                 fail_gen_expr(fptr);
         }
     }
@@ -1564,7 +1590,7 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
             if(!member)
                 fail_gen_expr(fptr);
 
-            if(!check_private(member->flags, expr->access.obj, false))
+            if(!check_private(member->flags, stru, expr, false))
                 fail_gen_expr(fptr);
 
             if(member->location == VAR_ARRAY && sz != target_address_size){
@@ -1935,7 +1961,7 @@ bool generate_float_expr(HC_FILE fptr, node_expr* expr){
         if(obj_type.data == DATA_STRUCT){
             struct_t* stru = get_struct_tk(obj_type.repr);
             var_t* member = get_member(stru, expr->access.member->str, expr->access.member->strlen);
-            if(!check_private(member->flags, expr->access.obj, false))
+            if(!check_private(member->flags, stru, expr, false))
                 return false;
             if(obj_type.ptr_depth || expr->access.obj->type == tk_deref || expr->access.obj->type == tk_open_bracket || expr->access.obj->type == tk_dot){
                 reg_t* ptr;
@@ -2817,7 +2843,10 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
                 first_member_def = false;
         }
 
-        current_module = get_module(str, strlen);
+        if(stmt->type == tk_class){
+            current_class = new_struct;
+            current_module = get_module(str, strlen);
+        }
 
         for(node_stmt* ptr = stmt->struct_decl.members; ptr; ptr = ptr->next){
             // Scalar members
@@ -2969,6 +2998,11 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
 
         if(new_struct->align)
             new_struct->size = ALIGN(new_struct->size, new_struct->align);
+
+        if(stmt->type == tk_class){
+            current_class = NULL;
+            current_module = NULL;
+        }
 
         return true;
     }case tk_union:

@@ -1,4 +1,3 @@
-
 #include "../../libc/math.hcw"
 
 extern double FP_PRECISION;
@@ -33,8 +32,11 @@ RMAPI float Remap(float value, float inputStart, float inputEnd, float outputSta
 // Wrap input value from min to max
 RMAPI float Wrap(float value, float min, float max);
 
-#define Vector2Zero Vector2{0.0, 0.0}
-#define Vector2One Vector2{1.0, 1.0}
+RMAPI Vector2 Vector2Zero();
+RMAPI Vector2 Vector2One();
+
+#define Vector2_ZERO Vector2{0.0, 0.0}
+#define Vector2_ONE Vector2{1.0, 1.0}
 
 // Add two vectors (v1 + v2)
 RMAPI Vector2 Vector2Add(Vector2 v1, Vector2 v2);
@@ -128,8 +130,11 @@ RMAPI bool Vector2Equals(Vector2 v1, Vector2 v2);
 //    to the refractive index of the medium on the other side of the surface
 RMAPI Vector2 Vector2Refract(Vector2 v, Vector2 n, float r);
 
-#define Vector3Zero Vector3{0.0, 0.0, 0.0}
-#define Vector3One Vector3{1.0, 1.0, 1.0}
+RMAPI Vector3 Vector3Zero();
+RMAPI Vector3 Vector3One();
+
+#define Vector3_ZERO Vector3{0.0, 0.0, 0.0}
+#define Vector3_ONE Vector3{1.0, 1.0, 1.0}
 
 // Add two vectors
 RMAPI Vector3 Vector3Add(Vector3 v1, Vector3 v2);
@@ -256,8 +261,11 @@ RMAPI Vector3 Vector3Refract(Vector3 v, Vector3 n, float r);
 // Module Functions Definition - Vector4 math
 //----------------------------------------------------------------------------------
 
-#define Vector4Zero Vector4{0.0, 0.0, 0.0, 0.0}
-#define Vector4One Vector4{1.0, 1.0, 1.0, 1.0}
+RMAPI Vector4 Vector4Zero();
+RMAPI Vector4 Vector4One();
+
+#define Vector4_ZERO Vector4{0.0, 0.0, 0.0, 0.0}
+#define Vector4_ONE Vector4{1.0, 1.0, 1.0, 1.0}
 
 RMAPI Vector4 Vector4Add(Vector4 v1, Vector4 v2);
 

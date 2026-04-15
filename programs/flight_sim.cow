@@ -1,0 +1,169 @@
+#include "../libc/stdio.hcw"
+#include "../libc/stdlib.hcw"
+#include "../libc/math.hcw"
+
+#include "raylib/raylib.hcw"
+#include "raylib/raymath.hcw"
+
+// FLIGHT SIMULATOR
+// Work in progress
+
+
+// PLANE
+module Plane {
+    constexpr float mass = 500.0; // kg
+    constexpr float inv_mass = 1.0 / Plane.mass;
+    constexpr float wing_span = 10.0; // m
+
+    Model cessna = Model{, -1};
+    Material material;
+}
+
+class Plane {
+    private @peek Vector3 pos;    // Position (m)
+    private @peek Vector3 vel;    // Velocity (m/s)
+    private @peek Vector3 forces;       // Sum of forces (N)
+
+    private Vector3 rot;        // Rotation as Euler angles
+
+    void update(float dt){
+        this.forces = Vector3Scale(this.forces, Plane.inv_mass);
+        this.vel = Vector3Add(this.vel, Vector3Scale(this.forces, dt));
+        this.pos = Vector3Add(this.pos, Vector3Scale(this.vel, dt));
+        this.forces = Vector3_ZERO;
+    }
+
+    void impulse(Vector3 i){
+        this.vel = Vector3Add(this.vel, i);
+    }
+
+    void apply_force(Vector3 f){
+        this.forces = Vector3Add(this.forces, f);
+    }
+
+    Vector3 get_camera_pos(){
+        *@return = Vector3Transform(Vector3{-5.0, 1.5, 0.0}, Plane.cessna.transform);
+        *@return = Vector3Add(*@return, this.pos);
+    }
+
+    void rotate(float x, float y, float z){
+        this.rot = Vector3Add(this.rot, Vector3{x, y, z});
+    }
+
+    void draw(){
+        Plane.cessna.transform = MatrixRotateZYX(this.rot);
+        DrawModel(Plane.cessna, this.pos, 0.5, WHITE);
+    }
+}
+
+module Plane {
+    void load(){
+        Plane.cessna = LoadModel("programs/assets/cessna.glb");
+        Plane.material = LoadMaterialDefault();
+    }
+
+    Plane new(Vector3 pos = Vector3_ZERO){
+        *@return = Plane{pos, Vector3_ZERO, Vector3_ZERO, Vector3_ZERO};
+    }
+
+    void unload(){
+        UnloadModel(Plane.cessna);
+    }
+}
+
+
+
+// FORCES
+module Gravity {
+    // Gravitational acceleration at sea level
+    constexpr float g0 = 9.8;  // m/s^2
+
+    // The radius of the earth
+    constexpr float Re = 6371000.0;  // m
+
+    void apply(Plane* plane){
+        float tmp = Gravity.Re / (Gravity.Re + plane.pos.y);
+        float g = Gravity.g0 * tmp * tmp;
+        Vector3 f = Vector3{0.0, -Plane.mass * g, 0.0};
+        plane.apply_force(f);
+    }
+}
+
+module AirDensity {
+    // Density of air at sea level
+    constexpr float p0 = 1.225;  // kg/m^3
+
+    // Scale height of the earth's atmosphere at 16*C
+    constexpr float H = 8500.0;  // m
+
+    float get(float altitude){
+        if(altitude < 0.0)
+            altitude = 0.0;
+        @return = AirDensity.p0 * expf(-altitude / AirDensity.H);
+    }
+}
+
+module DragForce {
+    // Air drag coefficient
+    constexpr float Cd = 0.5;
+
+    void apply(Plane* plane){
+        float p = AirDensity.get(plane.pos.y);
+        float v = Vector3Length(plane.vel);
+        float A = Plane.wing_span * 2.0;
+        float D = DragForce.Cd * p * v * A;
+        Vector3 f = Vector3Scale(plane.vel, -D);
+        plane.apply_force(f);
+    }
+}
+
+constexpr int width = 800;
+constexpr int height = 600;
+
+int main(uint argc, char** argv){
+    InitWindow(width, height, "Microslop Flight Simulator 1899");
+    SetTargetFPS(60);
+
+    Camera cam = Camera{
+        Vector3{0.0, 2.5, 10.0},      // position
+        Vector3{0.0, 0.0, 0.0},       // target
+        Vector3{0.0, 1.0, 0.0},       // up
+        60.0,                         // fovy
+        CameraProjection.PERSPECTIVE  // perspective
+    };
+
+    Plane.load();
+    Plane p = Plane.new();
+
+    forever{
+        if(WindowShouldClose())
+            break;
+
+        double deltaTime = GetFrameTime();
+
+        Gravity.apply(&p);
+        DragForce.apply(&p);
+        p.update(deltaTime);
+
+        cam.target = p.pos;
+        cam.position = p.get_camera_pos();
+
+        UpdateCamera(&cam, CameraMode.ORBITAL);
+
+        BeginDrawing();
+            ClearBackground(BLACK);
+
+            BeginMode3D(cam);
+                DrawGrid(32, 5.0);
+
+                p.draw();
+            EndMode3D();
+        EndDrawing();
+
+        DrawFPS(0, 0);
+    }
+
+    Plane.unload();
+
+    CloseWindow();
+}

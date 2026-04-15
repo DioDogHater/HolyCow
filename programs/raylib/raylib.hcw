@@ -1252,14 +1252,14 @@ RLAPI void DrawCapsule(Vector3 startPos, Vector3 endPos, float radius, int32 sli
 RLAPI void DrawCapsuleWires(Vector3 startPos, Vector3 endPos, float radius, int32 slices, int32 rings, Color color); // Draw capsule wireframe with the center of its sphere caps at startPos and endPos
 RLAPI void DrawPlane(Vector3 centerPos, Vector2 size, Color color);                                      // Draw a plane XZ
 RLAPI void DrawRay(Ray ray, Color color);                                                                // Draw a ray line
-RLAPI void DrawGrid(int32 slices, float spacing);                                                          // Draw a grid (centered at (0, 0, 0))
+RLAPI void DrawGrid(int32 slices, float spacing);                                                        // Draw a grid (centered at (0, 0, 0))
 
 //------------------------------------------------------------------------------------
 // Model 3d Loading and Drawing Functions (Module: models)
 //------------------------------------------------------------------------------------
 
 // Model management functions
-RLAPI Model LoadModel( char *fileName);                                                // Load model from files (meshes and materials)
+RLAPI Model LoadModel(char *fileName);                                                // Load model from files (meshes and materials)
 RLAPI Model LoadModelFromMesh(Mesh mesh);                                                   // Load model from generated mesh (default material)
 RLAPI bool IsModelValid(Model model);                                                       // Check if a model is valid (loaded in GPU, VAO/VBOs)
 RLAPI void UnloadModel(Model model);                                                        // Unload model (including meshes) from memory (RAM and/or VRAM)

@@ -240,7 +240,7 @@ const reg_mask affected_copy_regs = REG(2) | REG(4) | REG(5);
 
 void gen_copy_global(HC_FILE fptr, reg_t* dest, const char* str, size_t strlen, size_t sz){ GEN_COPY_MEMORY("%.*s", (int)strlen, str); }
 void gen_copy_stack(HC_FILE fptr, reg_t* dest, size_t ptr, size_t sz){ GEN_COPY_MEMORY("rsp+%lu", ptr); }
-void gen_copy_arg(HC_FILE fptr, reg_t* dest, size_t ptr, size_t sz){ GEN_COPY_MEMORY("rbp+%lu", ptr); }
+void gen_copy_arg(HC_FILE fptr, reg_t* dest, size_t ptr, size_t sz){ GEN_COPY_MEMORY("rbp+%lu", ptr + 16); }
 void gen_copy_ptr(HC_FILE fptr, reg_t* dest, reg_t* src, size_t sz){ GEN_COPY_MEMORY("%s", src->name); }
 void gen_copy_idx(HC_FILE fptr, reg_t* dest, reg_t* src, reg_t* idx, size_t sz){ GEN_COPY_MEMORY("%s+%s*%lu", src->name, idx->name, sz); }
 

@@ -16,70 +16,652 @@ _start:
 	mov rdi, [rsp]
 	syscall
 
-global main:function
-main:
+global Plane.update:function
+Plane.update:
 	push rbp
 	mov rbp, rsp
-	sub rsp, 80
-	mov rdx, STR0
-	mov rsi, 0x1f4
-	mov rdi, 0x1f4
-	call InitWindow
-	mov rdi, 0x3c
-	call SetTargetFPS
-	lea rbx, [rsp+36]
-	lea r8, [rbx+0]
-	fld QWORD [FP0]
-	fstp DWORD [r8+0]
-	fld QWORD [FP1]
-	fstp DWORD [r8+4]
-	fld QWORD [FP2]
-	fstp DWORD [r8+8]
-	lea r8, [rbx+12]
-	fld QWORD [FP0]
-	fstp DWORD [r8+0]
-	fld QWORD [FP0]
-	fstp DWORD [r8+4]
-	fld QWORD [FP3]
-	fstp DWORD [r8+8]
-	lea r8, [rbx+24]
-	fld QWORD [FP0]
-	fstp DWORD [r8+0]
-	fld QWORD [FP4]
-	fstp DWORD [r8+4]
-	fld QWORD [FP0]
-	fstp DWORD [r8+8]
-	fld QWORD [FP5]
-	fstp DWORD [rbx+36]
-	xor ecx, ecx
-	mov [rbx+40], ecx
-	lea rbx, [rsp+24]
+	mov rbx, [rbp+16]
+	lea rbx, [rbx+24]
+	sub rsp, 16
+	mov [rsp+8], rbx
+	mov DWORD [__FP_TMP], 0x3b03126f
+	fld DWORD [__FP_TMP]
+	fstp DWORD [__FP_TMP]
+	movss xmm2, DWORD [__FP_TMP+0]
+	lea rbx, [__GP_TMP]
+	mov r8, [rbp+16]
+	lea r8, [r8+24]
+	cld
+	mov rdi, rbx
+	lea rsi, [r8]
+	mov rcx, 3
+	rep movsd
+	movss xmm1, DWORD [__GP_TMP+8]
+	movsd xmm0, QWORD [__GP_TMP+0]
+	call Vector3Scale
+	mov rbx, [rsp+8]
+	movsd QWORD [rbx+0], xmm0
+	movss DWORD [rbx+8], xmm1
+	add rsp, 16
+	mov rbx, [rbp+16]
+	lea rbx, [rbx+12]
+	sub rsp, 16
+	mov [rsp+8], rbx
+	lea rbx, [__GP_TMP]
+	sub rsp, 16
+	mov [rsp+8], rbx
+	mov [rsp+0], rax
+	fld DWORD [rbp+24]
+	fstp DWORD [__FP_TMP]
+	movss xmm2, DWORD [__FP_TMP+0]
+	lea rbx, [__GP_TMP]
+	mov r8, [rbp+16]
+	lea r8, [r8+24]
+	cld
+	mov rdi, rbx
+	lea rsi, [r8]
+	mov rcx, 3
+	rep movsd
+	movss xmm1, DWORD [__GP_TMP+8]
+	movsd xmm0, QWORD [__GP_TMP+0]
+	call Vector3Scale
+	mov rbx, [rsp+8]
+	movsd QWORD [rbx+0], xmm0
+	movss DWORD [rbx+8], xmm1
+	mov rax, [rsp+0]
+	add rsp, 16
+	movss xmm3, DWORD [__GP_TMP+8]
+	movsd xmm2, QWORD [__GP_TMP+0]
+	lea rbx, [__GP_TMP]
+	mov r8, [rbp+16]
+	lea r8, [r8+12]
+	cld
+	mov rdi, rbx
+	lea rsi, [r8]
+	mov rcx, 3
+	rep movsd
+	movss xmm1, DWORD [__GP_TMP+8]
+	movsd xmm0, QWORD [__GP_TMP+0]
+	call Vector3Add
+	mov rbx, [rsp+8]
+	movsd QWORD [rbx+0], xmm0
+	movss DWORD [rbx+8], xmm1
+	add rsp, 16
+	mov rbx, [rbp+16]
+	lea rbx, [rbx+0]
+	sub rsp, 16
+	mov [rsp+8], rbx
+	lea rbx, [__GP_TMP]
+	sub rsp, 16
+	mov [rsp+8], rbx
+	mov [rsp+0], rax
+	fld DWORD [rbp+24]
+	fstp DWORD [__FP_TMP]
+	movss xmm2, DWORD [__FP_TMP+0]
+	lea rbx, [__GP_TMP]
+	mov r8, [rbp+16]
+	lea r8, [r8+12]
+	cld
+	mov rdi, rbx
+	lea rsi, [r8]
+	mov rcx, 3
+	rep movsd
+	movss xmm1, DWORD [__GP_TMP+8]
+	movsd xmm0, QWORD [__GP_TMP+0]
+	call Vector3Scale
+	mov rbx, [rsp+8]
+	movsd QWORD [rbx+0], xmm0
+	movss DWORD [rbx+8], xmm1
+	mov rax, [rsp+0]
+	add rsp, 16
+	movss xmm3, DWORD [__GP_TMP+8]
+	movsd xmm2, QWORD [__GP_TMP+0]
+	lea rbx, [__GP_TMP]
+	mov r8, [rbp+16]
+	lea r8, [r8+0]
+	cld
+	mov rdi, rbx
+	lea rsi, [r8]
+	mov rcx, 3
+	rep movsd
+	movss xmm1, DWORD [__GP_TMP+8]
+	movsd xmm0, QWORD [__GP_TMP+0]
+	call Vector3Add
+	mov rbx, [rsp+8]
+	movsd QWORD [rbx+0], xmm0
+	movss DWORD [rbx+8], xmm1
+	add rsp, 16
+	mov rbx, [rbp+16]
+	lea rbx, [rbx+24]
 	fld QWORD [FP0]
 	fstp DWORD [rbx+0]
 	fld QWORD [FP0]
 	fstp DWORD [rbx+4]
 	fld QWORD [FP0]
 	fstp DWORD [rbx+8]
-	lea rbx, [rsp+8]
+	.L0:
+	leave
+	ret
+
+global Plane.impulse:function
+Plane.impulse:
+	push rbp
+	mov rbp, rsp
+	mov rbx, [rbp+16]
+	lea rbx, [rbx+12]
 	sub rsp, 16
 	mov [rsp+8], rbx
-	fld DWORD [rsp+48]
-	fstp DWORD [__FP_TMP]
-	movss xmm2, DWORD [__FP_TMP+0]
-	fld DWORD [rsp+44]
-	fstp DWORD [__FP_TMP]
-	movss xmm1, DWORD [__FP_TMP+0]
-	fld DWORD [rsp+40]
-	fstp DWORD [__FP_TMP]
-	movss xmm0, DWORD [__FP_TMP+0]
-	call QuaternionFromEuler
+	lea rbx, [__GP_TMP]
+	cld
+	mov rdi, rbx
+	lea rsi, [rbp+24]
+	mov rcx, 3
+	rep movsd
+	movss xmm3, DWORD [__GP_TMP+8]
+	movsd xmm2, QWORD [__GP_TMP+0]
+	lea rbx, [__GP_TMP]
+	mov r8, [rbp+16]
+	lea r8, [r8+12]
+	cld
+	mov rdi, rbx
+	lea rsi, [r8]
+	mov rcx, 3
+	rep movsd
+	movss xmm1, DWORD [__GP_TMP+8]
+	movsd xmm0, QWORD [__GP_TMP+0]
+	call Vector3Add
 	mov rbx, [rsp+8]
 	movsd QWORD [rbx+0], xmm0
-	movsd QWORD [rbx+8], xmm1
+	movss DWORD [rbx+8], xmm1
 	add rsp, 16
-	fld QWORD [FP6]
-	fstp DWORD [rsp+4]
+	.L0:
+	leave
+	ret
+
+global Plane.apply_force:function
+Plane.apply_force:
+	push rbp
+	mov rbp, rsp
+	mov rbx, [rbp+16]
+	lea rbx, [rbx+24]
+	sub rsp, 16
+	mov [rsp+8], rbx
+	lea rbx, [__GP_TMP]
+	cld
+	mov rdi, rbx
+	lea rsi, [rbp+24]
+	mov rcx, 3
+	rep movsd
+	movss xmm3, DWORD [__GP_TMP+8]
+	movsd xmm2, QWORD [__GP_TMP+0]
+	lea rbx, [__GP_TMP]
+	mov r8, [rbp+16]
+	lea r8, [r8+24]
+	cld
+	mov rdi, rbx
+	lea rsi, [r8]
+	mov rcx, 3
+	rep movsd
+	movss xmm1, DWORD [__GP_TMP+8]
+	movsd xmm0, QWORD [__GP_TMP+0]
+	call Vector3Add
+	mov rbx, [rsp+8]
+	movsd QWORD [rbx+0], xmm0
+	movss DWORD [rbx+8], xmm1
+	add rsp, 16
+	.L0:
+	leave
+	ret
+
+global Plane.get_camera_pos:function
+Plane.get_camera_pos:
+	push rbp
+	mov rbp, rsp
+	mov rbx, [rbp+16]
+	sub rsp, 16
+	mov [rsp+8], rbx
 	sub rsp, 64
+	lea rbx, [rsp+0]
+	lea r8, [Plane+0]
+	lea r8, [r8+0]
+	cld
+	mov rdi, rbx
+	lea rsi, [r8]
+	mov rcx, 8
+	rep movsq
+	lea rbx, [__GP_TMP]
+	mov DWORD [__FP_TMP], 0xc0a00000
+	fld DWORD [__FP_TMP]
+	fstp DWORD [rbx+0]
+	fld QWORD [FP1]
+	fstp DWORD [rbx+4]
+	fld QWORD [FP0]
+	fstp DWORD [rbx+8]
+	movss xmm1, DWORD [__GP_TMP+8]
+	movsd xmm0, QWORD [__GP_TMP+0]
+	call Vector3Transform
+	mov rbx, [rsp+72]
+	movsd QWORD [rbx+0], xmm0
+	movss DWORD [rbx+8], xmm1
+	add rsp, 80
+	mov rbx, [rbp+16]
+	sub rsp, 16
+	mov [rsp+8], rbx
+	lea rbx, [__GP_TMP]
+	mov r8, [rbp+24]
+	lea r8, [r8+0]
+	cld
+	mov rdi, rbx
+	lea rsi, [r8]
+	mov rcx, 3
+	rep movsd
+	movss xmm3, DWORD [__GP_TMP+8]
+	movsd xmm2, QWORD [__GP_TMP+0]
+	lea rbx, [__GP_TMP]
+	mov r8, [rbp+16]
+	cld
+	mov rdi, rbx
+	lea rsi, [r8]
+	mov rcx, 3
+	rep movsd
+	movss xmm1, DWORD [__GP_TMP+8]
+	movsd xmm0, QWORD [__GP_TMP+0]
+	call Vector3Add
+	mov rbx, [rsp+8]
+	movsd QWORD [rbx+0], xmm0
+	movss DWORD [rbx+8], xmm1
+	add rsp, 16
+	.L0:
+	leave
+	ret
+
+global Plane.rotate:function
+Plane.rotate:
+	push rbp
+	mov rbp, rsp
+	mov rbx, [rbp+16]
+	lea rbx, [rbx+36]
+	sub rsp, 16
+	mov [rsp+8], rbx
+	lea rbx, [__GP_TMP]
+	fld DWORD [rbp+24]
+	fstp DWORD [rbx+0]
+	fld DWORD [rbp+28]
+	fstp DWORD [rbx+4]
+	fld DWORD [rbp+32]
+	fstp DWORD [rbx+8]
+	movss xmm3, DWORD [__GP_TMP+8]
+	movsd xmm2, QWORD [__GP_TMP+0]
+	lea rbx, [__GP_TMP]
+	mov r8, [rbp+16]
+	lea r8, [r8+36]
+	cld
+	mov rdi, rbx
+	lea rsi, [r8]
+	mov rcx, 3
+	rep movsd
+	movss xmm1, DWORD [__GP_TMP+8]
+	movsd xmm0, QWORD [__GP_TMP+0]
+	call Vector3Add
+	mov rbx, [rsp+8]
+	movsd QWORD [rbx+0], xmm0
+	movss DWORD [rbx+8], xmm1
+	add rsp, 16
+	.L0:
+	leave
+	ret
+
+global Plane.draw:function
+Plane.draw:
+	push rbp
+	mov rbp, rsp
+	lea rbx, [Plane+0]
+	lea rbx, [rbx+0]
+	sub rsp, 16
+	mov [rsp+8], rbx
+	mov rdi, rbx
+	lea rbx, [__GP_TMP]
+	mov r8, [rbp+16]
+	lea r8, [r8+36]
+	mov r9, rdi
+	cld
+	mov rdi, rbx
+	lea rsi, [r8]
+	mov rcx, 3
+	rep movsd
+	mov rdi, r9
+	movss xmm1, DWORD [__GP_TMP+8]
+	movsd xmm0, QWORD [__GP_TMP+0]
+	call MatrixRotateZYX
+	add rsp, 16
+	sub rsp, 128
+	lea rbx, [__GP_TMP]
+	mov cl, 0xff
+	mov [rbx+0], cl
+	mov cl, 0xff
+	mov [rbx+1], cl
+	mov cl, 0xff
+	mov [rbx+2], cl
+	mov cl, 0xff
+	mov [rbx+3], cl
+	mov rdi, QWORD [__GP_TMP+0]
+	fld QWORD [FP2]
+	fstp DWORD [__FP_TMP]
+	movss xmm2, DWORD [__FP_TMP+0]
+	lea rbx, [__GP_TMP]
+	mov r8, [rbp+16]
+	lea r8, [r8+0]
+	mov r9, rdi
+	cld
+	mov rdi, rbx
+	lea rsi, [r8]
+	mov rcx, 3
+	rep movsd
+	mov rdi, r9
+	movss xmm1, DWORD [__GP_TMP+8]
+	movsd xmm0, QWORD [__GP_TMP+0]
+	lea rbx, [rsp+0]
+	lea r8, [Plane+0]
+	mov r9, rdi
+	cld
+	mov rdi, rbx
+	lea rsi, [r8]
+	mov rcx, 15
+	rep movsq
+	mov rdi, r9
+	call DrawModel
+	add rsp, 128
+	.L0:
+	leave
+	ret
+
+global Plane.load:function
+Plane.load:
+	push rbp
+	mov rbp, rsp
+	lea rbx, [Plane+0]
+	sub rsp, 16
+	mov [rsp+8], rbx
+	mov rdi, rbx
+	mov rsi, STR0
+	call LoadModel
+	add rsp, 16
+	lea rbx, [Plane+120]
+	sub rsp, 16
+	mov [rsp+8], rbx
+	mov rdi, rbx
+	call LoadMaterialDefault
+	add rsp, 16
+	.L0:
+	leave
+	ret
+
+global Plane.new:function
+Plane.new:
+	push rbp
+	mov rbp, rsp
+	mov rbx, [rbp+16]
+	lea r8, [rbx+0]
+	cld
+	mov rdi, r8
+	lea rsi, [rbp+24]
+	mov rcx, 3
+	rep movsd
+	lea r8, [rbx+12]
+	fld QWORD [FP0]
+	fstp DWORD [r8+0]
+	fld QWORD [FP0]
+	fstp DWORD [r8+4]
+	fld QWORD [FP0]
+	fstp DWORD [r8+8]
+	lea r8, [rbx+24]
+	fld QWORD [FP0]
+	fstp DWORD [r8+0]
+	fld QWORD [FP0]
+	fstp DWORD [r8+4]
+	fld QWORD [FP0]
+	fstp DWORD [r8+8]
+	lea r8, [rbx+36]
+	fld QWORD [FP0]
+	fstp DWORD [r8+0]
+	fld QWORD [FP0]
+	fstp DWORD [r8+4]
+	fld QWORD [FP0]
+	fstp DWORD [r8+8]
+	.L0:
+	leave
+	ret
+
+global Plane.unload:function
+Plane.unload:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 128
+	lea rbx, [rsp+0]
+	lea r8, [Plane+0]
+	cld
+	mov rdi, rbx
+	lea rsi, [r8]
+	mov rcx, 15
+	rep movsq
+	call UnloadModel
+	add rsp, 128
+	.L0:
+	leave
+	ret
+
+global Gravity.apply:function
+Gravity.apply:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 32
+	mov DWORD [__FP_TMP], 0x4ac26d70
+	fld DWORD [__FP_TMP]
+	mov DWORD [__FP_TMP], 0x4ac26d70
+	fld DWORD [__FP_TMP]
+	mov rbx, [rbp+16]
+	lea rbx, [rbx+0]
+	fld DWORD [rbx+4]
+	faddp
+	fdivp
+	fstp DWORD [rsp+28]
+	mov DWORD [__FP_TMP], 0x411ccccd
+	fld DWORD [__FP_TMP]
+	fld DWORD [rsp+28]
+	fmulp
+	fld DWORD [rsp+28]
+	fmulp
+	fstp DWORD [rsp+24]
+	lea rbx, [rsp+12]
+	fld QWORD [FP0]
+	fstp DWORD [rbx+0]
+	mov DWORD [__FP_TMP], 0xc3fa0000
+	fld DWORD [__FP_TMP]
+	fld DWORD [rsp+24]
+	fmulp
+	fstp DWORD [rbx+4]
+	fld QWORD [FP0]
+	fstp DWORD [rbx+8]
+	sub rsp, 32
+	mov rbx, [rbp+16]
+	mov [rsp+0], rbx
+	lea rbx, [rsp+8]
+	cld
+	mov rdi, rbx
+	lea rsi, [rsp+44]
+	mov rcx, 3
+	rep movsd
+	call Plane.apply_force
+	add rsp, 32
+	.L0:
+	leave
+	ret
+
+global AirDensity.get:function
+AirDensity.get:
+	push rbp
+	mov rbp, rsp
+	fld QWORD [FP0]
+	fld DWORD [rbp+20]
+	fcomip
+	fstp st0
+	setb bl
+	test bl, bl
+	je .L1
+	fld QWORD [FP0]
+	fstp DWORD [rbp+20]
+	.L1:
+	.L2:
+	mov DWORD [__FP_TMP], 0x3f9ccccd
+	fld DWORD [__FP_TMP]
+	sub rsp, 16
+	fld DWORD [rbp+20]
+	fchs
+	mov DWORD [__FP_TMP], 0x4604d000
+	fld DWORD [__FP_TMP]
+	fdivp
+	fstp DWORD [__FP_TMP]
+	movss xmm0, DWORD [__FP_TMP+0]
+	call expf
+	movss DWORD [rsp+0], xmm0
+	fld DWORD [rsp+0]
+	add rsp, 16
+	fmulp
+	fstp DWORD [rbp+16]
+	.L0:
+	leave
+	ret
+
+global DragForce.apply:function
+DragForce.apply:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 32
+	sub rsp, 16
+	mov rbx, [rbp+16]
+	lea rbx, [rbx+0]
+	fld DWORD [rbx+4]
+	fstp DWORD [rsp+4]
+	call AirDensity.get
+	fld DWORD [rsp+0]
+	add rsp, 16
+	fstp DWORD [rsp+28]
+	sub rsp, 16
+	lea rbx, [__GP_TMP]
+	mov r8, [rbp+16]
+	lea r8, [r8+12]
+	cld
+	mov rdi, rbx
+	lea rsi, [r8]
+	mov rcx, 3
+	rep movsd
+	movss xmm1, DWORD [__GP_TMP+8]
+	movsd xmm0, QWORD [__GP_TMP+0]
+	call Vector3Length
+	movss DWORD [rsp+0], xmm0
+	fld DWORD [rsp+0]
+	add rsp, 16
+	fstp DWORD [rsp+24]
+	mov DWORD [__FP_TMP], 0x41a00000
+	fld DWORD [__FP_TMP]
+	fstp DWORD [rsp+20]
+	mov DWORD [__FP_TMP], 0x3f000000
+	fld DWORD [__FP_TMP]
+	fld DWORD [rsp+28]
+	fmulp
+	fld DWORD [rsp+24]
+	fmulp
+	fld DWORD [rsp+20]
+	fmulp
+	fstp DWORD [rsp+16]
+	lea rbx, [rsp+4]
+	sub rsp, 16
+	mov [rsp+8], rbx
+	fld DWORD [rsp+32]
+	fchs
+	fstp DWORD [__FP_TMP]
+	movss xmm2, DWORD [__FP_TMP+0]
+	lea rbx, [__GP_TMP]
+	mov r8, [rbp+16]
+	lea r8, [r8+12]
+	cld
+	mov rdi, rbx
+	lea rsi, [r8]
+	mov rcx, 3
+	rep movsd
+	movss xmm1, DWORD [__GP_TMP+8]
+	movsd xmm0, QWORD [__GP_TMP+0]
+	call Vector3Scale
+	mov rbx, [rsp+8]
+	movsd QWORD [rbx+0], xmm0
+	movss DWORD [rbx+8], xmm1
+	add rsp, 16
+	sub rsp, 32
+	mov rbx, [rbp+16]
+	mov [rsp+0], rbx
+	lea rbx, [rsp+8]
+	cld
+	mov rdi, rbx
+	lea rsi, [rsp+36]
+	mov rcx, 3
+	rep movsd
+	call Plane.apply_force
+	add rsp, 32
+	.L0:
+	leave
+	ret
+
+global main:function
+main:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 96
+	mov rdx, STR1
+	mov rsi, 0x258
+	mov rdi, 0x320
+	call InitWindow
+	mov rdi, 0x3c
+	call SetTargetFPS
+	lea rbx, [rsp+52]
+	lea r8, [rbx+0]
+	fld QWORD [FP0]
+	fstp DWORD [r8+0]
+	fld QWORD [FP3]
+	fstp DWORD [r8+4]
+	fld QWORD [FP4]
+	fstp DWORD [r8+8]
+	lea r8, [rbx+12]
+	fld QWORD [FP0]
+	fstp DWORD [r8+0]
+	fld QWORD [FP0]
+	fstp DWORD [r8+4]
+	fld QWORD [FP0]
+	fstp DWORD [r8+8]
+	lea r8, [rbx+24]
+	fld QWORD [FP0]
+	fstp DWORD [r8+0]
+	fld QWORD [FP5]
+	fstp DWORD [r8+4]
+	fld QWORD [FP0]
+	fstp DWORD [r8+8]
+	fld QWORD [FP6]
+	fstp DWORD [rbx+36]
+	xor ecx, ecx
+	mov [rbx+40], ecx
+	call Plane.load
+	lea rbx, [rsp+4]
+	sub rsp, 32
+	mov [rsp+0], rbx
+	lea rbx, [rsp+8]
+	fld QWORD [FP0]
+	fstp DWORD [rbx+0]
+	fld QWORD [FP0]
+	fstp DWORD [rbx+4]
+	fld QWORD [FP0]
+	fstp DWORD [rbx+8]
+	call Plane.new
+	add rsp, 32
+	sub rsp, 16
 	.L1:
 	sub rsp, 16
 	call WindowShouldClose
@@ -96,309 +678,42 @@ main:
 	movss DWORD [rsp+0], xmm0
 	fld DWORD [rsp+0]
 	add rsp, 16
-	fstp DWORD [rsp+60]
+	fstp QWORD [rsp+8]
 	sub rsp, 16
-	mov rdi, 0x1
-	call IsMouseButtonDown
-	mov [rsp+0], rax
-	mov bl, [rsp+0]
+	lea rbx, [rsp+36]
+	mov [rsp+0], rbx
+	call Gravity.apply
 	add rsp, 16
-	test bl, bl
-	je .L5
 	sub rsp, 16
-	lea rbx, [rsp+8]
-	sub rsp, 16
-	mov [rsp+8], rbx
-	call GetMouseDelta
-	mov rbx, [rsp+8]
-	movsd QWORD [rbx+0], xmm0
+	lea rbx, [rsp+36]
+	mov [rsp+0], rbx
+	call DragForce.apply
 	add rsp, 16
-	lea rbx, [rsp+104]
 	sub rsp, 16
-	mov [rsp+8], rbx
-	lea rbx, [__GP_TMP]
-	fld DWORD [rsp+28]
-	fchs
-	fld QWORD [FP7]
-	fmulp
-	fstp DWORD [rbx+0]
-	fld DWORD [rsp+24]
-	fchs
-	fld QWORD [FP7]
-	fmulp
-	fstp DWORD [rbx+4]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+8]
-	movss xmm3, DWORD [__GP_TMP+8]
-	movsd xmm2, QWORD [__GP_TMP+0]
-	lea rbx, [__GP_TMP]
-	cld
-	mov rdi, rbx
-	lea rsi, [rsp+120]
-	mov rcx, 3
-	rep movsd
-	movss xmm1, DWORD [__GP_TMP+8]
-	movsd xmm0, QWORD [__GP_TMP+0]
-	call Vector3Add
-	mov rbx, [rsp+8]
-	movsd QWORD [rbx+0], xmm0
-	movss DWORD [rbx+8], xmm1
+	lea rbx, [rsp+36]
+	mov [rsp+0], rbx
+	fld QWORD [rsp+24]
+	fstp DWORD [rsp+8]
+	call Plane.update
 	add rsp, 16
-	lea rbx, [rsp+88]
-	sub rsp, 16
-	mov [rsp+8], rbx
-	fld DWORD [rsp+128]
-	fstp DWORD [__FP_TMP]
-	movss xmm2, DWORD [__FP_TMP+0]
-	fld DWORD [rsp+124]
-	fstp DWORD [__FP_TMP]
-	movss xmm1, DWORD [__FP_TMP+0]
-	fld DWORD [rsp+120]
-	fstp DWORD [__FP_TMP]
-	movss xmm0, DWORD [__FP_TMP+0]
-	call QuaternionFromEuler
-	mov rbx, [rsp+8]
-	movsd QWORD [rbx+0], xmm0
-	movsd QWORD [rbx+8], xmm1
-	add rsp, 16
-	lea rbx, [rsp+116]
-	sub rsp, 16
-	mov [rsp+8], rbx
-	lea rbx, [__GP_TMP]
-	cld
-	mov rdi, rbx
-	lea rsi, [rsp+104]
-	mov rcx, 2
-	rep movsq
-	movsd xmm3, QWORD [__GP_TMP+8]
-	movsd xmm2, QWORD [__GP_TMP+0]
-	lea rbx, [__GP_TMP]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+0]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+4]
-	fld QWORD [FP3]
-	fstp DWORD [rbx+8]
-	movss xmm1, DWORD [__GP_TMP+8]
-	movsd xmm0, QWORD [__GP_TMP+0]
-	call Vector3RotateByQuaternion
-	mov rbx, [rsp+8]
-	movsd QWORD [rbx+0], xmm0
-	movss DWORD [rbx+8], xmm1
-	add rsp, 16
-	lea rbx, [rsp+116]
-	sub rsp, 16
-	mov [rsp+8], rbx
-	lea rbx, [__GP_TMP]
-	lea r8, [rsp+132]
-	lea r8, [r8+12]
-	cld
-	mov rdi, rbx
-	lea rsi, [r8]
-	mov rcx, 3
-	rep movsd
-	movss xmm3, DWORD [__GP_TMP+8]
-	movsd xmm2, QWORD [__GP_TMP+0]
-	lea rbx, [__GP_TMP]
-	lea r8, [rsp+132]
+	lea rbx, [rsp+80]
+	lea r8, [rsp+20]
 	lea r8, [r8+0]
 	cld
 	mov rdi, rbx
 	lea rsi, [r8]
 	mov rcx, 3
 	rep movsd
-	movss xmm1, DWORD [__GP_TMP+8]
-	movsd xmm0, QWORD [__GP_TMP+0]
-	call Vector3Add
-	mov rbx, [rsp+8]
-	movsd QWORD [rbx+0], xmm0
-	movss DWORD [rbx+8], xmm1
-	add rsp, 16
-	add rsp, 16
-	.L5:
-	.L6:
-	lea rbx, [rsp+48]
+	lea rbx, [rsp+68]
 	sub rsp, 16
+	mov [rsp+0], rbx
+	lea rbx, [rsp+36]
 	mov [rsp+8], rbx
-	mov rdi, 0x44
-	call IsKeyDown
-	mov [rsp+0], rax
-	mov rbx, [rsp+8]
-	movzx rcx, BYTE [rsp+0]
+	call Plane.get_camera_pos
 	add rsp, 16
-	sub rsp, 32
-	mov [rsp+24], rbx
-	mov [rsp+16], rcx
-	mov rdi, 0x41
-	call IsKeyDown
-	mov [rsp+0], rax
-	mov rbx, [rsp+24]
-	mov rcx, [rsp+16]
-	movzx rsi, BYTE [rsp+0]
-	add rsp, 32
-	sub rcx, rsi
-	mov [__FP_TMP], rcx
-	fild QWORD [__FP_TMP]
-	fstp DWORD [rbx+0]
-	sub rsp, 16
-	mov [rsp+8], rbx
-	mov rdi, 0x20
-	call IsKeyDown
-	mov [rsp+0], rax
-	mov rbx, [rsp+8]
-	movzx rcx, BYTE [rsp+0]
-	add rsp, 16
-	sub rsp, 32
-	mov [rsp+24], rbx
-	mov [rsp+16], rcx
-	mov rdi, 0x43
-	call IsKeyDown
-	mov [rsp+0], rax
-	mov rbx, [rsp+24]
-	mov rcx, [rsp+16]
-	movzx rsi, BYTE [rsp+0]
-	add rsp, 32
-	sub rcx, rsi
-	mov [__FP_TMP], rcx
-	fild QWORD [__FP_TMP]
-	fstp DWORD [rbx+4]
-	sub rsp, 16
-	mov [rsp+8], rbx
-	mov rdi, 0x53
-	call IsKeyDown
-	mov [rsp+0], rax
-	mov rbx, [rsp+8]
-	movzx rcx, BYTE [rsp+0]
-	add rsp, 16
-	sub rsp, 32
-	mov [rsp+24], rbx
-	mov [rsp+16], rcx
-	mov rdi, 0x57
-	call IsKeyDown
-	mov [rsp+0], rax
-	mov rbx, [rsp+24]
-	mov rcx, [rsp+16]
-	movzx rsi, BYTE [rsp+0]
-	add rsp, 32
-	sub rcx, rsi
-	mov [__FP_TMP], rcx
-	fild QWORD [__FP_TMP]
-	fstp DWORD [rbx+8]
-	lea rbx, [rsp+48]
-	sub rsp, 16
-	mov [rsp+8], rbx
-	fld DWORD [rsp+76]
-	fld QWORD [FP3]
-	fmulp
-	fstp DWORD [__FP_TMP]
-	movss xmm2, DWORD [__FP_TMP+0]
-	lea rbx, [__GP_TMP]
-	sub rsp, 32
-	mov [rsp+24], rbx
-	mov [rsp+16], rax
-	movsd QWORD [rsp+8], xmm2
-	lea rbx, [__GP_TMP]
-	cld
-	mov rdi, rbx
-	lea rsi, [rsp+96]
-	mov rcx, 3
-	rep movsd
-	movss xmm1, DWORD [__GP_TMP+8]
-	movsd xmm0, QWORD [__GP_TMP+0]
-	call Vector3Normalize
-	mov rbx, [rsp+24]
-	movsd QWORD [rbx+0], xmm0
-	movss DWORD [rbx+8], xmm1
-	mov rax, [rsp+16]
-	movsd xmm2, QWORD [rsp+8]
-	add rsp, 32
-	movss xmm1, DWORD [__GP_TMP+8]
-	movsd xmm0, QWORD [__GP_TMP+0]
-	call Vector3Scale
-	mov rbx, [rsp+8]
-	movsd QWORD [rbx+0], xmm0
-	movss DWORD [rbx+8], xmm1
-	add rsp, 16
-	lea rbx, [rsp+48]
-	sub rsp, 16
-	mov [rsp+8], rbx
-	fld DWORD [rsp+108]
-	fstp DWORD [__FP_TMP]
-	movss xmm4, DWORD [__FP_TMP+0]
-	lea rbx, [__GP_TMP]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+0]
-	fld QWORD [FP4]
-	fstp DWORD [rbx+4]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+8]
-	movss xmm3, DWORD [__GP_TMP+8]
-	movsd xmm2, QWORD [__GP_TMP+0]
-	lea rbx, [__GP_TMP]
-	cld
-	mov rdi, rbx
-	lea rsi, [rsp+64]
-	mov rcx, 3
-	rep movsd
-	movss xmm1, DWORD [__GP_TMP+8]
-	movsd xmm0, QWORD [__GP_TMP+0]
-	call Vector3RotateByAxisAngle
-	mov rbx, [rsp+8]
-	movsd QWORD [rbx+0], xmm0
-	movss DWORD [rbx+8], xmm1
-	add rsp, 16
-	lea rbx, [rsp+112]
-	sub rsp, 16
-	mov [rsp+8], rbx
-	lea rbx, [__GP_TMP]
-	cld
-	mov rdi, rbx
-	lea rsi, [rsp+64]
-	mov rcx, 3
-	rep movsd
-	movss xmm3, DWORD [__GP_TMP+8]
-	movsd xmm2, QWORD [__GP_TMP+0]
-	lea rbx, [__GP_TMP]
-	lea r8, [rsp+116]
-	lea r8, [r8+12]
-	cld
-	mov rdi, rbx
-	lea rsi, [r8]
-	mov rcx, 3
-	rep movsd
-	movss xmm1, DWORD [__GP_TMP+8]
-	movsd xmm0, QWORD [__GP_TMP+0]
-	call Vector3Add
-	mov rbx, [rsp+8]
-	movsd QWORD [rbx+0], xmm0
-	movss DWORD [rbx+8], xmm1
-	add rsp, 16
-	lea rbx, [rsp+100]
-	sub rsp, 16
-	mov [rsp+8], rbx
-	lea rbx, [__GP_TMP]
-	cld
-	mov rdi, rbx
-	lea rsi, [rsp+64]
-	mov rcx, 3
-	rep movsd
-	movss xmm3, DWORD [__GP_TMP+8]
-	movsd xmm2, QWORD [__GP_TMP+0]
-	lea rbx, [__GP_TMP]
-	lea r8, [rsp+116]
-	lea r8, [r8+0]
-	cld
-	mov rdi, rbx
-	lea rsi, [r8]
-	mov rcx, 3
-	rep movsd
-	movss xmm1, DWORD [__GP_TMP+8]
-	movsd xmm0, QWORD [__GP_TMP+0]
-	call Vector3Add
-	mov rbx, [rsp+8]
-	movsd QWORD [rbx+0], xmm0
-	movss DWORD [rbx+8], xmm1
-	add rsp, 16
+	mov rsi, 0x2
+	lea rdi, [rsp+68]
+	call UpdateCamera
 	call BeginDrawing
 	lea rbx, [__GP_TMP]
 	xor cl, cl
@@ -415,358 +730,30 @@ main:
 	lea rbx, [rsp+0]
 	cld
 	mov rdi, rbx
-	lea rsi, [rsp+148]
+	lea rsi, [rsp+116]
 	mov rcx, 11
 	rep movsd
 	call BeginMode3D
 	add rsp, 48
-	lea rbx, [__GP_TMP]
-	mov cl, 0xff
-	mov [rbx+0], cl
-	mov cl, 0xff
-	mov [rbx+1], cl
-	mov cl, 0xff
-	mov [rbx+2], cl
-	mov cl, 0xff
-	mov [rbx+3], cl
-	mov rdi, QWORD [__GP_TMP+0]
-	fld QWORD [FP4]
-	fstp DWORD [__FP_TMP]
-	movss xmm4, DWORD [__FP_TMP+0]
-	fld QWORD [FP4]
-	fstp DWORD [__FP_TMP]
-	movss xmm3, DWORD [__FP_TMP+0]
-	fld QWORD [FP4]
-	fstp DWORD [__FP_TMP]
-	movss xmm2, DWORD [__FP_TMP+0]
-	lea rbx, [__GP_TMP]
-	lea r8, [rsp+100]
-	lea r8, [r8+12]
-	mov r9, rdi
-	cld
-	mov rdi, rbx
-	lea rsi, [r8]
-	mov rcx, 3
-	rep movsd
-	mov rdi, r9
-	movss xmm1, DWORD [__GP_TMP+8]
-	movsd xmm0, QWORD [__GP_TMP+0]
-	call DrawCube
-	lea rbx, [__GP_TMP]
-	mov cl, 0x82
-	mov [rbx+0], cl
-	mov cl, 0x82
-	mov [rbx+1], cl
-	mov cl, 0x82
-	mov [rbx+2], cl
-	mov cl, 0xff
-	mov [rbx+3], cl
-	mov rsi, QWORD [__GP_TMP+0]
-	mov rdi, 0x10
-	fld QWORD [FP4]
-	fstp DWORD [__FP_TMP]
-	movss xmm4, DWORD [__FP_TMP+0]
-	fld QWORD [FP6]
-	fstp DWORD [__FP_TMP]
-	movss xmm3, DWORD [__FP_TMP+0]
-	fld QWORD [FP8]
-	fstp DWORD [__FP_TMP]
-	movss xmm2, DWORD [__FP_TMP+0]
-	lea rbx, [__GP_TMP]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+0]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+4]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+8]
-	movss xmm1, DWORD [__GP_TMP+8]
-	movsd xmm0, QWORD [__GP_TMP+0]
-	call DrawCylinder
-	lea rbx, [rsp+36]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+0]
-	sub rsp, 16
-	mov [rsp+8], rbx
-	fld QWORD [FP9]
-	sub rsp, 32
-	mov [rsp+24], rax
-	movsd QWORD [rsp+16], xmm0
-	call GetTime
-	movsd QWORD [rsp+0], xmm0
-	mov rax, [rsp+24]
-	movsd xmm0, QWORD [rsp+16]
-	fld QWORD [rsp+0]
-	add rsp, 32
-	fmulp
-	fstp DWORD [__FP_TMP]
-	movss xmm0, DWORD [__FP_TMP+0]
-	call sinf
-	movss DWORD [rsp+0], xmm0
-	mov rbx, [rsp+8]
-	fld DWORD [rsp+0]
-	add rsp, 16
-	fld QWORD [FP10]
-	fmulp
-	fld QWORD [FP11]
-	faddp
-	fstp DWORD [rbx+4]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+8]
-	lea rbx, [__GP_TMP]
-	xor cl, cl
-	mov [rbx+0], cl
-	mov cl, 0x75
-	mov [rbx+1], cl
-	mov cl, 0x2c
-	mov [rbx+2], cl
-	mov cl, 0xff
-	mov [rbx+3], cl
-	mov rdx, QWORD [__GP_TMP+0]
-	mov rsi, 0x8
-	mov rdi, 0x8
-	fld QWORD [FP8]
-	fstp DWORD [__FP_TMP]
-	movss xmm2, DWORD [__FP_TMP+0]
-	lea rbx, [__GP_TMP]
-	mov r8, rsi
-	mov r9, rdi
-	cld
-	mov rdi, rbx
-	lea rsi, [rsp+36]
-	mov rcx, 3
-	rep movsd
-	mov rsi, r8
-	mov rdi, r9
-	movss xmm1, DWORD [__GP_TMP+8]
-	movsd xmm0, QWORD [__GP_TMP+0]
-	call DrawSphereWires
-	lea rbx, [__GP_TMP]
-	xor cl, cl
-	mov [rbx+0], cl
-	mov cl, 0xe4
-	mov [rbx+1], cl
-	mov cl, 0x30
-	mov [rbx+2], cl
-	mov cl, 0xff
-	mov [rbx+3], cl
-	mov rdi, QWORD [__GP_TMP+0]
-	fld QWORD [FP12]
-	fstp DWORD [__FP_TMP]
-	movss xmm2, DWORD [__FP_TMP+0]
-	lea rbx, [__GP_TMP]
-	mov r8, rdi
-	cld
-	mov rdi, rbx
-	lea rsi, [rsp+36]
-	mov rcx, 3
-	rep movsd
-	mov rdi, r8
-	movss xmm1, DWORD [__GP_TMP+8]
-	movsd xmm0, QWORD [__GP_TMP+0]
-	call DrawSphere
-	fld QWORD [FP3]
+	fld QWORD [FP7]
 	fstp DWORD [__FP_TMP]
 	movss xmm0, DWORD [__FP_TMP+0]
 	mov rdi, 0x20
 	call DrawGrid
-	lea rbx, [__GP_TMP]
-	mov cl, 0xff
-	mov [rbx+0], cl
-	mov cl, 0xff
-	mov [rbx+1], cl
-	mov cl, 0xff
-	mov [rbx+2], cl
-	mov cl, 0xff
-	mov [rbx+3], cl
-	mov rdx, QWORD [__GP_TMP+0]
-	mov rsi, 0x4
-	mov rdi, 0x1
-	fld QWORD [FP13]
-	fstp DWORD [__FP_TMP]
-	movss xmm2, DWORD [__FP_TMP+0]
-	lea rbx, [__GP_TMP]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+0]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+4]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+8]
-	movss xmm1, DWORD [__GP_TMP+8]
-	movsd xmm0, QWORD [__GP_TMP+0]
-	call DrawSphereWires
-	lea rbx, [rsp+20]
 	sub rsp, 16
-	mov [rsp+8], rbx
-	fld QWORD [FP0]
-	fstp DWORD [__FP_TMP]
-	movss xmm2, DWORD [__FP_TMP+0]
-	fld DWORD [rsp+84]
-	fstp DWORD [__FP_TMP]
-	movss xmm1, DWORD [__FP_TMP+0]
-	sub rsp, 48
-	mov [rsp+40], rax
-	movsd QWORD [rsp+32], xmm0
-	movsd QWORD [rsp+24], xmm1
-	movsd QWORD [rsp+16], xmm2
-	fld DWORD [rsp+132]
-	fld QWORD [FP10]
-	fmulp
-	fstp DWORD [__FP_TMP]
-	movss xmm0, DWORD [__FP_TMP+0]
-	call cosf
-	movss DWORD [rsp+0], xmm0
-	mov rax, [rsp+40]
-	movsd xmm0, QWORD [rsp+32]
-	movsd xmm1, QWORD [rsp+24]
-	movsd xmm2, QWORD [rsp+16]
-	fld DWORD [rsp+0]
-	add rsp, 48
-	fld QWORD [FP14]
-	fmulp
-	fld QWORD [FP6]
-	fmulp
-	fstp DWORD [__FP_TMP]
-	movss xmm0, DWORD [__FP_TMP+0]
-	call QuaternionFromEuler
-	mov rbx, [rsp+8]
-	movsd QWORD [rbx+0], xmm0
-	movsd QWORD [rbx+8], xmm1
+	lea rbx, [rsp+36]
+	mov [rsp+0], rbx
+	call Plane.draw
 	add rsp, 16
-	lea rbx, [rsp+8]
-	sub rsp, 16
-	mov [rsp+8], rbx
-	lea rbx, [__GP_TMP]
-	cld
-	mov rdi, rbx
-	lea rsi, [rsp+36]
-	mov rcx, 2
-	rep movsq
-	movsd xmm3, QWORD [__GP_TMP+8]
-	movsd xmm2, QWORD [__GP_TMP+0]
-	lea rbx, [__GP_TMP]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+0]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+4]
-	fld QWORD [FP13]
-	fstp DWORD [rbx+8]
-	movss xmm1, DWORD [__GP_TMP+8]
-	movsd xmm0, QWORD [__GP_TMP+0]
-	call Vector3RotateByQuaternion
-	mov rbx, [rsp+8]
-	movsd QWORD [rbx+0], xmm0
-	movss DWORD [rbx+8], xmm1
-	add rsp, 16
-	lea rbx, [__GP_TMP]
-	xor cl, cl
-	mov [rbx+0], cl
-	mov cl, 0x79
-	mov [rbx+1], cl
-	mov cl, 0xf1
-	mov [rbx+2], cl
-	mov cl, 0xff
-	mov [rbx+3], cl
-	mov rdi, QWORD [__GP_TMP+0]
-	fld QWORD [FP15]
-	fstp DWORD [__FP_TMP]
-	movss xmm5, DWORD [__FP_TMP+0]
-	lea rbx, [__GP_TMP]
-	fld QWORD [FP4]
-	fstp DWORD [rbx+0]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+4]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+8]
-	movss xmm4, DWORD [__GP_TMP+8]
-	movsd xmm3, QWORD [__GP_TMP+0]
-	sub rsp, 64
-	mov [rsp+56], rdi
-	mov [rsp+48], rax
-	movsd QWORD [rsp+40], xmm2
-	movsd QWORD [rsp+32], xmm3
-	movsd QWORD [rsp+24], xmm4
-	movsd QWORD [rsp+16], xmm5
-	fld DWORD [rsp+80]
-	fstp QWORD [__FP_TMP]
-	movsd xmm1, QWORD [__FP_TMP+0]
-	fld DWORD [rsp+72]
-	fstp QWORD [__FP_TMP]
-	movsd xmm0, QWORD [__FP_TMP+0]
-	call hypot
-	movsd QWORD [rsp+0], xmm0
-	mov rdi, [rsp+56]
-	mov rax, [rsp+48]
-	movsd xmm2, QWORD [rsp+40]
-	movsd xmm3, QWORD [rsp+32]
-	movsd xmm4, QWORD [rsp+24]
-	movsd xmm5, QWORD [rsp+16]
-	fld QWORD [rsp+0]
-	add rsp, 64
-	fstp DWORD [__FP_TMP]
-	movss xmm2, DWORD [__FP_TMP+0]
-	lea rbx, [__GP_TMP]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+0]
-	fld DWORD [rsp+12]
-	fstp DWORD [rbx+4]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+8]
-	movss xmm1, DWORD [__GP_TMP+8]
-	movsd xmm0, QWORD [__GP_TMP+0]
-	call DrawCircle3D
-	fld DWORD [rsp+68]
-	fld QWORD [FP3]
-	fld DWORD [rsp+60]
-	fmulp
-	faddp
-	fstp DWORD [rsp+68]
-	lea rbx, [__GP_TMP]
-	xor cl, cl
-	mov [rbx+0], cl
-	mov cl, 0x79
-	mov [rbx+1], cl
-	mov cl, 0xf1
-	mov [rbx+2], cl
-	mov cl, 0xff
-	mov [rbx+3], cl
-	mov rdi, QWORD [__GP_TMP+0]
-	fld QWORD [FP8]
-	fstp DWORD [__FP_TMP]
-	movss xmm2, DWORD [__FP_TMP+0]
-	lea rbx, [__GP_TMP]
-	mov r8, rdi
-	cld
-	mov rdi, rbx
-	lea rsi, [rsp+8]
-	mov rcx, 3
-	rep movsd
-	mov rdi, r8
-	movss xmm1, DWORD [__GP_TMP+8]
-	movsd xmm0, QWORD [__GP_TMP+0]
-	call DrawSphere
 	call EndMode3D
+	call EndDrawing
 	xor rsi, rsi
 	xor rdi, rdi
 	call DrawFPS
-	lea rbx, [__GP_TMP]
-	xor cl, cl
-	mov [rbx+0], cl
-	mov cl, 0xe4
-	mov [rbx+1], cl
-	mov cl, 0x30
-	mov [rbx+2], cl
-	mov cl, 0xff
-	mov [rbx+3], cl
-	mov r8, QWORD [__GP_TMP+0]
-	mov rcx, 0x10
-	mov rdx, 0x14
-	xor rsi, rsi
-	mov rdi, STR1
-	call DrawText
-	call EndDrawing
 	jmp .L1
 	.L2:
-	add rsp, 64
+	add rsp, 16
+	call Plane.unload
 	call CloseWindow
 	.L0:
 	leave
@@ -1607,46 +1594,46 @@ times 64 db 0
 extern stdin:data
 extern stdout:data
 extern stderr:data
-global FP_PRECISION:data
-FP_PRECISION:
-dq 0.0000010000
-times 0 db 0
+extern FP_PRECISION:data
+global Plane:data
+Plane:
+times 64 db 0
+times 4 db 0
+times 4 db 0
+times 8 db 0
+times 8 db 0
+times 8 db 0
+times 4 db 0
+times 4 db 0
+times 8 db 0
+times 8 db 0
+times 40 db 0
+global Gravity:data
+Gravity:
+global AirDensity:data
+AirDensity:
+global DragForce:data
+DragForce:
 
 
 section .rodata
 STR0:
-db "Hello world!",0
+db "programs/assets/cessna.glb",0
 STR1:
-db "WASD to move, Space and C to go up and down",10,"Drag right click to unlock and move camera",0
+db "Microslop Flight Simulator 1899",0
 FP0:
 dq 0.0
 FP1:
-dq 2.5
-FP2:
-dq 10.0
-FP3:
-dq 5.0
-FP4:
-dq 1.0
-FP5:
-dq 60.0
-FP6:
-dq 0.5
-FP7:
-dq 0.005
-FP8:
-dq 0.25
-FP9:
-dq 2.0
-FP10:
-dq 0.1
-FP11:
 dq 1.5
-FP12:
-dq 0.05
-FP13:
-dq 3.0
-FP14:
-dq 3.14159265358979323846
-FP15:
-dq 90.0
+FP2:
+dq 0.5
+FP3:
+dq 2.5
+FP4:
+dq 10.0
+FP5:
+dq 1.0
+FP6:
+dq 60.0
+FP7:
+dq 5.0

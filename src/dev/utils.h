@@ -15,8 +15,10 @@
 
 #ifdef _WIN32
 #define DIR_SEP  '\\'
+#define DIR_SEPS "\\"
 #else
 #define DIR_SEP  '/'
+#define DIR_SEPS "/"
 #endif
 
 #define APPEND_LIST(list, elem) do{\

@@ -90,11 +90,11 @@ size_t relative_path(const char* path, size_t len, const char* src, char* dest){
     }
     ssize_t i = strlen(src) - 1;
     for(; i > 0 && slashes_to_skip; i--)
-        if(src[i] == '/') slashes_to_skip--;
-    for(; i > 0 && src[i] != '/'; i--);
+        if(src[i] == '/' || src[i] == '\\') slashes_to_skip--;
+    for(; i > 0 && src[i] != '/' && src[i] != '\\'; i--);
 
     for(size_t j = 0; j < slashes_to_skip; j++, offset += 3)
-        memcpy(dest + offset, "../", 3);
+        memcpy(dest + offset, ".." DIR_SEPS, 3);
 
     if(!slashes_to_skip && i){
         memcpy(dest + offset, src, i + 1);
@@ -102,10 +102,8 @@ size_t relative_path(const char* path, size_t len, const char* src, char* dest){
     }
 
     memcpy(dest + offset, path, len);
-    if(DIR_SEP != '/'){
-        for(char* ptr = dest; *ptr; ptr++)
-            if(*ptr == '/') *ptr = DIR_SEP;
-    }
+    for(char* ptr = dest; *ptr; ptr++)
+        if(*ptr == ((DIR_SEP == '/') ? '\\' : '/')) *ptr = DIR_SEP;
     return offset + len;
 }
 

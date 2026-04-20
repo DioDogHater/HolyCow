@@ -1,7 +1,7 @@
 section .text
 BITS 64
-CPU X64
-default ABS
+CPU ALL
+default REL
 
 global syscall1:function
 syscall1:
@@ -509,18 +509,18 @@ sleep:
 	mov rbp, rsp
 	sub rsp, 16
 	lea rbx, [rsp+0]
-	fld QWORD [rbp+16]
-	fisttp QWORD [__FP_TMP]
-	mov rcx, QWORD [__FP_TMP]
+	movsd xmm0, [rbp+16]
+	cvttsd2si rcx, xmm0
 	mov [rbx+0], rcx
-	fld QWORD [rbp+16]
-	fld QWORD [FP0]
-	fprem
-	fstp st0
-	fld QWORD [FP1]
-	fmulp
-	fisttp QWORD [__FP_TMP]
-	mov rcx, QWORD [__FP_TMP]
+	movsd xmm0, [rbp+16]
+	movsd xmm1, [FP0]
+	movsd xmm2, xmm0
+	divsd xmm2, xmm1
+	roundsd xmm2, xmm2, 0
+	subsd xmm0, xmm2
+	movsd xmm1, [FP1]
+	mulsd xmm0, xmm1
+	cvttsd2si rcx, xmm0
 	mov [rbx+8], rcx
 	sub rsp, 32
 	lea rbx, [rsp+32]
@@ -626,15 +626,15 @@ time:
 	call clock_gettime
 	add rsp, 32
 	mov rbx, [rsp+0]
-	mov [__FP_TMP], rbx
-	fild QWORD [__FP_TMP]
+	cvtsi2ss xmm0, rbx
+	cvtss2sd xmm0, xmm0
 	mov rbx, [rsp+8]
-	mov [__FP_TMP], rbx
-	fild QWORD [__FP_TMP]
-	fld QWORD [FP1]
-	fdivp
-	faddp
-	fstp QWORD [rbp+16]
+	cvtsi2ss xmm1, rbx
+	cvtss2sd xmm1, xmm1
+	movsd xmm2, [FP1]
+	divsd xmm1, xmm2
+	addsd xmm0, xmm1
+	movsd [rbp+16], xmm0
 	jmp .L0
 	.L0:
 	leave
@@ -704,8 +704,8 @@ File.write:
 	je .L8
 	sub rsp, 16
 	mov [rsp+8], rbx
-	mov rcx, [rbp+16]
-	mov [rsp+0], rcx
+	mov rbx, [rbp+16]
+	mov [rsp+0], rbx
 	call File.flush
 	mov rbx, [rsp+8]
 	add rsp, 16
@@ -731,8 +731,8 @@ File.write:
 	.L13:
 	sub rsp, 16
 	mov [rsp+8], rbx
-	mov rcx, [rbp+16]
-	mov [rsp+0], rcx
+	mov rbx, [rbp+16]
+	mov [rsp+0], rbx
 	call File.flush
 	mov rbx, [rsp+8]
 	add rsp, 16
@@ -949,9 +949,9 @@ global absf:function
 absf:
 	push rbp
 	mov rbp, rsp
-	fld QWORD [rbp+24]
-    fabs
-    fstp QWORD [rbp+16]
+	movsd xmm0, [rbp+24]
+    andpd xmm0, [__FABS_MASKd]
+    movsd [rbp+16], xmm0
 	.L0:
 	leave
 	ret
@@ -1081,8 +1081,8 @@ to_lower:
 	mov rbp, rsp
 	sub rsp, 16
 	mov [rsp+15], bl
-	mov cl, [rbp+17]
-	mov [rsp+1], cl
+	mov bl, [rbp+17]
+	mov [rsp+1], bl
 	call is_alpha
 	mov bl, [rsp+15]
 	mov cl, [rsp+0]
@@ -1106,8 +1106,8 @@ to_upper:
 	mov rbp, rsp
 	sub rsp, 16
 	mov [rsp+15], bl
-	mov cl, [rbp+17]
-	mov [rsp+1], cl
+	mov bl, [rbp+17]
+	mov [rsp+1], bl
 	call is_alpha
 	mov bl, [rsp+15]
 	mov cl, [rsp+0]
@@ -1121,27 +1121,6 @@ to_upper:
 	mov bl, [rbp+17]
 	.L2:
 	mov [rbp+16], bl
-	.L0:
-	leave
-	ret
-
-global set_rounding:function
-set_rounding:
-	push rbp
-	mov rbp, rsp
-	sub rsp, 16
-	lea rbx, [rsp+14]
-	fstcw [rbx]
-	mov bx, [rsp+14]
-	and bx, 0xf3ff
-	mov [rsp+14], bx
-	mov bx, [rsp+14]
-	movzx cx, BYTE [rbp+16]
-	shl cx, 8
-	or bx, cx
-	mov [rsp+14], bx
-	lea rbx, [rsp+14]
-	fldcw [rbx]
 	.L0:
 	leave
 	ret
@@ -1197,11 +1176,13 @@ global sin:function
 sin:
 	push rbp
 	mov rbp, rsp
-	fld QWORD [rbp+24]
-	fld QWORD [FP2]
-	fprem
-	fstp st0
-	fstp QWORD [rbp+24]
+	movsd xmm0, [rbp+24]
+	movsd xmm1, [FP2]
+	movsd xmm2, xmm0
+	divsd xmm2, xmm1
+	roundsd xmm2, xmm2, 0
+	subsd xmm0, xmm2
+	movsd [rbp+24], xmm0
 	fld QWORD [rbp+24]
     fsin
     fstp QWORD [rbp+16]
@@ -1213,11 +1194,13 @@ global cos:function
 cos:
 	push rbp
 	mov rbp, rsp
-	fld QWORD [rbp+24]
-	fld QWORD [FP2]
-	fprem
-	fstp st0
-	fstp QWORD [rbp+24]
+	movsd xmm0, [rbp+24]
+	movsd xmm1, [FP2]
+	movsd xmm2, xmm0
+	divsd xmm2, xmm1
+	roundsd xmm2, xmm2, 0
+	subsd xmm0, xmm2
+	movsd [rbp+24], xmm0
 	fld QWORD [rbp+24]
     fcos
     fstp QWORD [rbp+16]
@@ -1229,11 +1212,13 @@ global tan:function
 tan:
 	push rbp
 	mov rbp, rsp
-	fld QWORD [rbp+24]
-	fld QWORD [FP2]
-	fprem
-	fstp st0
-	fstp QWORD [rbp+24]
+	movsd xmm0, [rbp+24]
+	movsd xmm1, [FP2]
+	movsd xmm2, xmm0
+	divsd xmm2, xmm1
+	roundsd xmm2, xmm2, 0
+	subsd xmm0, xmm2
+	movsd [rbp+24], xmm0
 	fld QWORD [rbp+24]
     fptan
     fstp st0
@@ -1258,14 +1243,9 @@ global round:function
 round:
 	push rbp
 	mov rbp, rsp
-	sub rsp, 16
-	xor bl, bl
-	mov [rsp+0], bl
-	call set_rounding
-	add rsp, 16
-	fld QWORD [rbp+24]
-    frndint
-    fstp QWORD [rbp+16]
+	movsd xmm0, [rbp+24]
+    roundsd xmm0, xmm0, 0
+    movsd [rbp+16], xmm0
 	.L0:
 	leave
 	ret
@@ -1274,14 +1254,9 @@ global floor:function
 floor:
 	push rbp
 	mov rbp, rsp
-	sub rsp, 16
-	mov bl, 0x4
-	mov [rsp+0], bl
-	call set_rounding
-	add rsp, 16
-	fld QWORD [rbp+24]
-    frndint
-    fstp QWORD [rbp+16]
+	movsd xmm0, [rbp+24]
+    roundsd xmm0, xmm0, 1
+    movsd [rbp+16], xmm0
 	.L0:
 	leave
 	ret
@@ -1290,14 +1265,9 @@ global ceil:function
 ceil:
 	push rbp
 	mov rbp, rsp
-	sub rsp, 16
-	mov bl, 0x8
-	mov [rsp+0], bl
-	call set_rounding
-	add rsp, 16
-	fld QWORD [rbp+24]
-    frndint
-    fstp QWORD [rbp+16]
+	movsd xmm0, [rbp+24]
+    roundsd xmm0, xmm0, 2
+    movsd [rbp+16], xmm0
 	.L0:
 	leave
 	ret
@@ -1306,14 +1276,9 @@ global trunc:function
 trunc:
 	push rbp
 	mov rbp, rsp
-	sub rsp, 16
-	mov bl, 0xc
-	mov [rsp+0], bl
-	call set_rounding
-	add rsp, 16
-	fld QWORD [rbp+24]
-    frndint
-    fstp QWORD [rbp+16]
+	movsd xmm0, [rbp+24]
+    roundsd xmm0, xmm0, 3
+    movsd [rbp+16], xmm0
 	.L0:
 	leave
 	ret
@@ -1335,17 +1300,15 @@ fixed.from_float:
 	mov rbp, rsp
 	sub rsp, 32
 	mov [rsp+28], ebx
-	fld QWORD [rbp+24]
-	mov DWORD [__FP_TMP], 0x47000000
-	fld DWORD [__FP_TMP]
-	fmulp
-	fstp QWORD [rsp+8]
+	movsd xmm0, [rbp+24]
+	movsd xmm1, [FP3]
+	mulsd xmm0, xmm1
+	movsd [rsp+8], xmm0
 	call round
 	mov ebx, [rsp+28]
-	fld QWORD [rsp+0]
+	movsd xmm0, [rsp+0]
 	add rsp, 32
-	fisttp DWORD [__FP_TMP]
-	mov ebx, DWORD [__FP_TMP]
+	cvttsd2si ebx, xmm0
 	mov [rbp+16], ebx
 	.L0:
 	leave
@@ -1500,12 +1463,11 @@ fixed.to_float:
 	push rbp
 	mov rbp, rsp
 	movsxd rbx, DWORD [rbp+24]
-	mov [__FP_TMP], rbx
-	fild QWORD [__FP_TMP]
-	mov DWORD [__FP_TMP], 0x47000000
-	fld DWORD [__FP_TMP]
-	fdivp
-	fstp QWORD [rbp+16]
+	cvtsi2ss xmm0, rbx
+	cvtss2sd xmm0, xmm0
+	movsd xmm1, [FP3]
+	divsd xmm0, xmm1
+	movsd [rbp+16], xmm0
 	.L0:
 	leave
 	ret
@@ -1625,7 +1587,6 @@ strlen:
 	push rbp
 	mov rbp, rsp
 	mov rbx, [rbp+24]
-	lea rsi, [rbp+16]
 	xor al, al
     mov rdi, rbx
     mov rcx, ~0
@@ -1633,7 +1594,7 @@ strlen:
     repne scasb
     not rcx
     dec rcx
-    mov [rsi], rcx
+    mov [rbp+16], rcx
 	.L0:
 	leave
 	ret
@@ -1841,8 +1802,8 @@ strequal:
 	add rsp, 16
 	sub rsp, 32
 	mov [rsp+24], rbx
-	mov rcx, [rbp+32]
-	mov [rsp+8], rcx
+	mov rbx, [rbp+32]
+	mov [rsp+8], rbx
 	call strlen
 	mov rbx, [rsp+24]
 	mov rcx, [rsp+0]
@@ -1922,8 +1883,8 @@ string.share:
 	mov [rbx+24], rcx
 	sub rsp, 32
 	mov [rsp+24], rbx
-	mov rcx, [rbp+16]
-	mov [rsp+8], rcx
+	mov rbx, [rbp+16]
+	mov [rsp+8], rbx
 	call string.ref_cnt
 	mov rbx, [rsp+24]
 	mov rcx, [rsp+0]
@@ -2005,10 +1966,10 @@ string.is_equal:
 	je .L1
 	sub rsp, 32
 	mov [rsp+31], bl
-	mov rcx, [rbp+24]
-	mov [rsp+8], rcx
-	mov rcx, [rbp+32]
-	mov [rsp+16], rcx
+	mov rbx, [rbp+24]
+	mov [rsp+8], rbx
+	mov rbx, [rbp+32]
+	mov [rsp+16], rbx
 	call string.compare
 	mov bl, [rsp+31]
 	mov rcx, [rsp+0]
@@ -2365,10 +2326,9 @@ print_double:
 	push rbp
 	mov rbp, rsp
 	sub rsp, 160
-	fld QWORD [FP3]
-	fld QWORD [rbp+16]
-	fcomip
-	fstp st0
+	movsd xmm0, [FP4]
+	movsd xmm1, [rbp+16]
+	comisd xmm1, xmm0
 	setb bl
 	mov [rsp+31], bl
 	mov bl, [rsp+31]
@@ -2381,42 +2341,40 @@ print_double:
 	mov [rsp+8], rbx
 	call print_char
 	add rsp, 16
-	fld QWORD [rbp+16]
-	fchs
-	fstp QWORD [rbp+16]
+	movsd xmm0, [rbp+16]
+	xorpd xmm0, [__FNEG_MASKd]
+	movsd [rbp+16], xmm0
 	.L1:
 	.L2:
-	fld QWORD [rbp+16]
-	fisttp QWORD [__FP_TMP]
-	mov rbx, QWORD [__FP_TMP]
+	movsd xmm0, [rbp+16]
+	cvttsd2si rbx, xmm0
 	mov [rsp+16], rbx
 	sub rsp, 32
 	mov [rsp+24], rbx
-	fld QWORD [rbp+16]
-	mov rcx, [rsp+48]
-	mov [__FP_TMP], rcx
-	fild QWORD [__FP_TMP]
-	fsubp
+	movsd xmm0, [rbp+16]
+	mov rbx, [rsp+48]
+	cvtsi2ss xmm1, rbx
+	cvtss2sd xmm1, xmm1
+	subsd xmm0, xmm1
 	sub rsp, 32
-	mov [rsp+24], rbx
-	fld QWORD [FP4]
-	fstp QWORD [rsp+8]
-	mov rcx, [rbp+24]
-	mov [__FP_TMP], rcx
-	fild QWORD [__FP_TMP]
-	fstp QWORD [rsp+16]
+	movsd [rsp+24], xmm0
+	movsd xmm0, [FP5]
+	movsd [rsp+8], xmm0
+	mov rbx, [rbp+24]
+	cvtsi2ss xmm0, rbx
+	cvtss2sd xmm0, xmm0
+	movsd [rsp+16], xmm0
 	call pow
-	mov rbx, [rsp+24]
-	fld QWORD [rsp+0]
+	movsd xmm0, [rsp+24]
+	movsd xmm1, [rsp+0]
 	add rsp, 32
-	fmulp
-	fstp QWORD [rsp+8]
+	mulsd xmm0, xmm1
+	movsd [rsp+8], xmm0
 	call round
 	mov rbx, [rsp+24]
-	fld QWORD [rsp+0]
+	movsd xmm0, [rsp+0]
 	add rsp, 32
-	fisttp QWORD [__FP_TMP]
-	mov rbx, QWORD [__FP_TMP]
+	cvttsd2si rbx, xmm0
 	mov [rsp+8], rbx
 	sub rsp, 16
 	mov rbx, [rsp+32]
@@ -3124,8 +3082,8 @@ print_format:
 	mov rbx, [rbp+24]
 	mov rcx, [rsp+72]
 	inc QWORD [rsp+72]
-	fld QWORD [rbx+rcx*8]
-	fstp QWORD [rsp+0]
+	movsd xmm0, [rbx+rcx*8]
+	movsd [rsp+0], xmm0
 	mov rbx, 0x4
 	mov [rsp+8], rbx
 	mov rbx, [rbp+32]
@@ -3278,10 +3236,10 @@ print_format:
 	je .L39
 	sub rsp, 32
 	mov [rsp+24], rbx
-	mov cl, [rsp+47]
-	mov [rsp+0], cl
-	mov rcx, [rbp+32]
-	mov [rsp+8], rcx
+	mov bl, [rsp+47]
+	mov [rsp+0], bl
+	mov rbx, [rbp+32]
+	mov [rsp+8], rbx
 	call print_char
 	mov rbx, [rsp+24]
 	add rsp, 32
@@ -3492,8 +3450,8 @@ print_format:
 	mov rbx, [rbp+24]
 	mov rcx, [rsp+88]
 	inc QWORD [rsp+88]
-	fld QWORD [rbx+rcx*8]
-	fstp QWORD [rsp+0]
+	movsd xmm0, [rbx+rcx*8]
+	movsd [rsp+0], xmm0
 	mov rbx, [rsp+40]
 	mov [rsp+8], rbx
 	mov rbx, [rbp+32]
@@ -3993,6 +3951,7 @@ string_to_int:
 	ret
 
 
+extern set_rounding:function
 extern malloc:function
 extern main:function
 extern free:function
@@ -4006,25 +3965,18 @@ extern string.new:function
 extern string.format:function
 
 
-section .data
-static __FP_TMP:data
-__FP_TMP:
-dq 0
-static __GP_TMP:data
-__GP_TMP:
-times 64 db 0
+section .data align=16
+__FP_TMP: times 4 dq 0
+__GP_TMP: times 4 dq 0
 global stdout:data
 stdout:
 dq stdout_raw
-times 0 db 0
 global stdin:data
 stdin:
 dq stdin_raw
-times 0 db 0
 global errno:data
 errno:
 dq 0
-times 0 db 0
 static stdout_buffer:data
 stdout_buffer:
 times 4096 db 0
@@ -4036,7 +3988,6 @@ dq 4096
 dq 0
 dd 2
 dd 1
-times 0 db 0
 static stdin_raw:data
 stdin_raw:
 dq 0
@@ -4045,53 +3996,68 @@ dq 0
 dq 0
 dd 3
 dd 2
-times 0 db 0
-global File:data
-File:
-global fixed:data
-fixed:
-global string:data
-string:
+extern File:data
+extern fixed:data
+extern string:data
 
 
-section .rodata
+section .rodata align=16
+__FABS_MASKd: dq 0x7FFFFFFFFFFFFFFF, 0
+__FABS_MASKs: dd 0x7FFFFFFF, 0, 0, 0
+__FNEG_MASKd: dq 0x8000000000000000, 0
+__FNEG_MASKs: dd 0x80000000, 0, 0, 0
 STR0:
 db "",10,"",0
+dd 0
 STR1:
 db "(NULL)",0
+times 7 db 0
 STR2:
 db "0123456789ABCDEF",0
+times 5 db 0
 STR3:
 db "",10,"Expected %[ before %L to enclose text to align left",0
+db 0
 STR4:
 db "",10,"Expected %[ before %R to enclose text to align right",0
 STR5:
 db "",10,"Expected %[ before %C to enclose text to center",0
+times 5 db 0
 STR6:
 db "",10,"Expected %[ before %T to enclose text to truncate",10,"",0
+dw 0
 STR7:
 db "true",0
+db 0
 STR8:
 db "false",0
 STR9:
 db "",10,"Expected in to be in the range [1, 9] in format specifier %%0n",0
+times 6 db 0
 STR10:
 db "",10,"Expected %[ before %*T to enclose text to truncate",0
+dw 0
 STR11:
 db "",10,"Unexpected format specifier %%%*s",0
+times 3 db 0
 STR12:
 db "",10,"Unexpected format specifier %%%c",0
+dd 0
 STR13:
 db "input() error: %i",0
+dd 0
 STR14:
 db "input_char() error: %i",0
+times 7 db 0
 FP0:
-dq 1.0
+dq 1.0000000000
 FP1:
-dq 1000000000.0
+dq 1000000000.0000000000
 FP2:
-dq 6.28318530718
+dq 6.2831853072
 FP3:
-dq 0.0
+dq 32768.0000000000
 FP4:
-dq 10.0
+dq 0.0000000000
+FP5:
+dq 10.0000000000

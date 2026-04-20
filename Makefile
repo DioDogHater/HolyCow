@@ -18,7 +18,7 @@ HCC_FLAGS := -d --silent
 
 # Add your own projects here to compile
 stdlib_projects = helloworld test tictactoe breakout snake
-raylib_projects = test3d flight_sim
+raylib_projects = test3d physics
 
 build := programs/build
 src := programs

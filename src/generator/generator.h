@@ -24,8 +24,7 @@ extern node_term* str_literals;
 extern size_t str_literal_count;
 
 // A linked list of all float literals
-extern node_term* float_literals;
-extern size_t float_literal_count;
+extern vector_t float_literals[1];
 
 #include "user_defined.h"
 
@@ -68,8 +67,9 @@ void fail_gen_expr(HC_FILE);
 reg_t* generate_expr(HC_FILE, node_expr* expr, type_t target_type, reg_t* prefered_reg);
 
 // Generates a float expression
-// Returns true if successful, otherwise false
-bool generate_float_expr(HC_FILE, node_expr* expr);
+// Returns the float register where the value is stored
+#define FEXPR_ONCE(expr, dp) free_freg(generate_fexpr(fptr, (expr), (dp)))
+freg_t* generate_fexpr(HC_FILE, node_expr* expr, bool dp);
 
 // Necessary information over the current scope
 typedef struct{

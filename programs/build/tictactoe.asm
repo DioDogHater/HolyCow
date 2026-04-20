@@ -1,7 +1,7 @@
 section .text
 BITS 64
-CPU X64
-default ABS
+CPU ALL
+default REL
 global _start
 _start:
 	fninit
@@ -519,10 +519,10 @@ main:
 	jne .L10
 	sub rsp, 16
 	mov [rsp+15], bl
-	lea rcx, [rsp+48]
-	xor rsi, rsi
-	mov dil, [rcx+rsi*1]
-	mov [rsp+1], dil
+	lea rbx, [rsp+48]
+	xor rcx, rcx
+	mov sil, [rbx+rcx*1]
+	mov [rsp+1], sil
 	call is_num
 	mov bl, [rsp+15]
 	mov cl, [rsp+0]
@@ -534,10 +534,10 @@ main:
 	jne .L9
 	sub rsp, 16
 	mov [rsp+15], bl
-	lea rcx, [rsp+48]
-	mov rsi, 0x1
-	mov dil, [rcx+rsi*1]
-	mov [rsp+1], dil
+	lea rbx, [rsp+48]
+	mov rcx, 0x1
+	mov sil, [rbx+rcx*1]
+	mov [rsp+1], sil
 	call is_alpha
 	mov bl, [rsp+15]
 	mov cl, [rsp+0]
@@ -760,13 +760,9 @@ extern string.new:function
 extern string.format:function
 
 
-section .data
-static __FP_TMP:data
-__FP_TMP:
-dq 0
-static __GP_TMP:data
-__GP_TMP:
-times 64 db 0
+section .data align=16
+__FP_TMP: times 4 dq 0
+__GP_TMP: times 4 dq 0
 extern stdout:data
 extern stdin:data
 global game:data
@@ -779,32 +775,49 @@ extern fixed:data
 extern string:data
 
 
-section .rodata
+section .rodata align=16
+__FABS_MASKd: dq 0x7FFFFFFFFFFFFFFF, 0
+__FABS_MASKs: dd 0x7FFFFFFF, 0, 0, 0
+__FNEG_MASKd: dq 0x8000000000000000, 0
+__FNEG_MASKs: dd 0x80000000, 0, 0, 0
 STR0:
 db "TURN: %c",0
+times 5 db 0
 STR1:
 db "Coordinates (%i, %i) are invalid!",0
+dd 0
 STR2:
 db "Coordinates %c%c are already taken!",0
+dw 0
 STR3:
 db "123",0
+dw 0
 STR4:
 db "ABC",0
+dw 0
 STR5:
-db "  A   B   C",0
+db "",10,"  A   B   C",0
+db 0
 STR6:
 db "  %*c",0
 STR7:
 db "%u %c | %c | %c",0
+times 6 db 0
 STR8:
 db "Controls:",10,"Enter 'q' to leave.",10,"Enter the row number + column letter to choose a square to fill.",10,"",0
+times 6 db 0
 STR9:
 db "Invalid input! Enter the row number + column letter.",10,"Example: 2C",0
+times 5 db 0
 STR10:
 db "",10,"== X wins! ==",0
+times 7 db 0
 STR11:
 db "",10,"== O wins! ==",0
+times 7 db 0
 STR12:
 db "",10,"==== TIE ====",0
+times 7 db 0
 STR13:
 db "",10,"<< GAME OVER! >>",10,"- Play again? (y/n) -",0
+times 6 db 0

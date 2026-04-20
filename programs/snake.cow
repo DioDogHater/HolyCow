@@ -148,8 +148,10 @@ void draw_game(){
     repeat(snake.length - 1){
         if(body.x - last_body.x)
             screen[body.x + body.y * Game.width] = '-';
-        else
+        else if(body.y - last_body.y)
             screen[body.x + body.y * Game.width] = '|';
+        else
+            screen[body.x + body.y * Game.width] = '+';
         last_body = body;
         body += sizeof(vec2);
     }
@@ -197,9 +199,10 @@ int main(uint argc, char** argv){
         if(snake.length == Game.width * Game.height)
             gameover = true;
 
-        // Wait for 0.075 seconds
-        // Gives us ~13 FPS
-        sleep(0.125 - 0.0025 * snake.length);
+        double wait = 0.125 - 0.001 * snake.length;
+        if(wait < 0.05)
+            wait = 0.05;
+        sleep(wait);
 
         // Game over screen
         if(gameover){

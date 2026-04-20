@@ -41,7 +41,6 @@ module Input {
 
     void get(){
         Input.x = 0;
-        Input.space = false;
 
         char buff[24];
         int sz = stdin.read(buff, 24);
@@ -214,15 +213,20 @@ int main(uint argc, char** argv){
     TTY.raw_input();
     TTY.unblock_stdin();
 
+    uint frames = 0;
+
     while(!Game.over){
         Screen.clear();
         Screen.print();
 
         Input.get();
         Paddle.update();
-        Ball.update();
 
-        sleep(0.15);
+        if(frames % 5 == 0)
+            Ball.update();
+
+        sleep(0.025);
+        frames++;
     }
 
     TTY.restore_old();

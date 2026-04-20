@@ -447,7 +447,12 @@ void gen_declare_float(HC_FILE fptr, double val, bool dp){
     HC_FPRINTF(fptr, "d%c %.10F\n", dp?'q':'d', val);
 }
 void gen_declare_mem(HC_FILE fptr, size_t size){
-    HC_FPRINTF(fptr, "times %lu db 0\n", size);
+    if(size == 0) return;
+    else if(size == 1) HC_FPRINTF(fptr, "db 0\n");
+    else if(size == 2) HC_FPRINTF(fptr, "dw 0\n");
+    else if(size == 4) HC_FPRINTF(fptr, "dd 0\n");
+    else if(size == 8) HC_FPRINTF(fptr, "dq 0\n");
+    else HC_FPRINTF(fptr, "times %lu db 0\n", size);
 }
 void gen_declare_align(HC_FILE fptr, const char* str, size_t strlen, size_t sz){
     HC_FPRINTF(fptr, "times %lu - ($-%.*s) db 0\n", sz, (int)strlen, str);
@@ -455,95 +460,111 @@ void gen_declare_align(HC_FILE fptr, const char* str, size_t strlen, size_t sz){
 
 void gen_declare_str_lit(HC_FILE fptr, size_t id, const char* str, size_t strlen){
     HC_FPRINTF(fptr, "STR%lu:\n", id);
-    gen_declare_str(fptr, str, strlen);
+    size_t sz = gen_declare_str(fptr, str, strlen);
+    gen_declare_mem(fptr, ALIGN(sz, 8) - sz);
 }
-void gen_declare_float_lit(HC_FILE fptr, size_t id, const char* str, size_t strlen){
-    HC_FPRINTF(fptr, "FP%lu:\ndq %.*s\n", id, (int)strlen, str);
+void gen_declare_float_lit(HC_FILE fptr, size_t id, double fp){
+    HC_FPRINTF(fptr, "FP%lu:\n", id);
+    gen_declare_float(fptr, fp, true);
 }
 
-// float operations
-void gen_pop_float(HC_FILE fptr){
-    HC_FPRINTF(fptr, "\tfstp st0\n");
+void gen_loadf(HC_FILE fptr, freg_t* op, size_t id){
+    if(!op->dp) HC_FPRINTF(fptr, "\tcvtsd2ss %s, [FP%lu]\n", op->name, id);
+    else HC_FPRINTF(fptr, "\tmovsd %s, [FP%lu]\n", op->name, id);
 }
-void gen_load_float(HC_FILE fptr, size_t id){
-    HC_FPRINTF(fptr, "\tfld QWORD [FP%lu]\n", id);
+void gen_move_freg(HC_FILE fptr, freg_t* dest, freg_t* src){
+    if(dest == src) return;
+    if(dest->dp != src->dp)
+        HC_FPRINTF(fptr, "\tcvts%c2s%c %s, %s\n", (src->dp)?'d':'s', (dest->dp)?'d':'s', dest->name, src->name);
+    else
+        HC_FPRINTF(fptr, "\tmovs%c %s, %s\n", (dest->dp)?'d':'s', dest->name, src->name);
 }
-void gen_load_float_raw(HC_FILE fptr, float x){
-    uint32_t* data = (uint32_t*) &x;
-    HC_FPRINTF(fptr,
-        "\tmov DWORD [__FP_TMP], 0x%" HC_FMT_32HEX "\n"
-        "\tfld DWORD [__FP_TMP]\n", *data);
+#define GEN_FARGS(...) __VA_ARGS__
+#define GEN_LOADF(_name, args, fmt, ...)\
+void gen_loadf_##_name(HC_FILE fptr, freg_t* op, args, bool dp){\
+    if(op->dp == dp) HC_FPRINTF(fptr, "\tmovs%c %s, " fmt "\n", dp?'d':'s', op->name,##__VA_ARGS__);\
+    else HC_FPRINTF(fptr, "\tcvts%c2s%c %s, " fmt "\n", dp?'d':'s', (op->dp)?'d':'s', op->name,##__VA_ARGS__);\
 }
-void gen_load_stack_float(HC_FILE fptr, size_t ptr, bool dp){
-    HC_FPRINTF(fptr, "\tfld %s [rsp+%lu]\n" ,dp?"QWORD":"DWORD", ptr);
+#define GEN_SAVEF(_name, args, fmt, ...)\
+void gen_savef_##_name(HC_FILE fptr, freg_t* op, args, bool dp){\
+    if(op->dp == dp) HC_FPRINTF(fptr, "\tmovs%c " fmt ", %s\n", dp?'d':'s',##__VA_ARGS__, op->name);\
+    else{\
+        freg_t* tmp = GET_FREG(dp);\
+        HC_FPRINTF(fptr, "\tcvts%c2s%c %s, %s\n", (op->dp)?'d':'s', dp?'d':'s', tmp->name, op->name);\
+        HC_FPRINTF(fptr, "\tmovs%c " fmt ", %s\n", dp?'d':'s',##__VA_ARGS__, tmp->name);\
+    }\
 }
-void gen_load_arg_float(HC_FILE fptr, size_t ptr, bool dp){
-    HC_FPRINTF(fptr, "\tfld %s [rbp+%lu]\n", dp?"QWORD":"DWORD", ptr+16);
+GEN_LOADF(stack, size_t ptr, "[rsp+%lu]", ptr);
+GEN_LOADF(arg, size_t ptr, "[rbp+%lu]", ptr + 16);
+GEN_LOADF(ptr, reg_t* ptr, "[%s]", ptr->name);
+GEN_LOADF(idx, GEN_FARGS(reg_t* ptr, reg_t* idx), "[%s+%s*%c]", ptr->name, idx->name, dp?'8':'4');
+GEN_LOADF(global, GEN_FARGS(const char* str, size_t strlen), "[%.*s]", (int)strlen, str);
+GEN_LOADF(global_offset, GEN_FARGS(const char* str, size_t strlen, size_t offset), "[%.*s+%lu]", (int)strlen, str, offset);
+GEN_LOADF(offset, GEN_FARGS(reg_t* ptr, size_t offset), "[%s+%lu]", ptr->name, offset);
+GEN_SAVEF(stack, size_t ptr, "[rsp+%lu]", ptr);
+GEN_SAVEF(arg, size_t ptr, "[rbp+%lu]", ptr + 16);
+GEN_SAVEF(ptr, reg_t* ptr, "[%s]", ptr->name);
+GEN_SAVEF(idx, GEN_FARGS(reg_t* ptr, reg_t* idx), "[%s+%s*%c]", ptr->name, idx->name, dp?'8':'4');
+GEN_SAVEF(global, GEN_FARGS(const char* str, size_t strlen), "[%.*s]", (int)strlen, str);
+GEN_SAVEF(global_offset, GEN_FARGS(const char* str, size_t strlen, size_t offset), "[%.*s+%lu]", (int)strlen, str, offset);
+GEN_SAVEF(offset, GEN_FARGS(reg_t* ptr, size_t offset), "[%s+%lu]", ptr->name, offset);
+// void gen_int_to_float(HC_FILE fptr, freg_t* op, reg_t* src);
+// void gen_float_to_int(HC_FILE fptr, freg_t* op, reg_t* dest);
+void gen_negf(HC_FILE fptr, freg_t* op){ HC_FPRINTF(fptr, "\txorp%c %s, [__FNEG_MASK%c]\n", (op->dp)?'d':'s', op->name, (op->dp)?'d':'s'); }
+// We assume fregs are equal in size
+#define GEN_OPF(_name) \
+void gen_##_name##f(HC_FILE fptr, freg_t* op1, freg_t* op2){\
+    HC_FPRINTF(fptr, "\t" #_name "s%c %s, %s\n", (op1->dp)?'d':'s', op1->name, op2->name);\
 }
-void gen_load_ptr_float(HC_FILE fptr, reg_t* ptr, bool dp){
-    HC_FPRINTF(fptr, "\tfld %s [%s]\n", dp?"QWORD":"DWORD", ptr->name);
+GEN_OPF(add)
+GEN_OPF(sub)
+GEN_OPF(mul)
+GEN_OPF(div)
+void gen_modf(HC_FILE fptr, freg_t* op1, freg_t* op2){
+    // x - (round(x/y) * y)
+    freg_t* tmp = GET_FREG(op1->dp);
+    gen_move_freg(fptr, tmp, op1);
+    gen_divf(fptr, tmp, op2);
+    HC_FPRINTF(fptr, "\trounds%c %s, %s, 0\n", (tmp->dp)?'d':'s', tmp->name, tmp->name);
+    gen_subf(fptr, op1, tmp);
 }
-void gen_load_idx_float(HC_FILE fptr, reg_t* ptr, reg_t* idx, size_t sz, bool dp){
-    HC_FPRINTF(fptr, "\tfld %s [%s+%s*%lu]\n", dp?"QWORD":"DWORD", ptr->name, idx->name, sz);
+void gen_float_to_int(HC_FILE fptr, freg_t* op, reg_t* reg){
+    if(reg->size >= 4)
+        HC_FPRINTF(fptr, "\tcvtts%c2si %s, %s\n", (op->dp)?'d':'s', reg->name, op->name);
+    else{
+        reg_t* tmp = GET_FREE_REG(8);
+        HC_FPRINTF(fptr, "\tcvtts%c2si %s, %s\n", (op->dp)?'d':'s', tmp->name, op->name);
+        (void) transfer_reg(fptr, tmp, reg);
+    }
 }
-void gen_load_global_float(HC_FILE fptr, const char* str, size_t strlen, bool dp){
-    HC_FPRINTF(fptr, "\tfld %s [%.*s]\n", dp?"QWORD":"DWORD", (int)strlen, str);
+void gen_int_to_float(HC_FILE fptr, freg_t* op, reg_t* reg){
+    if(reg->size >= 4)
+        HC_FPRINTF(fptr, "\tcvtsi2s%c %s, %s\n", (op->dp)?'d':'s', op->name, reg->name);
+    else{
+        reg_t* tmp = GET_FREE_REG(8);
+        gen_movex_reg(fptr, tmp, reg, true);
+        HC_FPRINTF(fptr, "\tcvtsi2s%c %s, %s\n", (op->dp)?'d':'s', op->name, tmp->name);
+    }
 }
-void gen_load_global_offset_float(HC_FILE fptr, const char* str, size_t strlen, size_t offset, bool dp){
-    HC_FPRINTF(fptr, "\tfld %s [%.*s+%lu]\n", dp?"QWORD":"DWORD", (int)strlen, str, offset);
+void gen_cmpzf(HC_FILE fptr, freg_t* op){
+    HC_FPRINTF(fptr, "\tptest %s, %s\n", op->name, op->name);
 }
-void gen_load_offset_float(HC_FILE fptr, reg_t* ptr, size_t offset, bool dp){
-    HC_FPRINTF(fptr, "\tfld %s [%s+%lu]\n", dp?"QWORD":"DWORD", ptr->name, offset);
+void gen_cmpf(HC_FILE fptr, freg_t* op1, freg_t* op2){
+    HC_FPRINTF(fptr, "\tcomis%c %s, %s\n", (op1->dp)?'d':'s', op2->name, op1->name);
 }
-void gen_save_stack_float(HC_FILE fptr, size_t ptr, bool dp){
-    HC_FPRINTF(fptr, "\tfstp %s [rsp+%lu]\n", dp?"QWORD":"DWORD", ptr);
-}
-void gen_save_arg_float(HC_FILE fptr, size_t ptr, bool dp){
-    HC_FPRINTF(fptr, "\tfstp %s [rbp+%lu]\n", dp?"QWORD":"DWORD", ptr+16);
-}
-void gen_save_ptr_float(HC_FILE fptr, reg_t* ptr, bool dp){
-    HC_FPRINTF(fptr, "\tfstp %s [%s]\n", dp?"QWORD":"DWORD", ptr->name);
-}
-void gen_save_idx_float(HC_FILE fptr, reg_t* ptr, reg_t* idx, size_t sz, bool dp){
-    HC_FPRINTF(fptr, "\tfstp %s [%s+%s*%lu]\n", dp?"QWORD":"DWORD", ptr->name, idx->name, sz);
-}
-void gen_save_global_float(HC_FILE fptr, const char* str, size_t strlen, bool dp){
-    HC_FPRINTF(fptr, "\tfstp %s [%.*s]\n", dp?"QWORD":"DWORD", (int)strlen, str);
-}
-void gen_save_global_offset_float(HC_FILE fptr, const char* str, size_t strlen, size_t offset, bool dp){
-    HC_FPRINTF(fptr, "\tfstp %s [%.*s+%lu]\n", dp?"QWORD":"DWORD", (int)strlen, str, offset);
-}
-void gen_save_offset_float(HC_FILE fptr, reg_t* ptr, size_t offset, bool dp){
-    HC_FPRINTF(fptr, "\tfstp %s [%s+%lu]\n", dp?"QWORD":"DWORD", ptr->name, offset);
-}
-void gen_int_to_float(HC_FILE fptr, reg_t* reg){
-    if(reg->size == 1){
-        reg_t* tmp = GET_FREE_REG(2);
-        HC_FPRINTF(fptr, "\tmovsx %s, %s\n\tmov WORD [__FP_TMP], %s\n", tmp->name, reg->name, tmp->name);
-    }else
-        gen_save_global(fptr, reg, "__FP_TMP", 8);
-    HC_FPRINTF(fptr, "\tfild %s [__FP_TMP]\n", x64_sz_names[MAX(reg->size, 2)]);
-}
-void gen_float_to_int(HC_FILE fptr, reg_t* reg){
-    HC_FPRINTF(fptr, "\tfisttp %s [__FP_TMP]\n", x64_sz_names[MAX(reg->size, 2)]);
-    gen_load_global(fptr, reg, "__FP_TMP", 8);
-}
-void gen_neg_float(HC_FILE fptr){ HC_FPRINTF(fptr, "\tfchs\n"); }
-void gen_add_floats(HC_FILE fptr){ HC_FPRINTF(fptr, "\tfaddp\n"); }
-void gen_sub_floats(HC_FILE fptr){ HC_FPRINTF(fptr, "\tfsubp\n"); }
-void gen_mul_floats(HC_FILE fptr){ HC_FPRINTF(fptr, "\tfmulp\n"); }
-void gen_div_floats(HC_FILE fptr){ HC_FPRINTF(fptr, "\tfdivp\n"); }
-void gen_mod_floats(HC_FILE fptr){ HC_FPRINTF(fptr, "\tfprem\n\tfstp st0\n"); }
-void gen_cmpz_float(HC_FILE fptr){ HC_FPRINTF(fptr, "\tfldz\n\tfcomip\n\tfstp st0\n"); }
-void gen_cmp_floats(HC_FILE fptr){ HC_FPRINTF(fptr, "\tfcomip\n\tfstp st0\n"); }
-void gen_cmp_approx_floats(HC_FILE fptr){
-    HC_FPRINTF(fptr,
-        "\tfsubp\n"
-        "\tfabs\n"
-        "\tfld QWORD [FP_PRECISION]\n"
-        "\tfcomip\n"
-        "\tfstp st0\n"
-    );
+void gen_cmp_approx(HC_FILE fptr, freg_t* op1, freg_t* op2){
+    // abs(x - y) < FP_PRECISION
+    freg_t* tmp = GET_FREG(op1->dp);
+    gen_move_freg(fptr, tmp, op1);
+    gen_subf(fptr, tmp, op2);
+    HC_FPRINTF(fptr, "\tandp%c %s, [__FABS_MASK%c]\n", (op1->dp)?'d':'s', tmp->name, (op1->dp)?'d':'s');
+    if(op1->dp)
+        HC_FPRINTF(fptr, "\tcomisd %s, [FP_PRECISION]\n", tmp->name);
+    else{
+        freg_t* tmp2 = GET_FREG(false);
+        gen_loadf_global(fptr, tmp2, "FP_PRECISION", 12, true);
+        HC_FPRINTF(fptr, "\tcomiss %s, %s\n", tmp->name, tmp2->name);
+    }
 }
 
 #endif

@@ -44,7 +44,7 @@ LIBC_FUNC float fabsf(float x);
 
 // Square root
 LIBC_FUNC double sqrt(double x);
-LIBC_FUNC float sqrtf(double x);
+LIBC_FUNC float sqrtf(float x);
 
 // Cubic root
 LIBC_FUNC double cbrt(double x);

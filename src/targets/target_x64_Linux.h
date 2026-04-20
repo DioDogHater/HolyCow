@@ -3,6 +3,7 @@
 #include "../dev/libs.h"
 #include "../generator/target_requirements.h"
 #include "nasm_x64_regs.h"
+#include "nasm_x64_fregs.h"
 #include "nasm_x64_ops.h"
 #include "systemV_abi.h"
 
@@ -14,15 +15,21 @@ const char* target_linker = "ld (GNU Linker)";
 
 const char* target_entry_point = "_start";
 const char* target_text_section = "section .text\n";
-const char* target_data_section = "section .data\n";
-const char* target_rodata_section = "section .rodata\n";
+const char* target_data_section = "section .data align=16\n"
+                                  "__FP_TMP: times 4 dq 0\n"
+                                  "__GP_TMP: times 4 dq 0\n";
+const char* target_rodata_section = "section .rodata align=16\n"
+                                    "__FABS_MASKd: dq 0x7FFFFFFFFFFFFFFF, 0\n"
+                                    "__FABS_MASKs: dd 0x7FFFFFFF, 0, 0, 0\n"
+                                    "__FNEG_MASKd: dq 0x8000000000000000, 0\n"
+                                    "__FNEG_MASKs: dd 0x80000000, 0, 0, 0\n";
 
 void gen_setup(HC_FILE fptr, bool library){
     sysV_init();
     HC_FPRINTF(fptr,
         "BITS 64\n"
-        "CPU X64\n"
-        "default ABS\n");
+        "CPU ALL\n"
+        "default REL\n");
     if(library) return;
     HC_FPRINTF(fptr,
         "global _start\n"

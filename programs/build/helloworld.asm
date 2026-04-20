@@ -1,7 +1,7 @@
 section .text
 BITS 64
-CPU X64
-default ABS
+CPU ALL
+default REL
 global _start
 _start:
 	fninit
@@ -59,13 +59,13 @@ print_numbers:
 	je .L3
 	sub rsp, 32
 	mov [rsp+24], rbx
-	mov rcx, STR0
-	mov [rsp+0], rcx
-	movzx rcx, BYTE [rsp+39]
-	mov [rsp+8], rcx
-	mov rcx, [rsp+40]
-	mov rsi, [rcx]
-	mov [rsp+16], rsi
+	mov rbx, STR0
+	mov [rsp+0], rbx
+	movzx rbx, BYTE [rsp+39]
+	mov [rsp+8], rbx
+	mov rbx, [rsp+40]
+	mov rcx, [rbx]
+	mov [rsp+16], rcx
 	call print
 	mov rbx, [rsp+24]
 	add rsp, 32
@@ -245,9 +245,8 @@ main:
 	sub rsp, 16
 	mov rbx, STR23
 	mov [rsp+0], rbx
-	mov DWORD [__FP_TMP], 0xc181b368
-	fld DWORD [__FP_TMP]
-	fstp QWORD [rsp+8]
+	movsd xmm0, [FP0]
+	movsd [rsp+8], xmm0
 	call println
 	add rsp, 16
 	sub rsp, 32
@@ -255,9 +254,8 @@ main:
 	mov [rsp+0], rbx
 	mov rbx, 0x6
 	mov [rsp+8], rbx
-	mov DWORD [__FP_TMP], 0xc181b37a
-	fld DWORD [__FP_TMP]
-	fstp QWORD [rsp+16]
+	movsd xmm0, [FP1]
+	movsd [rsp+16], xmm0
 	call println
 	add rsp, 32
 	.L0:
@@ -347,13 +345,9 @@ extern string.new:function
 extern string.format:function
 
 
-section .data
-static __FP_TMP:data
-__FP_TMP:
-dq 0
-static __GP_TMP:data
-__GP_TMP:
-times 64 db 0
+section .data align=16
+__FP_TMP: times 4 dq 0
+__GP_TMP: times 4 dq 0
 extern stdout:data
 extern stdin:data
 extern File:data
@@ -361,54 +355,85 @@ extern fixed:data
 extern string:data
 
 
-section .rodata
+section .rodata align=16
+__FABS_MASKd: dq 0x7FFFFFFFFFFFFFFF, 0
+__FABS_MASKs: dd 0x7FFFFFFF, 0, 0, 0
+__FNEG_MASKd: dq 0x8000000000000000, 0
+__FNEG_MASKs: dd 0x80000000, 0, 0, 0
 STR0:
 db "%c %i",0
 STR1:
 db "Hello world!",0
+db 0
 STR2:
 db "%A5 chars%A20 chars",0
+dw 0
 STR3:
 db "[%[Aligned left%L]",0
+times 3 db 0
 STR4:
 db "[%[Aligned right%R]",0
+dw 0
 STR5:
 db "[%[Centered%C]",0
+times 7 db 0
 STR6:
 db "%[This is way too long and I want it short%T",0
+db 0
 STR7:
 db "%[This is way too long and I want it short%*T",0
 STR8:
 db "string:            ",34,"%s",34,"",0
+times 6 db 0
 STR9:
 db "HolyCow!",0
+times 5 db 0
 STR10:
 db "length string:     ",34,"%*s",34,"",0
+times 5 db 0
 STR11:
 db "1234567890",0
+times 3 db 0
 STR12:
 db "HolyCow string object!",0
+times 7 db 0
 STR13:
 db "string object:     ",34,"%S",34,"",0
+times 6 db 0
 STR14:
 db "character:         '%c'",0
+times 6 db 0
 STR15:
 db "repeated character: %*c",0
+times 6 db 0
 STR16:
 db "signed int:         %i",0
+times 7 db 0
 STR17:
 db "unsigned int:       %u",0
+times 7 db 0
 STR18:
 db "n length uint:      %04",0
+times 6 db 0
 STR19:
 db "uint (hex):         %x",0
+times 7 db 0
 STR20:
 db "bool:               %b",0
+times 7 db 0
 STR21:
 db "-16.2126",0
+times 5 db 0
 STR22:
 db "fixed point:        %F",0
+times 7 db 0
 STR23:
 db "float:              %f",0
+times 7 db 0
 STR24:
 db "float (n digits):   %*f",0
+times 6 db 0
+FP0:
+dq -16.2126000000
+FP1:
+dq -16.2126350000

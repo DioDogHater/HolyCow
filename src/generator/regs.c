@@ -140,3 +140,58 @@ reg_t* get_lower_nbytes(HC_FILE fptr, reg_t* op, size_t n){
     gen_dealloc_stack(fptr, op->size);
     return tmp;
 }
+
+// Floating point registers
+bool is_freg_free(freg_t* reg){
+    if(reg->occupied)
+        return false;
+    freg_t* child = reg->children;
+    for(; child && child->name; child++){
+        if(!is_freg_free(child))
+            return false;
+    }
+    return true;
+}
+
+freg_t* get_free_freg(bool ds, freg_t* freg_arr){
+    for(; freg_arr && freg_arr->name; freg_arr++){
+        if(freg_arr->occupied)
+            continue;
+        if(freg_arr->dp == ds)
+            return freg_arr;
+        else if(freg_arr->children){
+            freg_t* freg = get_free_freg(ds, freg_arr->children);
+            if(freg) return freg;
+        }
+    }
+    return NULL;
+}
+
+int get_occup_fregs(freg_t* freg_arr, freg_t* arr[MAX_FREGS]){
+    int n = 0;
+    for(; freg_arr && freg_arr->name; freg_arr++){
+        if(freg_arr->occupied)
+            arr[n++] = freg_arr;
+        else if(freg_arr->children)
+            n += get_occup_fregs(freg_arr->children, &arr[n]);
+    }
+    return n;
+}
+
+freg_t* alloc_freg(freg_t* reg){
+    if(!reg)
+        return NULL;
+    reg->occupied = true;
+    for(freg_t* child = reg->children; child && child->name; child++)
+        (void) alloc_freg(child);
+    return reg;
+}
+
+freg_t* free_freg(freg_t* reg){
+    if(!reg)
+        return NULL;
+    reg->occupied = false;
+    for(freg_t* child = reg->children; child && child->name; child++)
+        (void) free_freg(child);
+    return reg;
+}

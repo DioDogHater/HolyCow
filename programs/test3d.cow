@@ -71,7 +71,7 @@ int main(uint argc, char** argv){
                 // Ring and sphere
                 Quaternion rot_axis = QuaternionFromEuler(cosf(angle * 0.1) * PI * 0.5, angle, 0.0);
                 Vector3 v = Vector3RotateByQuaternion(Vector3{0.0, 0.0, 3.0}, rot_axis);
-                DrawCircle3D(Vector3{0.0, v.y, 0.0}, hypot(v.x, v.z), Vector3{1.0, 0.0, 0.0}, 90.0, BLUE);
+                DrawCircle3D(Vector3{0.0, v.y, 0.0}, sqrtf(v.x*v.x + v.z*v.z), Vector3{1.0, 0.0, 0.0}, 90.0, BLUE);
 
                 angle += 5.0 * delta;
                 DrawSphere(v, 0.25, BLUE);

@@ -5,7 +5,7 @@
 #include "raylib/raylib.hcw"
 #include "raylib/raymath.hcw"
 
-// FLIGHT SIMULATOR
+// PHYSICS SIMULATION
 // Work in progress
 
 

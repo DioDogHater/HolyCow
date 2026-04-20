@@ -35,7 +35,7 @@ class Board {
     }
 
     void print_board(){
-        println("  A   B   C");
+        println("\n  A   B   C");
         for(int i = 0; i < 3; i++){
             if(i > 0)
                 println("  %*c", 10, '-');

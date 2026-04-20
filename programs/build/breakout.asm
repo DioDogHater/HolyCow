@@ -1,7 +1,7 @@
 section .text
 BITS 64
-CPU X64
-default ABS
+CPU ALL
+default REL
 global _start
 _start:
 	fninit
@@ -375,8 +375,6 @@ Input.get:
 	sub rsp, 48
 	xor ebx, ebx
 	mov [Input+0], ebx
-	xor bl, bl
-	mov [Input+4], bl
 	sub rsp, 32
 	mov rbx, QWORD [stdin]
 	mov [rsp+8], rbx
@@ -405,9 +403,9 @@ Input.get:
 	je .L5
 	sub rsp, 32
 	mov [rsp+24], rbx
-	mov rcx, [rsp+40]
-	mov sil, [rcx]
-	mov [rsp+1], sil
+	mov rbx, [rsp+40]
+	mov cl, [rbx]
+	mov [rsp+1], cl
 	call to_lower
 	mov rbx, [rsp+24]
 	mov cl, [rsp+0]
@@ -424,9 +422,9 @@ Input.get:
 	.L6:
 	sub rsp, 32
 	mov [rsp+24], rbx
-	mov rcx, [rsp+40]
-	mov sil, [rcx]
-	mov [rsp+1], sil
+	mov rbx, [rsp+40]
+	mov cl, [rbx]
+	mov [rsp+1], cl
 	call to_lower
 	mov rbx, [rsp+24]
 	mov cl, [rsp+0]
@@ -803,10 +801,10 @@ Ball.check_collisions:
 	lea rbx, [Ball+8]
 	sub rsp, 32
 	mov [rsp+24], rbx
-	xor rcx, rcx
-	mov [rsp+8], rcx
-	mov rcx, 0x2
-	mov [rsp+16], rcx
+	xor rbx, rbx
+	mov [rsp+8], rbx
+	mov rbx, 0x2
+	mov [rsp+16], rbx
 	call randint
 	mov rbx, [rsp+24]
 	mov ecx, [rsp+0]
@@ -881,10 +879,10 @@ Ball.check_collisions:
 	mov bl, [rbp+16]
 	sub rsp, 32
 	mov [rsp+31], bl
-	lea rcx, [Ball+0]
-	mov [rsp+8], rcx
-	lea rcx, [Ball+8]
-	mov [rsp+16], rcx
+	lea rbx, [Ball+0]
+	mov [rsp+8], rbx
+	lea rbx, [Ball+8]
+	mov [rsp+16], rbx
 	call Blocks.check_hit
 	mov bl, [rsp+31]
 	mov cl, [rsp+0]
@@ -894,10 +892,10 @@ Ball.check_collisions:
 	mov bl, [rbp+16]
 	sub rsp, 32
 	mov [rsp+31], bl
-	lea rcx, [Ball+0]
-	mov [rsp+8], rcx
-	lea rcx, [Ball+8]
-	mov [rsp+16], rcx
+	lea rbx, [Ball+0]
+	mov [rsp+8], rbx
+	lea rbx, [Ball+8]
+	mov [rsp+16], rbx
 	call Paddle.check_hit
 	mov bl, [rsp+31]
 	mov cl, [rsp+0]
@@ -1079,12 +1077,12 @@ Screen.print:
 	je .L16
 	sub rsp, 32
 	mov [rsp+24], rbx
-	mov rcx, STR2
-	mov [rsp+0], rcx
-	mov rcx, 0x30
-	mov [rsp+8], rcx
-	mov rcx, [rsp+56]
-	mov [rsp+16], rcx
+	mov rbx, STR2
+	mov [rsp+0], rbx
+	mov rbx, 0x30
+	mov [rsp+8], rbx
+	mov rbx, [rsp+56]
+	mov [rsp+16], rbx
 	call println
 	mov rbx, [rsp+24]
 	add rsp, 32
@@ -1118,9 +1116,12 @@ global main:function
 main:
 	push rbp
 	mov rbp, rsp
+	sub rsp, 16
 	call Blocks.init
 	call TTY.raw_input
 	call TTY.unblock_stdin
+	xor rbx, rbx
+	mov [rsp+8], rbx
 	.L1:
 	mov cl, BYTE [Game+0]
 	test cl, cl
@@ -1131,12 +1132,26 @@ main:
 	call Screen.print
 	call Input.get
 	call Paddle.update
+	mov rax, [rsp+8]
+	mov rbx, 0x5
+	xor rdx, rdx
+	idiv rbx
+	mov rax, rdx
+	xor rbx, rbx
+	cmp rax, rbx
+	sete bl
+	test bl, bl
+	je .L3
 	call Ball.update
+	.L3:
+	.L4:
 	sub rsp, 16
-	fld QWORD [FP0]
-	fstp QWORD [rsp+0]
+	movsd xmm0, [FP0]
+	movsd [rsp+0], xmm0
 	call sleep
 	add rsp, 16
+	mov rbx, [rsp+8]
+	inc QWORD [rsp+8]
 	jmp .L1
 	.L2:
 	call TTY.restore_old
@@ -1242,13 +1257,9 @@ extern string.new:function
 extern string.format:function
 
 
-section .data
-static __FP_TMP:data
-__FP_TMP:
-dq 0
-static __GP_TMP:data
-__GP_TMP:
-times 64 db 0
+section .data align=16
+__FP_TMP: times 4 dq 0
+__GP_TMP: times 4 dq 0
 extern stdout:data
 extern stdin:data
 extern File:data
@@ -1257,19 +1268,19 @@ extern string:data
 global TTY:data
 TTY:
 dd 56026
-times 4 db 0
-times 4 db 0
-times 4 db 0
+dd 0
+dd 0
+dd 0
 times 32 db 0
-times 4 db 0
-times 4 db 0
+dd 0
+dd 0
 dd 56026
-times 4 db 0
-times 4 db 0
-times 4 db 0
+dd 0
+dd 0
+dd 0
 times 32 db 0
-times 4 db 0
-times 4 db 0
+dd 0
+dd 0
 global Game:data
 Game:
 db 0
@@ -1277,8 +1288,8 @@ times 7 db 0
 dq 0
 global Input:data
 Input:
-times 4 db 0
-times 1 db 0
+dd 0
+db 0
 times 3 db 0
 global Blocks:data
 Blocks:
@@ -1286,7 +1297,7 @@ times 120 db 0
 global Paddle:data
 Paddle:
 dd 10
-times 4 db 0
+dd 0
 global Ball:data
 Ball:
 dd 24
@@ -1298,14 +1309,22 @@ Screen:
 times 768 db 0
 
 
-section .rodata
+section .rodata align=16
+__FABS_MASKd: dq 0x7FFFFFFFFFFFFFFF, 0
+__FABS_MASKs: dd 0x7FFFFFFF, 0, 0, 0
+__FNEG_MASKd: dq 0x8000000000000000, 0
+__FNEG_MASKs: dd 0x80000000, 0, 0, 0
 STR0:
 db "(%i, %i)",0
+times 5 db 0
 STR1:
 db "",0x1b,"[2H",0x1b,"[J",0
+times 6 db 0
 STR2:
 db "%*s",0
+dw 0
 STR3:
 db "%[|| SCORE: %03 %*L%[ q to exit game. ||%*R",0
+dw 0
 FP0:
-dq 0.15
+dq 0.0250000000

@@ -1,7 +1,7 @@
 section .text
 BITS 64
-CPU X64
-default ABS
+CPU ALL
+default REL
 global _start
 _start:
 	fninit
@@ -29,377 +29,445 @@ main:
 	call SetTargetFPS
 	lea rbx, [rsp+36]
 	lea r8, [rbx+0]
-	fld QWORD [FP0]
-	fstp DWORD [r8+0]
-	fld QWORD [FP1]
-	fstp DWORD [r8+4]
-	fld QWORD [FP2]
-	fstp DWORD [r8+8]
+	cvtsd2ss xmm0, [FP0]
+	movss [r8+0], xmm0
+	cvtsd2ss xmm0, [FP1]
+	movss [r8+4], xmm0
+	cvtsd2ss xmm0, [FP2]
+	movss [r8+8], xmm0
 	lea r8, [rbx+12]
-	fld QWORD [FP0]
-	fstp DWORD [r8+0]
-	fld QWORD [FP0]
-	fstp DWORD [r8+4]
-	fld QWORD [FP3]
-	fstp DWORD [r8+8]
+	cvtsd2ss xmm0, [FP0]
+	movss [r8+0], xmm0
+	cvtsd2ss xmm0, [FP0]
+	movss [r8+4], xmm0
+	cvtsd2ss xmm0, [FP3]
+	movss [r8+8], xmm0
 	lea r8, [rbx+24]
-	fld QWORD [FP0]
-	fstp DWORD [r8+0]
-	fld QWORD [FP4]
-	fstp DWORD [r8+4]
-	fld QWORD [FP0]
-	fstp DWORD [r8+8]
-	fld QWORD [FP5]
-	fstp DWORD [rbx+36]
+	cvtsd2ss xmm0, [FP0]
+	movss [r8+0], xmm0
+	cvtsd2ss xmm0, [FP4]
+	movss [r8+4], xmm0
+	cvtsd2ss xmm0, [FP0]
+	movss [r8+8], xmm0
+	cvtsd2ss xmm0, [FP5]
+	movss [rbx+36], xmm0
 	xor ecx, ecx
 	mov [rbx+40], ecx
 	lea rbx, [rsp+24]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+0]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+4]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+8]
+	cvtsd2ss xmm0, [FP0]
+	movss [rbx+0], xmm0
+	cvtsd2ss xmm0, [FP0]
+	movss [rbx+4], xmm0
+	cvtsd2ss xmm0, [FP0]
+	movss [rbx+8], xmm0
 	lea rbx, [rsp+8]
 	sub rsp, 16
 	mov [rsp+8], rbx
-	fld DWORD [rsp+48]
-	fstp DWORD [__FP_TMP]
-	movss xmm2, DWORD [__FP_TMP+0]
-	fld DWORD [rsp+44]
-	fstp DWORD [__FP_TMP]
-	movss xmm1, DWORD [__FP_TMP+0]
-	fld DWORD [rsp+40]
-	fstp DWORD [__FP_TMP]
-	movss xmm0, DWORD [__FP_TMP+0]
+	movss xmm0, [rsp+48]
+	movss xmm2, xmm0
+	movss xmm0, [rsp+44]
+	movss xmm1, xmm0
+	movss xmm0, [rsp+40]
 	call QuaternionFromEuler
 	mov rbx, [rsp+8]
-	movsd QWORD [rbx+0], xmm0
-	movsd QWORD [rbx+8], xmm1
+	movsd [rbx], xmm0
+	movsd [rbx+8], xmm1
 	add rsp, 16
-	fld QWORD [FP6]
-	fstp DWORD [rsp+4]
+	cvtsd2ss xmm2, [FP6]
+	movss [rsp+4], xmm2
 	sub rsp, 64
 	.L1:
-	sub rsp, 16
+	sub rsp, 32
+	movsd [rsp+24], xmm0
+	movsd [rsp+16], xmm1
 	call WindowShouldClose
 	mov [rsp+0], rax
+	movsd xmm0, [rsp+24]
+	movsd xmm1, [rsp+16]
 	mov bl, [rsp+0]
-	add rsp, 16
+	add rsp, 32
 	test bl, bl
 	je .L3
 	jmp .L2
 	.L3:
 	.L4:
-	sub rsp, 16
+	sub rsp, 32
+	movsd [rsp+24], xmm0
+	movsd [rsp+16], xmm1
 	call GetFrameTime
-	movss DWORD [rsp+0], xmm0
-	fld DWORD [rsp+0]
-	add rsp, 16
-	fstp DWORD [rsp+60]
-	sub rsp, 16
+	movss [rsp+0], xmm0
+	movsd xmm0, [rsp+24]
+	movsd xmm1, [rsp+16]
+	movss xmm2, [rsp+0]
+	add rsp, 32
+	movss [rsp+60], xmm2
+	sub rsp, 32
+	movsd [rsp+24], xmm0
+	movsd [rsp+16], xmm1
 	mov rdi, 0x1
 	call IsMouseButtonDown
 	mov [rsp+0], rax
+	movsd xmm0, [rsp+24]
+	movsd xmm1, [rsp+16]
 	mov bl, [rsp+0]
-	add rsp, 16
+	add rsp, 32
 	test bl, bl
 	je .L5
 	sub rsp, 16
 	lea rbx, [rsp+8]
-	sub rsp, 16
-	mov [rsp+8], rbx
+	sub rsp, 32
+	mov [rsp+24], rbx
+	movsd [rsp+16], xmm0
+	movsd [rsp+8], xmm1
 	call GetMouseDelta
-	mov rbx, [rsp+8]
-	movsd QWORD [rbx+0], xmm0
-	add rsp, 16
+	mov rbx, [rsp+24]
+	movsd [rbx], xmm0
+	movsd xmm0, [rsp+16]
+	movsd xmm1, [rsp+8]
+	add rsp, 32
 	lea rbx, [rsp+104]
-	sub rsp, 16
-	mov [rsp+8], rbx
+	sub rsp, 32
+	mov [rsp+24], rbx
+	movsd [rsp+16], xmm0
+	movsd [rsp+8], xmm1
 	lea rbx, [__GP_TMP]
-	fld DWORD [rsp+28]
-	fchs
-	fld QWORD [FP7]
-	fmulp
-	fstp DWORD [rbx+0]
-	fld DWORD [rsp+24]
-	fchs
-	fld QWORD [FP7]
-	fmulp
-	fstp DWORD [rbx+4]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+8]
-	movss xmm3, DWORD [__GP_TMP+8]
-	movsd xmm2, QWORD [__GP_TMP+0]
+	movss xmm0, [rsp+44]
+	xorps xmm0, [__FNEG_MASKs]
+	cvtsd2ss xmm1, [FP7]
+	mulss xmm0, xmm1
+	movss [rbx+0], xmm0
+	movss xmm0, [rsp+40]
+	xorps xmm0, [__FNEG_MASKs]
+	cvtsd2ss xmm1, [FP7]
+	mulss xmm0, xmm1
+	movss [rbx+4], xmm0
+	cvtsd2ss xmm0, [FP0]
+	movss [rbx+8], xmm0
+	movss xmm3, [__GP_TMP+8]
+	movsd xmm2, [__GP_TMP]
+	lea rbx, [__GP_TMP]
+	cld
+	mov rdi, rbx
+	lea rsi, [rsp+136]
+	mov rcx, 3
+	rep movsd
+	movss xmm1, [__GP_TMP+8]
+	movsd xmm0, [__GP_TMP]
+	call Vector3Add
+	mov rbx, [rsp+24]
+	movsd [rbx], xmm0
+	movss [rbx+8], xmm1
+	movsd xmm0, [rsp+16]
+	movsd xmm1, [rsp+8]
+	add rsp, 32
+	lea rbx, [rsp+88]
+	sub rsp, 32
+	mov [rsp+24], rbx
+	movsd [rsp+16], xmm0
+	movsd [rsp+8], xmm1
+	movss xmm0, [rsp+144]
+	movss xmm2, xmm0
+	movss xmm0, [rsp+140]
+	movss xmm1, xmm0
+	movss xmm0, [rsp+136]
+	call QuaternionFromEuler
+	mov rbx, [rsp+24]
+	movsd [rbx], xmm0
+	movsd [rbx+8], xmm1
+	movsd xmm0, [rsp+16]
+	movsd xmm1, [rsp+8]
+	add rsp, 32
+	lea rbx, [rsp+116]
+	sub rsp, 32
+	mov [rsp+24], rbx
+	movsd [rsp+16], xmm0
+	movsd [rsp+8], xmm1
 	lea rbx, [__GP_TMP]
 	cld
 	mov rdi, rbx
 	lea rsi, [rsp+120]
-	mov rcx, 3
-	rep movsd
-	movss xmm1, DWORD [__GP_TMP+8]
-	movsd xmm0, QWORD [__GP_TMP+0]
-	call Vector3Add
-	mov rbx, [rsp+8]
-	movsd QWORD [rbx+0], xmm0
-	movss DWORD [rbx+8], xmm1
-	add rsp, 16
-	lea rbx, [rsp+88]
-	sub rsp, 16
-	mov [rsp+8], rbx
-	fld DWORD [rsp+128]
-	fstp DWORD [__FP_TMP]
-	movss xmm2, DWORD [__FP_TMP+0]
-	fld DWORD [rsp+124]
-	fstp DWORD [__FP_TMP]
-	movss xmm1, DWORD [__FP_TMP+0]
-	fld DWORD [rsp+120]
-	fstp DWORD [__FP_TMP]
-	movss xmm0, DWORD [__FP_TMP+0]
-	call QuaternionFromEuler
-	mov rbx, [rsp+8]
-	movsd QWORD [rbx+0], xmm0
-	movsd QWORD [rbx+8], xmm1
-	add rsp, 16
-	lea rbx, [rsp+116]
-	sub rsp, 16
-	mov [rsp+8], rbx
-	lea rbx, [__GP_TMP]
-	cld
-	mov rdi, rbx
-	lea rsi, [rsp+104]
 	mov rcx, 2
 	rep movsq
-	movsd xmm3, QWORD [__GP_TMP+8]
-	movsd xmm2, QWORD [__GP_TMP+0]
+	movsd xmm3, [__GP_TMP+8]
+	movsd xmm2, [__GP_TMP]
 	lea rbx, [__GP_TMP]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+0]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+4]
-	fld QWORD [FP3]
-	fstp DWORD [rbx+8]
-	movss xmm1, DWORD [__GP_TMP+8]
-	movsd xmm0, QWORD [__GP_TMP+0]
+	cvtsd2ss xmm0, [FP0]
+	movss [rbx+0], xmm0
+	cvtsd2ss xmm0, [FP0]
+	movss [rbx+4], xmm0
+	cvtsd2ss xmm0, [FP3]
+	movss [rbx+8], xmm0
+	movss xmm1, [__GP_TMP+8]
+	movsd xmm0, [__GP_TMP]
 	call Vector3RotateByQuaternion
-	mov rbx, [rsp+8]
-	movsd QWORD [rbx+0], xmm0
-	movss DWORD [rbx+8], xmm1
-	add rsp, 16
+	mov rbx, [rsp+24]
+	movsd [rbx], xmm0
+	movss [rbx+8], xmm1
+	movsd xmm0, [rsp+16]
+	movsd xmm1, [rsp+8]
+	add rsp, 32
 	lea rbx, [rsp+116]
-	sub rsp, 16
-	mov [rsp+8], rbx
+	sub rsp, 32
+	mov [rsp+24], rbx
+	movsd [rsp+16], xmm0
+	movsd [rsp+8], xmm1
 	lea rbx, [__GP_TMP]
-	lea r8, [rsp+132]
+	lea r8, [rsp+148]
 	lea r8, [r8+12]
 	cld
 	mov rdi, rbx
 	lea rsi, [r8]
 	mov rcx, 3
 	rep movsd
-	movss xmm3, DWORD [__GP_TMP+8]
-	movsd xmm2, QWORD [__GP_TMP+0]
+	movss xmm3, [__GP_TMP+8]
+	movsd xmm2, [__GP_TMP]
 	lea rbx, [__GP_TMP]
-	lea r8, [rsp+132]
+	lea r8, [rsp+148]
 	lea r8, [r8+0]
 	cld
 	mov rdi, rbx
 	lea rsi, [r8]
 	mov rcx, 3
 	rep movsd
-	movss xmm1, DWORD [__GP_TMP+8]
-	movsd xmm0, QWORD [__GP_TMP+0]
+	movss xmm1, [__GP_TMP+8]
+	movsd xmm0, [__GP_TMP]
 	call Vector3Add
-	mov rbx, [rsp+8]
-	movsd QWORD [rbx+0], xmm0
-	movss DWORD [rbx+8], xmm1
-	add rsp, 16
+	mov rbx, [rsp+24]
+	movsd [rbx], xmm0
+	movss [rbx+8], xmm1
+	movsd xmm0, [rsp+16]
+	movsd xmm1, [rsp+8]
+	add rsp, 32
 	add rsp, 16
 	.L5:
 	.L6:
 	lea rbx, [rsp+48]
-	sub rsp, 16
-	mov [rsp+8], rbx
+	sub rsp, 32
+	mov [rsp+24], rbx
+	movsd [rsp+16], xmm0
+	movsd [rsp+8], xmm1
 	mov rdi, 0x44
 	call IsKeyDown
 	mov [rsp+0], rax
-	mov rbx, [rsp+8]
+	mov rbx, [rsp+24]
+	movsd xmm0, [rsp+16]
+	movsd xmm1, [rsp+8]
 	movzx rcx, BYTE [rsp+0]
-	add rsp, 16
-	sub rsp, 32
-	mov [rsp+24], rbx
-	mov [rsp+16], rcx
+	add rsp, 32
+	sub rsp, 48
+	mov [rsp+40], rbx
+	mov [rsp+32], rcx
+	movsd [rsp+24], xmm0
+	movsd [rsp+16], xmm1
 	mov rdi, 0x41
 	call IsKeyDown
 	mov [rsp+0], rax
-	mov rbx, [rsp+24]
-	mov rcx, [rsp+16]
+	mov rbx, [rsp+40]
+	mov rcx, [rsp+32]
+	movsd xmm0, [rsp+24]
+	movsd xmm1, [rsp+16]
 	movzx rsi, BYTE [rsp+0]
-	add rsp, 32
+	add rsp, 48
 	sub rcx, rsi
-	mov [__FP_TMP], rcx
-	fild QWORD [__FP_TMP]
-	fstp DWORD [rbx+0]
-	sub rsp, 16
-	mov [rsp+8], rbx
+	cvtsi2ss xmm2, rcx
+	movss [rbx+0], xmm2
+	sub rsp, 32
+	mov [rsp+24], rbx
+	movsd [rsp+16], xmm0
+	movsd [rsp+8], xmm1
 	mov rdi, 0x20
 	call IsKeyDown
 	mov [rsp+0], rax
-	mov rbx, [rsp+8]
+	mov rbx, [rsp+24]
+	movsd xmm0, [rsp+16]
+	movsd xmm1, [rsp+8]
 	movzx rcx, BYTE [rsp+0]
-	add rsp, 16
-	sub rsp, 32
-	mov [rsp+24], rbx
-	mov [rsp+16], rcx
+	add rsp, 32
+	sub rsp, 48
+	mov [rsp+40], rbx
+	mov [rsp+32], rcx
+	movsd [rsp+24], xmm0
+	movsd [rsp+16], xmm1
 	mov rdi, 0x43
 	call IsKeyDown
 	mov [rsp+0], rax
-	mov rbx, [rsp+24]
-	mov rcx, [rsp+16]
+	mov rbx, [rsp+40]
+	mov rcx, [rsp+32]
+	movsd xmm0, [rsp+24]
+	movsd xmm1, [rsp+16]
 	movzx rsi, BYTE [rsp+0]
-	add rsp, 32
+	add rsp, 48
 	sub rcx, rsi
-	mov [__FP_TMP], rcx
-	fild QWORD [__FP_TMP]
-	fstp DWORD [rbx+4]
-	sub rsp, 16
-	mov [rsp+8], rbx
+	cvtsi2ss xmm2, rcx
+	movss [rbx+4], xmm2
+	sub rsp, 32
+	mov [rsp+24], rbx
+	movsd [rsp+16], xmm0
+	movsd [rsp+8], xmm1
 	mov rdi, 0x53
 	call IsKeyDown
 	mov [rsp+0], rax
-	mov rbx, [rsp+8]
+	mov rbx, [rsp+24]
+	movsd xmm0, [rsp+16]
+	movsd xmm1, [rsp+8]
 	movzx rcx, BYTE [rsp+0]
-	add rsp, 16
-	sub rsp, 32
-	mov [rsp+24], rbx
-	mov [rsp+16], rcx
+	add rsp, 32
+	sub rsp, 48
+	mov [rsp+40], rbx
+	mov [rsp+32], rcx
+	movsd [rsp+24], xmm0
+	movsd [rsp+16], xmm1
 	mov rdi, 0x57
 	call IsKeyDown
 	mov [rsp+0], rax
-	mov rbx, [rsp+24]
-	mov rcx, [rsp+16]
+	mov rbx, [rsp+40]
+	mov rcx, [rsp+32]
+	movsd xmm0, [rsp+24]
+	movsd xmm1, [rsp+16]
 	movzx rsi, BYTE [rsp+0]
-	add rsp, 32
+	add rsp, 48
 	sub rcx, rsi
-	mov [__FP_TMP], rcx
-	fild QWORD [__FP_TMP]
-	fstp DWORD [rbx+8]
+	cvtsi2ss xmm2, rcx
+	movss [rbx+8], xmm2
 	lea rbx, [rsp+48]
-	sub rsp, 16
-	mov [rsp+8], rbx
-	fld DWORD [rsp+76]
-	fld QWORD [FP3]
-	fmulp
-	fstp DWORD [__FP_TMP]
-	movss xmm2, DWORD [__FP_TMP+0]
+	sub rsp, 32
+	mov [rsp+24], rbx
+	movsd [rsp+16], xmm0
+	movsd [rsp+8], xmm1
+	movss xmm0, [rsp+92]
+	cvtsd2ss xmm1, [FP3]
+	mulss xmm0, xmm1
+	movss xmm2, xmm0
 	lea rbx, [__GP_TMP]
 	sub rsp, 32
 	mov [rsp+24], rbx
 	mov [rsp+16], rax
-	movsd QWORD [rsp+8], xmm2
+	movss [rsp+12], xmm2
 	lea rbx, [__GP_TMP]
 	cld
 	mov rdi, rbx
-	lea rsi, [rsp+96]
+	lea rsi, [rsp+112]
 	mov rcx, 3
 	rep movsd
-	movss xmm1, DWORD [__GP_TMP+8]
-	movsd xmm0, QWORD [__GP_TMP+0]
+	movss xmm1, [__GP_TMP+8]
+	movsd xmm0, [__GP_TMP]
 	call Vector3Normalize
 	mov rbx, [rsp+24]
-	movsd QWORD [rbx+0], xmm0
-	movss DWORD [rbx+8], xmm1
+	movsd [rbx], xmm0
+	movss [rbx+8], xmm1
 	mov rax, [rsp+16]
-	movsd xmm2, QWORD [rsp+8]
+	movss xmm2, [rsp+12]
 	add rsp, 32
-	movss xmm1, DWORD [__GP_TMP+8]
-	movsd xmm0, QWORD [__GP_TMP+0]
+	movss xmm1, [__GP_TMP+8]
+	movsd xmm0, [__GP_TMP]
 	call Vector3Scale
-	mov rbx, [rsp+8]
-	movsd QWORD [rbx+0], xmm0
-	movss DWORD [rbx+8], xmm1
-	add rsp, 16
+	mov rbx, [rsp+24]
+	movsd [rbx], xmm0
+	movss [rbx+8], xmm1
+	movsd xmm0, [rsp+16]
+	movsd xmm1, [rsp+8]
+	add rsp, 32
 	lea rbx, [rsp+48]
-	sub rsp, 16
-	mov [rsp+8], rbx
-	fld DWORD [rsp+108]
-	fstp DWORD [__FP_TMP]
-	movss xmm4, DWORD [__FP_TMP+0]
+	sub rsp, 32
+	mov [rsp+24], rbx
+	movsd [rsp+16], xmm0
+	movsd [rsp+8], xmm1
+	movss xmm0, [rsp+124]
+	movss xmm4, xmm0
 	lea rbx, [__GP_TMP]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+0]
-	fld QWORD [FP4]
-	fstp DWORD [rbx+4]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+8]
-	movss xmm3, DWORD [__GP_TMP+8]
-	movsd xmm2, QWORD [__GP_TMP+0]
+	cvtsd2ss xmm0, [FP0]
+	movss [rbx+0], xmm0
+	cvtsd2ss xmm0, [FP4]
+	movss [rbx+4], xmm0
+	cvtsd2ss xmm0, [FP0]
+	movss [rbx+8], xmm0
+	movss xmm3, [__GP_TMP+8]
+	movsd xmm2, [__GP_TMP]
 	lea rbx, [__GP_TMP]
 	cld
 	mov rdi, rbx
-	lea rsi, [rsp+64]
+	lea rsi, [rsp+80]
 	mov rcx, 3
 	rep movsd
-	movss xmm1, DWORD [__GP_TMP+8]
-	movsd xmm0, QWORD [__GP_TMP+0]
+	movss xmm1, [__GP_TMP+8]
+	movsd xmm0, [__GP_TMP]
 	call Vector3RotateByAxisAngle
-	mov rbx, [rsp+8]
-	movsd QWORD [rbx+0], xmm0
-	movss DWORD [rbx+8], xmm1
-	add rsp, 16
+	mov rbx, [rsp+24]
+	movsd [rbx], xmm0
+	movss [rbx+8], xmm1
+	movsd xmm0, [rsp+16]
+	movsd xmm1, [rsp+8]
+	add rsp, 32
 	lea rbx, [rsp+112]
-	sub rsp, 16
-	mov [rsp+8], rbx
+	sub rsp, 32
+	mov [rsp+24], rbx
+	movsd [rsp+16], xmm0
+	movsd [rsp+8], xmm1
 	lea rbx, [__GP_TMP]
 	cld
 	mov rdi, rbx
-	lea rsi, [rsp+64]
+	lea rsi, [rsp+80]
 	mov rcx, 3
 	rep movsd
-	movss xmm3, DWORD [__GP_TMP+8]
-	movsd xmm2, QWORD [__GP_TMP+0]
+	movss xmm3, [__GP_TMP+8]
+	movsd xmm2, [__GP_TMP]
 	lea rbx, [__GP_TMP]
-	lea r8, [rsp+116]
+	lea r8, [rsp+132]
 	lea r8, [r8+12]
 	cld
 	mov rdi, rbx
 	lea rsi, [r8]
 	mov rcx, 3
 	rep movsd
-	movss xmm1, DWORD [__GP_TMP+8]
-	movsd xmm0, QWORD [__GP_TMP+0]
+	movss xmm1, [__GP_TMP+8]
+	movsd xmm0, [__GP_TMP]
 	call Vector3Add
-	mov rbx, [rsp+8]
-	movsd QWORD [rbx+0], xmm0
-	movss DWORD [rbx+8], xmm1
-	add rsp, 16
+	mov rbx, [rsp+24]
+	movsd [rbx], xmm0
+	movss [rbx+8], xmm1
+	movsd xmm0, [rsp+16]
+	movsd xmm1, [rsp+8]
+	add rsp, 32
 	lea rbx, [rsp+100]
-	sub rsp, 16
-	mov [rsp+8], rbx
+	sub rsp, 32
+	mov [rsp+24], rbx
+	movsd [rsp+16], xmm0
+	movsd [rsp+8], xmm1
 	lea rbx, [__GP_TMP]
 	cld
 	mov rdi, rbx
-	lea rsi, [rsp+64]
+	lea rsi, [rsp+80]
 	mov rcx, 3
 	rep movsd
-	movss xmm3, DWORD [__GP_TMP+8]
-	movsd xmm2, QWORD [__GP_TMP+0]
+	movss xmm3, [__GP_TMP+8]
+	movsd xmm2, [__GP_TMP]
 	lea rbx, [__GP_TMP]
-	lea r8, [rsp+116]
+	lea r8, [rsp+132]
 	lea r8, [r8+0]
 	cld
 	mov rdi, rbx
 	lea rsi, [r8]
 	mov rcx, 3
 	rep movsd
-	movss xmm1, DWORD [__GP_TMP+8]
-	movsd xmm0, QWORD [__GP_TMP+0]
+	movss xmm1, [__GP_TMP+8]
+	movsd xmm0, [__GP_TMP]
 	call Vector3Add
-	mov rbx, [rsp+8]
-	movsd QWORD [rbx+0], xmm0
-	movss DWORD [rbx+8], xmm1
-	add rsp, 16
+	mov rbx, [rsp+24]
+	movsd [rbx], xmm0
+	movss [rbx+8], xmm1
+	movsd xmm0, [rsp+16]
+	movsd xmm1, [rsp+8]
+	add rsp, 32
+	sub rsp, 16
+	movsd [rsp+8], xmm0
+	movsd [rsp+0], xmm1
 	call BeginDrawing
+	movsd xmm0, [rsp+8]
+	movsd xmm1, [rsp+0]
+	add rsp, 16
+	sub rsp, 16
+	movsd [rsp+8], xmm0
+	movsd [rsp+0], xmm1
 	lea rbx, [__GP_TMP]
 	xor cl, cl
 	mov [rbx+0], cl
@@ -411,15 +479,26 @@ main:
 	mov [rbx+3], cl
 	mov rdi, QWORD [__GP_TMP+0]
 	call ClearBackground
+	movsd xmm0, [rsp+8]
+	movsd xmm1, [rsp+0]
+	add rsp, 16
+	sub rsp, 16
+	movsd [rsp+8], xmm0
+	movsd [rsp+0], xmm1
 	sub rsp, 48
 	lea rbx, [rsp+0]
 	cld
 	mov rdi, rbx
-	lea rsi, [rsp+148]
+	lea rsi, [rsp+164]
 	mov rcx, 11
 	rep movsd
 	call BeginMode3D
-	add rsp, 48
+	movsd xmm0, [rsp+56]
+	movsd xmm1, [rsp+48]
+	add rsp, 64
+	sub rsp, 16
+	movsd [rsp+8], xmm0
+	movsd [rsp+0], xmm1
 	lea rbx, [__GP_TMP]
 	mov cl, 0xff
 	mov [rbx+0], cl
@@ -430,17 +509,14 @@ main:
 	mov cl, 0xff
 	mov [rbx+3], cl
 	mov rdi, QWORD [__GP_TMP+0]
-	fld QWORD [FP4]
-	fstp DWORD [__FP_TMP]
-	movss xmm4, DWORD [__FP_TMP+0]
-	fld QWORD [FP4]
-	fstp DWORD [__FP_TMP]
-	movss xmm3, DWORD [__FP_TMP+0]
-	fld QWORD [FP4]
-	fstp DWORD [__FP_TMP]
-	movss xmm2, DWORD [__FP_TMP+0]
+	cvtsd2ss xmm0, [FP4]
+	movss xmm4, xmm0
+	cvtsd2ss xmm0, [FP4]
+	movss xmm3, xmm0
+	cvtsd2ss xmm0, [FP4]
+	movss xmm2, xmm0
 	lea rbx, [__GP_TMP]
-	lea r8, [rsp+100]
+	lea r8, [rsp+116]
 	lea r8, [r8+12]
 	mov r9, rdi
 	cld
@@ -449,9 +525,15 @@ main:
 	mov rcx, 3
 	rep movsd
 	mov rdi, r9
-	movss xmm1, DWORD [__GP_TMP+8]
-	movsd xmm0, QWORD [__GP_TMP+0]
+	movss xmm1, [__GP_TMP+8]
+	movsd xmm0, [__GP_TMP]
 	call DrawCube
+	movsd xmm0, [rsp+8]
+	movsd xmm1, [rsp+0]
+	add rsp, 16
+	sub rsp, 16
+	movsd [rsp+8], xmm0
+	movsd [rsp+0], xmm1
 	lea rbx, [__GP_TMP]
 	mov cl, 0x82
 	mov [rbx+0], cl
@@ -463,55 +545,60 @@ main:
 	mov [rbx+3], cl
 	mov rsi, QWORD [__GP_TMP+0]
 	mov rdi, 0x10
-	fld QWORD [FP4]
-	fstp DWORD [__FP_TMP]
-	movss xmm4, DWORD [__FP_TMP+0]
-	fld QWORD [FP6]
-	fstp DWORD [__FP_TMP]
-	movss xmm3, DWORD [__FP_TMP+0]
-	fld QWORD [FP8]
-	fstp DWORD [__FP_TMP]
-	movss xmm2, DWORD [__FP_TMP+0]
+	cvtsd2ss xmm0, [FP4]
+	movss xmm4, xmm0
+	cvtsd2ss xmm0, [FP6]
+	movss xmm3, xmm0
+	cvtsd2ss xmm0, [FP8]
+	movss xmm2, xmm0
 	lea rbx, [__GP_TMP]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+0]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+4]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+8]
-	movss xmm1, DWORD [__GP_TMP+8]
-	movsd xmm0, QWORD [__GP_TMP+0]
+	cvtsd2ss xmm0, [FP0]
+	movss [rbx+0], xmm0
+	cvtsd2ss xmm0, [FP0]
+	movss [rbx+4], xmm0
+	cvtsd2ss xmm0, [FP0]
+	movss [rbx+8], xmm0
+	movss xmm1, [__GP_TMP+8]
+	movsd xmm0, [__GP_TMP]
 	call DrawCylinder
+	movsd xmm0, [rsp+8]
+	movsd xmm1, [rsp+0]
+	add rsp, 16
 	lea rbx, [rsp+36]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+0]
-	sub rsp, 16
-	mov [rsp+8], rbx
-	fld QWORD [FP9]
+	cvtsd2ss xmm2, [FP0]
+	movss [rbx+0], xmm2
+	sub rsp, 32
+	mov [rsp+24], rbx
+	movsd [rsp+16], xmm0
+	movsd [rsp+8], xmm1
+	cvtsd2ss xmm0, [FP9]
 	sub rsp, 32
 	mov [rsp+24], rax
-	movsd QWORD [rsp+16], xmm0
+	movss [rsp+20], xmm0
 	call GetTime
-	movsd QWORD [rsp+0], xmm0
+	movsd [rsp+0], xmm0
 	mov rax, [rsp+24]
-	movsd xmm0, QWORD [rsp+16]
-	fld QWORD [rsp+0]
+	movss xmm0, [rsp+20]
+	cvtsd2ss xmm1, [rsp+0]
 	add rsp, 32
-	fmulp
-	fstp DWORD [__FP_TMP]
-	movss xmm0, DWORD [__FP_TMP+0]
+	mulss xmm0, xmm1
 	call sinf
-	movss DWORD [rsp+0], xmm0
-	mov rbx, [rsp+8]
-	fld DWORD [rsp+0]
-	add rsp, 16
-	fld QWORD [FP10]
-	fmulp
-	fld QWORD [FP11]
-	faddp
-	fstp DWORD [rbx+4]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+8]
+	movss [rsp+0], xmm0
+	mov rbx, [rsp+24]
+	movsd xmm0, [rsp+16]
+	movsd xmm1, [rsp+8]
+	movss xmm2, [rsp+0]
+	add rsp, 32
+	cvtsd2ss xmm3, [FP10]
+	mulss xmm2, xmm3
+	cvtsd2ss xmm3, [FP11]
+	addss xmm2, xmm3
+	movss [rbx+4], xmm2
+	cvtsd2ss xmm2, [FP0]
+	movss [rbx+8], xmm2
+	sub rsp, 16
+	movsd [rsp+8], xmm0
+	movsd [rsp+0], xmm1
 	lea rbx, [__GP_TMP]
 	xor cl, cl
 	mov [rbx+0], cl
@@ -524,22 +611,27 @@ main:
 	mov rdx, QWORD [__GP_TMP+0]
 	mov rsi, 0x8
 	mov rdi, 0x8
-	fld QWORD [FP8]
-	fstp DWORD [__FP_TMP]
-	movss xmm2, DWORD [__FP_TMP+0]
+	cvtsd2ss xmm0, [FP8]
+	movss xmm2, xmm0
 	lea rbx, [__GP_TMP]
 	mov r8, rsi
 	mov r9, rdi
 	cld
 	mov rdi, rbx
-	lea rsi, [rsp+36]
+	lea rsi, [rsp+52]
 	mov rcx, 3
 	rep movsd
 	mov rsi, r8
 	mov rdi, r9
-	movss xmm1, DWORD [__GP_TMP+8]
-	movsd xmm0, QWORD [__GP_TMP+0]
+	movss xmm1, [__GP_TMP+8]
+	movsd xmm0, [__GP_TMP]
 	call DrawSphereWires
+	movsd xmm0, [rsp+8]
+	movsd xmm1, [rsp+0]
+	add rsp, 16
+	sub rsp, 16
+	movsd [rsp+8], xmm0
+	movsd [rsp+0], xmm1
 	lea rbx, [__GP_TMP]
 	xor cl, cl
 	mov [rbx+0], cl
@@ -550,25 +642,34 @@ main:
 	mov cl, 0xff
 	mov [rbx+3], cl
 	mov rdi, QWORD [__GP_TMP+0]
-	fld QWORD [FP12]
-	fstp DWORD [__FP_TMP]
-	movss xmm2, DWORD [__FP_TMP+0]
+	cvtsd2ss xmm0, [FP12]
+	movss xmm2, xmm0
 	lea rbx, [__GP_TMP]
 	mov r8, rdi
 	cld
 	mov rdi, rbx
-	lea rsi, [rsp+36]
+	lea rsi, [rsp+52]
 	mov rcx, 3
 	rep movsd
 	mov rdi, r8
-	movss xmm1, DWORD [__GP_TMP+8]
-	movsd xmm0, QWORD [__GP_TMP+0]
+	movss xmm1, [__GP_TMP+8]
+	movsd xmm0, [__GP_TMP]
 	call DrawSphere
-	fld QWORD [FP3]
-	fstp DWORD [__FP_TMP]
-	movss xmm0, DWORD [__FP_TMP+0]
+	movsd xmm0, [rsp+8]
+	movsd xmm1, [rsp+0]
+	add rsp, 16
+	sub rsp, 16
+	movsd [rsp+8], xmm0
+	movsd [rsp+0], xmm1
+	cvtsd2ss xmm0, [FP3]
 	mov rdi, 0x20
 	call DrawGrid
+	movsd xmm0, [rsp+8]
+	movsd xmm1, [rsp+0]
+	add rsp, 16
+	sub rsp, 16
+	movsd [rsp+8], xmm0
+	movsd [rsp+0], xmm1
 	lea rbx, [__GP_TMP]
 	mov cl, 0xff
 	mov [rbx+0], cl
@@ -581,82 +682,88 @@ main:
 	mov rdx, QWORD [__GP_TMP+0]
 	mov rsi, 0x4
 	mov rdi, 0x1
-	fld QWORD [FP13]
-	fstp DWORD [__FP_TMP]
-	movss xmm2, DWORD [__FP_TMP+0]
+	cvtsd2ss xmm0, [FP13]
+	movss xmm2, xmm0
 	lea rbx, [__GP_TMP]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+0]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+4]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+8]
-	movss xmm1, DWORD [__GP_TMP+8]
-	movsd xmm0, QWORD [__GP_TMP+0]
+	cvtsd2ss xmm0, [FP0]
+	movss [rbx+0], xmm0
+	cvtsd2ss xmm0, [FP0]
+	movss [rbx+4], xmm0
+	cvtsd2ss xmm0, [FP0]
+	movss [rbx+8], xmm0
+	movss xmm1, [__GP_TMP+8]
+	movsd xmm0, [__GP_TMP]
 	call DrawSphereWires
-	lea rbx, [rsp+20]
-	sub rsp, 16
-	mov [rsp+8], rbx
-	fld QWORD [FP0]
-	fstp DWORD [__FP_TMP]
-	movss xmm2, DWORD [__FP_TMP+0]
-	fld DWORD [rsp+84]
-	fstp DWORD [__FP_TMP]
-	movss xmm1, DWORD [__FP_TMP+0]
-	sub rsp, 48
-	mov [rsp+40], rax
-	movsd QWORD [rsp+32], xmm0
-	movsd QWORD [rsp+24], xmm1
-	movsd QWORD [rsp+16], xmm2
-	fld DWORD [rsp+132]
-	fld QWORD [FP10]
-	fmulp
-	fstp DWORD [__FP_TMP]
-	movss xmm0, DWORD [__FP_TMP+0]
-	call cosf
-	movss DWORD [rsp+0], xmm0
-	mov rax, [rsp+40]
-	movsd xmm0, QWORD [rsp+32]
-	movsd xmm1, QWORD [rsp+24]
-	movsd xmm2, QWORD [rsp+16]
-	fld DWORD [rsp+0]
-	add rsp, 48
-	fld QWORD [FP14]
-	fmulp
-	fld QWORD [FP6]
-	fmulp
-	fstp DWORD [__FP_TMP]
-	movss xmm0, DWORD [__FP_TMP+0]
-	call QuaternionFromEuler
-	mov rbx, [rsp+8]
-	movsd QWORD [rbx+0], xmm0
-	movsd QWORD [rbx+8], xmm1
+	movsd xmm0, [rsp+8]
+	movsd xmm1, [rsp+0]
 	add rsp, 16
+	lea rbx, [rsp+20]
+	sub rsp, 32
+	mov [rsp+24], rbx
+	movsd [rsp+16], xmm0
+	movsd [rsp+8], xmm1
+	cvtsd2ss xmm0, [FP0]
+	movss xmm2, xmm0
+	movss xmm0, [rsp+100]
+	movss xmm1, xmm0
+	sub rsp, 32
+	mov [rsp+24], rax
+	movss [rsp+20], xmm1
+	movss [rsp+16], xmm2
+	movss xmm0, [rsp+132]
+	cvtsd2ss xmm1, [FP10]
+	mulss xmm0, xmm1
+	call cosf
+	movss [rsp+0], xmm0
+	mov rax, [rsp+24]
+	movss xmm1, [rsp+20]
+	movss xmm2, [rsp+16]
+	movss xmm3, [rsp+0]
+	add rsp, 32
+	cvtsd2ss xmm4, [FP14]
+	mulss xmm3, xmm4
+	cvtsd2ss xmm4, [FP6]
+	mulss xmm3, xmm4
+	movss xmm0, xmm3
+	call QuaternionFromEuler
+	mov rbx, [rsp+24]
+	movsd [rbx], xmm0
+	movsd [rbx+8], xmm1
+	movsd xmm0, [rsp+16]
+	movsd xmm1, [rsp+8]
+	add rsp, 32
 	lea rbx, [rsp+8]
-	sub rsp, 16
-	mov [rsp+8], rbx
+	sub rsp, 32
+	mov [rsp+24], rbx
+	movsd [rsp+16], xmm0
+	movsd [rsp+8], xmm1
 	lea rbx, [__GP_TMP]
 	cld
 	mov rdi, rbx
-	lea rsi, [rsp+36]
+	lea rsi, [rsp+52]
 	mov rcx, 2
 	rep movsq
-	movsd xmm3, QWORD [__GP_TMP+8]
-	movsd xmm2, QWORD [__GP_TMP+0]
+	movsd xmm3, [__GP_TMP+8]
+	movsd xmm2, [__GP_TMP]
 	lea rbx, [__GP_TMP]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+0]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+4]
-	fld QWORD [FP13]
-	fstp DWORD [rbx+8]
-	movss xmm1, DWORD [__GP_TMP+8]
-	movsd xmm0, QWORD [__GP_TMP+0]
+	cvtsd2ss xmm0, [FP0]
+	movss [rbx+0], xmm0
+	cvtsd2ss xmm0, [FP0]
+	movss [rbx+4], xmm0
+	cvtsd2ss xmm0, [FP13]
+	movss [rbx+8], xmm0
+	movss xmm1, [__GP_TMP+8]
+	movsd xmm0, [__GP_TMP]
 	call Vector3RotateByQuaternion
-	mov rbx, [rsp+8]
-	movsd QWORD [rbx+0], xmm0
-	movss DWORD [rbx+8], xmm1
-	add rsp, 16
+	mov rbx, [rsp+24]
+	movsd [rbx], xmm0
+	movss [rbx+8], xmm1
+	movsd xmm0, [rsp+16]
+	movsd xmm1, [rsp+8]
+	add rsp, 32
+	sub rsp, 16
+	movsd [rsp+8], xmm0
+	movsd [rsp+0], xmm1
 	lea rbx, [__GP_TMP]
 	xor cl, cl
 	mov [rbx+0], cl
@@ -667,59 +774,63 @@ main:
 	mov cl, 0xff
 	mov [rbx+3], cl
 	mov rdi, QWORD [__GP_TMP+0]
-	fld QWORD [FP15]
-	fstp DWORD [__FP_TMP]
-	movss xmm5, DWORD [__FP_TMP+0]
+	cvtsd2ss xmm0, [FP15]
+	movss xmm5, xmm0
 	lea rbx, [__GP_TMP]
-	fld QWORD [FP4]
-	fstp DWORD [rbx+0]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+4]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+8]
-	movss xmm4, DWORD [__GP_TMP+8]
-	movsd xmm3, QWORD [__GP_TMP+0]
-	sub rsp, 64
-	mov [rsp+56], rdi
-	mov [rsp+48], rax
-	movsd QWORD [rsp+40], xmm2
-	movsd QWORD [rsp+32], xmm3
-	movsd QWORD [rsp+24], xmm4
-	movsd QWORD [rsp+16], xmm5
-	fld DWORD [rsp+80]
-	fstp QWORD [__FP_TMP]
-	movsd xmm1, QWORD [__FP_TMP+0]
-	fld DWORD [rsp+72]
-	fstp QWORD [__FP_TMP]
-	movsd xmm0, QWORD [__FP_TMP+0]
-	call hypot
-	movsd QWORD [rsp+0], xmm0
-	mov rdi, [rsp+56]
-	mov rax, [rsp+48]
-	movsd xmm2, QWORD [rsp+40]
-	movsd xmm3, QWORD [rsp+32]
-	movsd xmm4, QWORD [rsp+24]
-	movsd xmm5, QWORD [rsp+16]
-	fld QWORD [rsp+0]
-	add rsp, 64
-	fstp DWORD [__FP_TMP]
-	movss xmm2, DWORD [__FP_TMP+0]
+	cvtsd2ss xmm0, [FP4]
+	movss [rbx+0], xmm0
+	cvtsd2ss xmm0, [FP0]
+	movss [rbx+4], xmm0
+	cvtsd2ss xmm0, [FP0]
+	movss [rbx+8], xmm0
+	movss xmm4, [__GP_TMP+8]
+	movsd xmm3, [__GP_TMP]
+	sub rsp, 48
+	mov [rsp+40], rdi
+	mov [rsp+32], rax
+	movsd [rsp+24], xmm3
+	movss [rsp+20], xmm4
+	movss [rsp+16], xmm5
+	movss xmm0, [rsp+72]
+	movss xmm1, [rsp+72]
+	mulss xmm0, xmm1
+	movss xmm1, [rsp+80]
+	movss xmm2, [rsp+80]
+	mulss xmm1, xmm2
+	addss xmm0, xmm1
+	call sqrtf
+	movss [rsp+0], xmm0
+	mov rdi, [rsp+40]
+	mov rax, [rsp+32]
+	movsd xmm3, [rsp+24]
+	movss xmm4, [rsp+20]
+	movss xmm5, [rsp+16]
+	movss xmm1, [rsp+0]
+	add rsp, 48
+	movss xmm2, xmm1
 	lea rbx, [__GP_TMP]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+0]
-	fld DWORD [rsp+12]
-	fstp DWORD [rbx+4]
-	fld QWORD [FP0]
-	fstp DWORD [rbx+8]
-	movss xmm1, DWORD [__GP_TMP+8]
-	movsd xmm0, QWORD [__GP_TMP+0]
+	cvtsd2ss xmm1, [FP0]
+	movss [rbx+0], xmm1
+	movss xmm1, [rsp+28]
+	movss [rbx+4], xmm1
+	cvtsd2ss xmm1, [FP0]
+	movss [rbx+8], xmm1
+	movss xmm1, [__GP_TMP+8]
+	movsd xmm0, [__GP_TMP]
 	call DrawCircle3D
-	fld DWORD [rsp+68]
-	fld QWORD [FP3]
-	fld DWORD [rsp+60]
-	fmulp
-	faddp
-	fstp DWORD [rsp+68]
+	movsd xmm0, [rsp+8]
+	movsd xmm1, [rsp+0]
+	add rsp, 16
+	cvtss2sd xmm2, [rsp+68]
+	movsd xmm3, [FP3]
+	cvtss2sd xmm4, [rsp+60]
+	mulsd xmm3, xmm4
+	addsd xmm2, xmm3
+	cvtsd2ss xmm2, xmm2
+	movss [rsp+68], xmm2
+	sub rsp, 16
+	movsd [rsp+8], xmm0
+	movsd [rsp+0], xmm1
 	lea rbx, [__GP_TMP]
 	xor cl, cl
 	mov [rbx+0], cl
@@ -730,24 +841,41 @@ main:
 	mov cl, 0xff
 	mov [rbx+3], cl
 	mov rdi, QWORD [__GP_TMP+0]
-	fld QWORD [FP8]
-	fstp DWORD [__FP_TMP]
-	movss xmm2, DWORD [__FP_TMP+0]
+	cvtsd2ss xmm0, [FP8]
+	movss xmm2, xmm0
 	lea rbx, [__GP_TMP]
 	mov r8, rdi
 	cld
 	mov rdi, rbx
-	lea rsi, [rsp+8]
+	lea rsi, [rsp+24]
 	mov rcx, 3
 	rep movsd
 	mov rdi, r8
-	movss xmm1, DWORD [__GP_TMP+8]
-	movsd xmm0, QWORD [__GP_TMP+0]
+	movss xmm1, [__GP_TMP+8]
+	movsd xmm0, [__GP_TMP]
 	call DrawSphere
+	movsd xmm0, [rsp+8]
+	movsd xmm1, [rsp+0]
+	add rsp, 16
+	sub rsp, 16
+	movsd [rsp+8], xmm0
+	movsd [rsp+0], xmm1
 	call EndMode3D
+	movsd xmm0, [rsp+8]
+	movsd xmm1, [rsp+0]
+	add rsp, 16
+	sub rsp, 16
+	movsd [rsp+8], xmm0
+	movsd [rsp+0], xmm1
 	xor rsi, rsi
 	xor rdi, rdi
 	call DrawFPS
+	movsd xmm0, [rsp+8]
+	movsd xmm1, [rsp+0]
+	add rsp, 16
+	sub rsp, 16
+	movsd [rsp+8], xmm0
+	movsd [rsp+0], xmm1
 	lea rbx, [__GP_TMP]
 	xor cl, cl
 	mov [rbx+0], cl
@@ -763,11 +891,26 @@ main:
 	xor rsi, rsi
 	mov rdi, STR1
 	call DrawText
+	movsd xmm0, [rsp+8]
+	movsd xmm1, [rsp+0]
+	add rsp, 16
+	sub rsp, 16
+	movsd [rsp+8], xmm0
+	movsd [rsp+0], xmm1
 	call EndDrawing
+	movsd xmm0, [rsp+8]
+	movsd xmm1, [rsp+0]
+	add rsp, 16
 	jmp .L1
 	.L2:
 	add rsp, 64
+	sub rsp, 16
+	movsd [rsp+8], xmm0
+	movsd [rsp+0], xmm1
 	call CloseWindow
+	movsd xmm0, [rsp+8]
+	movsd xmm1, [rsp+0]
+	add rsp, 16
 	.L0:
 	leave
 	ret
@@ -1597,56 +1740,57 @@ extern ComputeCRC32:function
 extern UnloadFont:function
 
 
-section .data
-static __FP_TMP:data
-__FP_TMP:
-dq 0
-static __GP_TMP:data
-__GP_TMP:
-times 64 db 0
+section .data align=16
+__FP_TMP: times 4 dq 0
+__GP_TMP: times 4 dq 0
 extern stdin:data
 extern stdout:data
 extern stderr:data
 global FP_PRECISION:data
 FP_PRECISION:
 dq 0.0000010000
-times 0 db 0
 
 
-section .rodata
+section .rodata align=16
+__FABS_MASKd: dq 0x7FFFFFFFFFFFFFFF, 0
+__FABS_MASKs: dd 0x7FFFFFFF, 0, 0, 0
+__FNEG_MASKd: dq 0x8000000000000000, 0
+__FNEG_MASKs: dd 0x80000000, 0, 0, 0
 STR0:
 db "Hello world!",0
+db 0
 STR1:
 db "WASD to move, Space and C to go up and down",10,"Drag right click to unlock and move camera",0
+times 7 db 0
 FP0:
-dq 0.0
+dq 0.0000000000
 FP1:
-dq 2.5
+dq 2.5000000000
 FP2:
-dq 10.0
+dq 10.0000000000
 FP3:
-dq 5.0
+dq 5.0000000000
 FP4:
-dq 1.0
+dq 1.0000000000
 FP5:
-dq 60.0
+dq 60.0000000000
 FP6:
-dq 0.5
+dq 0.5000000000
 FP7:
-dq 0.005
+dq 0.0050000000
 FP8:
-dq 0.25
+dq 0.2500000000
 FP9:
-dq 2.0
+dq 2.0000000000
 FP10:
-dq 0.1
+dq 0.1000000000
 FP11:
-dq 1.5
+dq 1.5000000000
 FP12:
-dq 0.05
+dq 0.0500000000
 FP13:
-dq 3.0
+dq 3.0000000000
 FP14:
-dq 3.14159265358979323846
+dq 3.1415926536
 FP15:
-dq 90.0
+dq 90.0000000000

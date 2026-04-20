@@ -14,8 +14,7 @@ size_t label_count = 1;
 node_term* str_literals = NULL;
 size_t str_literal_count = 0;
 
-node_term* float_literals = NULL;
-size_t float_literal_count = 0;
+vector_t float_literals[1] = { NEW_VECTOR(double) };
 
 static vector_t global_var_values[1] = { NEW_VECTOR(node_expr) };
 
@@ -114,20 +113,14 @@ void fail_gen_expr(HC_FILE fptr){
 
 // Append a float literal to the linked list of float literals
 // Returns the id (index) of the float
-size_t append_float_literal(node_term* float_lit){
-    node_term* ptr = float_literals;
-    float_lit->next = NULL;
-    if(float_literal_count == 0){
-        float_literals = float_lit;
-    }else{
-        if(ptr->strlen == float_lit->strlen && strncmp(ptr->str, float_lit->str, ptr->strlen) == 0)
-            return 0;
-        for(size_t i = 1; ptr->next; ptr = &ptr->next->term, i++)
-            if(ptr->next->term.strlen == float_lit->strlen && strncmp(ptr->next->term.str, float_lit->str, float_lit->strlen) == 0)
-                return i;
-        ptr->next = (node_expr*) float_lit;
+size_t append_float_literal(double x){
+    for(size_t i = 0; i < vector_size(float_literals); i++){
+        double* y = vector_at(float_literals, i);
+        if(*y == x)
+            return i;
     }
-    return float_literal_count++;
+    vector_append(float_literals, &x);
+    return vector_size(float_literals) - 1;
 }
 
 // Save a "memory chunk" (struct / class / union / variant / arrays?)
@@ -208,9 +201,8 @@ bool save_struct(HC_FILE fptr, struct_t* stru, reg_t* ptr, node_expr* value){
                 reg_t* tmp = EXPR_ONCE(arg_expr, member->type, NULL);
                 gen_save_offset(fptr, tmp, ptr, member->stack_ptr);
             }else if(member->type.data == DATA_FLOAT){
-                if(!generate_float_expr(fptr, arg_expr))
-                    return false;
-                gen_save_offset_float(fptr, ptr, member->stack_ptr, member->type.size == 8);
+                freg_t* freg = FEXPR_ONCE(arg_expr, member->type.size == 8);
+                gen_savef_offset(fptr, freg, ptr, member->stack_ptr, freg->dp);
             }else if(member->type.data == DATA_STRUCT || member->type.data == DATA_UNION){
                 reg_t* member_ptr = alloc_reg(GET_MASK_REG(target_address_size, allowed_copy_regs), false);
                 gen_load_offset_ptr(fptr, member_ptr, ptr, member->stack_ptr);
@@ -266,9 +258,8 @@ bool save_union(HC_FILE fptr, union_t* unio, reg_t* ptr, node_expr* value){
         if(member_type.ptr_depth || member_type.data == DATA_INT)
             gen_save_ptr(fptr, EXPR_ONCE(value->uconstruct.elem, member_type, NULL), ptr);
         else if(member_type.data == DATA_FLOAT){
-            if(!generate_float_expr(fptr, value->uconstruct.elem))
-                return false;
-            gen_save_ptr_float(fptr, ptr, member_type.size == 8);
+            freg_t* freg = FEXPR_ONCE(value->uconstruct.elem, member_type.size == 8);
+            gen_savef_ptr(fptr, freg, ptr, member_type.size == 8);
         }else if(member_type.data == DATA_STRUCT){
             struct_t* stru = get_struct_tk(member_type.repr);
             if(!save_struct(fptr, stru, ptr, value->uconstruct.elem))
@@ -465,14 +456,13 @@ bool save_expr(HC_FILE fptr, node_expr* expr, node_expr* value){
             else if(var->location == VAR_ARG)
                 gen_save_arg(fptr, data, var->stack_ptr);
         }else if(var->type.data == DATA_FLOAT){
-            if(!generate_float_expr(fptr, value))
-                return false;
+            freg_t* freg = FEXPR_ONCE(value, var->type.size);
             if(var->location == VAR_STACK)
-                gen_save_stack_float(fptr, stack_sz - var->stack_ptr, var->type.size == 8);
+                gen_savef_stack(fptr, freg, stack_sz - var->stack_ptr, var->type.size == 8);
             else if(var->location == VAR_GLOBAL)
-                gen_save_global_float(fptr, var->str, var->strlen, var->type.size == 8);
+                gen_savef_global(fptr, freg, var->str, var->strlen, var->type.size == 8);
             else if(var->location == VAR_ARG)
-                gen_save_arg_float(fptr, var->stack_ptr, var->type.size == 8);
+                gen_savef_arg(fptr, freg, var->stack_ptr, var->type.size == 8);
         }else if(var->type.data == DATA_STRUCT || var->type.data == DATA_UNION){
             reg_t* var_ptr = alloc_reg(GET_MASK_REG(target_address_size, allowed_copy_regs), false);
             if(var->location == VAR_STACK)
@@ -507,9 +497,8 @@ bool save_expr(HC_FILE fptr, node_expr* expr, node_expr* value){
             reg_t* data = EXPR_ONCE(value, ptr_type, NULL);
             gen_save_ptr(fptr, data, ptr);
         }else if(ptr_type.data == DATA_FLOAT){
-            if(!generate_float_expr(fptr, value))
-                return false;
-            gen_save_ptr_float(fptr, ptr, ptr_type.size == 8);
+            freg_t* freg = FEXPR_ONCE(value, ptr_type.size == 8);
+            gen_savef_ptr(fptr, freg, ptr, ptr_type.size == 8);
         }else if(ptr_type.data == DATA_STRUCT){
             struct_t* stru = get_struct_tk(ptr_type.repr);
             if(!save_struct(fptr, stru, ptr, value))
@@ -539,9 +528,8 @@ bool save_expr(HC_FILE fptr, node_expr* expr, node_expr* value){
             gen_save_idx(fptr, data, ptr, idx, ptr_type.size);
         }else if(ptr_type.data == DATA_FLOAT){
             // Save the float expression into the array element
-            if(!generate_float_expr(fptr, value))
-                return false;
-            gen_save_idx_float(fptr, ptr, idx, ptr_type.size, ptr_type.size == 8);
+            freg_t* freg = FEXPR_ONCE(value, ptr_type.size == 8);
+            gen_savef_idx(fptr, freg, ptr, idx, ptr_type.size == 8);
         }else if(ptr_type.data == DATA_STRUCT || ptr_type.data == DATA_UNION){
             (void) free_reg(ptr);
             reg_t* tmp = alloc_reg(GET_MASK_REG(target_address_size, allowed_copy_regs), false);
@@ -581,9 +569,8 @@ bool save_expr(HC_FILE fptr, node_expr* expr, node_expr* value){
                 if(var->type.ptr_depth || var->type.data == DATA_INT)
                     gen_save_global_offset(fptr, EXPR_ONCE(value, var->type, NULL), mod->str, mod->strlen, var->stack_ptr);
                 else if(var->type.data == DATA_FLOAT){
-                    if(!generate_float_expr(fptr, value))
-                        return false;
-                    gen_save_global_offset_float(fptr, mod->str, mod->strlen, var->stack_ptr, var->type.size == 8);
+                    freg_t* freg = FEXPR_ONCE(value, var->type.size == 8);
+                    gen_savef_global_offset(fptr, freg, mod->str, mod->strlen, var->stack_ptr, var->type.size == 8);
                 }else if(var->type.data == DATA_STRUCT || var->type.data == DATA_UNION){
                     reg_t* tmp = alloc_reg(GET_MASK_REG(target_address_size, allowed_copy_regs), false);
                     gen_load_global_offset_ptr(fptr, tmp, mod->str, mod->strlen, var->stack_ptr);
@@ -645,17 +632,18 @@ bool save_expr(HC_FILE fptr, node_expr* expr, node_expr* value){
                     reg_t* tmp = EXPR_ONCE(value, member->type, NULL);
                     gen_save_offset(fptr, tmp, ptr, member->stack_ptr);
                 }else if(member->type.data == DATA_FLOAT){
-                    if(!generate_float_expr(fptr, value))
-                        return false;
-                    gen_save_offset_float(fptr, ptr, member->stack_ptr, member->type.size == 8);
+                    freg_t* freg = FEXPR_ONCE(value, member->type.size == 8);
+                    gen_savef_offset(fptr, freg, ptr, member->stack_ptr, member->type.size == 8);
                 }else if(member->type.data == DATA_STRUCT){
                     struct_t* stru = get_struct_tk(member->type.repr);
-                    gen_load_offset_ptr(fptr, ptr, ptr, member->stack_ptr);
+                    if(member->stack_ptr)
+                        gen_load_offset_ptr(fptr, ptr, ptr, member->stack_ptr);
                     if(!save_struct(fptr, stru, ptr, value))
                         return false;
                 }else if(member->type.data == DATA_UNION){
                     union_t* unio = get_union_tk(member->type.repr);
-                    gen_load_offset_ptr(fptr, ptr, ptr, member->stack_ptr);
+                    if(member->stack_ptr)
+                        gen_load_offset_ptr(fptr, ptr, ptr, member->stack_ptr);
                     if(!save_union(fptr, unio, ptr, value))
                         return false;
                 }
@@ -672,14 +660,13 @@ bool save_expr(HC_FILE fptr, node_expr* expr, node_expr* value){
                     else if(var->location == VAR_ARG)
                         gen_save_arg(fptr, tmp, var->stack_ptr + member->stack_ptr);
                 }else if(member->type.data == DATA_FLOAT){
-                    if(!generate_float_expr(fptr, value))
-                        return false;
+                    freg_t* freg = FEXPR_ONCE(value, member->type.size == 8);
                     if(var->location == VAR_STACK || var->location == VAR_ARRAY)
-                        gen_save_stack_float(fptr, stack_sz - var->stack_ptr + member->stack_ptr, var->type.size == 8);
+                        gen_savef_stack(fptr, freg, stack_sz - var->stack_ptr + member->stack_ptr, var->type.size == 8);
                     else if(var->location == VAR_GLOBAL || var->location == VAR_GLOBAL_ARR)
-                        gen_save_global_offset_float(fptr, var->str, var->strlen, member->stack_ptr, var->type.size == 8);
+                        gen_savef_global_offset(fptr, freg, var->str, var->strlen, member->stack_ptr, var->type.size == 8);
                     else if(var->location == VAR_ARG)
-                        gen_save_arg_float(fptr, var->stack_ptr + member->stack_ptr, var->type.size == 8);
+                        gen_savef_arg(fptr, freg, var->stack_ptr + member->stack_ptr, var->type.size == 8);
                 }else if(member->type.data == DATA_STRUCT || member->type.data == DATA_UNION){
                     reg_t* tmp = alloc_reg(GET_MASK_REG(target_address_size, allowed_copy_regs), false);
                     if(var->location == VAR_STACK || var->location == VAR_ARRAY)
@@ -738,9 +725,8 @@ bool save_expr(HC_FILE fptr, node_expr* expr, node_expr* value){
                     reg_t* tmp = EXPR_ONCE(value, member_type, NULL);
                     gen_save_ptr(fptr, tmp, ptr);
                 }else if(member_type.data == DATA_FLOAT){
-                    if(!generate_float_expr(fptr, value))
-                        return false;
-                    gen_save_ptr_float(fptr, ptr, member_type.size == 8);
+                    freg_t* freg = FEXPR_ONCE(value, member_type.size == 8);
+                    gen_savef_ptr(fptr, freg, ptr, member_type.size == 8);
                 }else if(member_type.data == DATA_STRUCT){
                     struct_t* stru = get_struct_tk(member_type.repr);
                     if(!save_struct(fptr, stru, ptr, value))
@@ -763,14 +749,13 @@ bool save_expr(HC_FILE fptr, node_expr* expr, node_expr* value){
                     else if(var->location == VAR_ARG)
                         gen_save_arg(fptr, tmp, var->stack_ptr);
                 }else if(member_type.data == DATA_FLOAT){
-                    if(!generate_float_expr(fptr, value))
-                        return false;
+                    freg_t* freg = FEXPR_ONCE(value, member_type.size == 8);
                     if(var->location == VAR_STACK || var->location == VAR_ARRAY)
-                        gen_save_stack_float(fptr, stack_sz - var->stack_ptr, var->type.size == 8);
+                        gen_savef_stack(fptr, freg, stack_sz - var->stack_ptr, var->type.size == 8);
                     else if(var->location == VAR_GLOBAL || var->location == VAR_GLOBAL_ARR)
-                        gen_save_global_float(fptr, var->str, var->strlen, var->type.size == 8);
+                        gen_savef_global(fptr, freg, var->str, var->strlen, var->type.size == 8);
                     else if(var->location == VAR_ARG)
-                        gen_save_arg_float(fptr, var->stack_ptr, var->type.size == 8);
+                        gen_savef_arg(fptr, freg, var->stack_ptr, var->type.size == 8);
                 }else if(member_type.data == DATA_STRUCT || member_type.data == DATA_UNION){
                     reg_t* tmp = alloc_reg(GET_MASK_REG(target_address_size, allowed_copy_regs), false);
                     if(var->location == VAR_STACK || var->location == VAR_ARRAY)
@@ -882,7 +867,8 @@ bool inc_expr(HC_FILE fptr, node_expr* expr, reg_t* dest, bool before, bool inc)
 // struct_ptr = an optional parameter, used when the function returns a structure.
 // Returns the stack size allocated to call the function and provide arguments.
 size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_t* struct_ptr){
-    reg_t* masked_regs[MAX_REGS];
+    reg_t* used_regs[MAX_REGS];
+    freg_t* used_fregs[MAX_FREGS];
 
     // Get the function
     type_t method = INVALID_TYPE;
@@ -938,12 +924,17 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
 
     // Get the occupied registers to save on the stack
     // (because a function can affect registers)
-    int n = get_mask_occup_regs(ALL_REGS, true, registers, masked_regs);
-    for(int i = 0; i < n; i++){
-        if(struct_ptr && masked_regs[i]->name == struct_ptr->name)
+    int n_regs = get_mask_occup_regs(ALL_REGS, true, registers, used_regs);
+    for(int i = 0; i < n_regs; i++){
+        if(struct_ptr && used_fregs[i]->name == struct_ptr->name)
             continue;
-        func_call_sz = ALIGN(func_call_sz, masked_regs[i]->size);
-        func_call_sz += masked_regs[i]->size;
+        func_call_sz = ALIGN(func_call_sz, used_regs[i]->size);
+        func_call_sz += used_regs[i]->size;
+    }
+    int n_fregs = get_occup_fregs(fregs, used_fregs);
+    for(int i = 0; i < n_fregs; i++){
+        size_t sz = (used_fregs[i]->dp) ? 8 : 4;
+        func_call_sz = ALIGN(func_call_sz, sz) + sz;
     }
 
     // Get the size of all arguments + return value
@@ -974,15 +965,19 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
     if(!func->type.ptr_depth && (func->type.data == DATA_STRUCT || func->type.data == DATA_UNION))
         gen_save_stack(fptr, free_reg(struct_ptr), 0);
 
-
     // Save each occupied register on the stack
     size_t arg_ptr = 0;
-    for(int i = 0; i < n; i++){
-        if(struct_ptr && masked_regs[i]->name == struct_ptr->name)
+    for(int i = 0; i < n_regs; i++){
+        if(struct_ptr && used_regs[i]->name == struct_ptr->name)
             continue;
-        arg_ptr = ALIGN(arg_ptr, masked_regs[i]->size);
-        arg_ptr += masked_regs[i]->size;
-        gen_save_stack(fptr, masked_regs[i], func_call_sz - arg_ptr);
+        arg_ptr = ALIGN(arg_ptr, used_regs[i]->size);
+        arg_ptr += used_regs[i]->size;
+        gen_save_stack(fptr, free_reg(used_regs[i]), func_call_sz - arg_ptr);
+    }
+    for(int i = 0; i < n_fregs; i++){
+        size_t sz = (used_fregs[i]->dp) ? 8 : 4;
+        arg_ptr = ALIGN(arg_ptr, sz) + sz;
+        gen_savef_stack(fptr, free_freg(used_fregs[i]), func_call_sz - arg_ptr, sz == 8);
     }
 
     // Generate each argument
@@ -1027,9 +1022,8 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
                     gen_save_stack(fptr, tmp, arg_ptr);
                 }// Float value
                 else if(expr_type.data == DATA_FLOAT){
-                    if(!generate_float_expr(fptr, arg_expr))
-                        fail_gen_expr(fptr);
-                    gen_save_stack_float(fptr, arg_ptr, true);
+                    freg_t* freg = FEXPR_ONCE(arg_expr, true);
+                    gen_savef_stack(fptr, freg, arg_ptr, true);
                 }// Other data types
                 else{
                     print_context_expr("Unsupported variable argument type", arg_expr);
@@ -1066,9 +1060,8 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
             reg_t* tmp = EXPR_ONCE(arg_expr, arg_type, NULL);
             gen_save_stack(fptr, tmp, arg_ptr);
         }else if(arg_type.data == DATA_FLOAT){
-            if(!generate_float_expr(fptr, arg_expr))
-                fail_gen_expr(fptr);
-            gen_save_stack_float(fptr, arg_ptr, arg_type.size == 8);
+            freg_t* freg = FEXPR_ONCE(arg_expr, arg_size == 8);
+            gen_savef_stack(fptr, freg, arg_ptr, arg_size == 8);
         }else if(arg_type.data == DATA_STRUCT || arg_type.data == DATA_UNION){
             reg_t* tmp = alloc_reg(GET_MASK_REG(target_address_size, allowed_copy_regs), false);
             gen_load_stack_ptr(fptr, tmp, arg_ptr);
@@ -1108,12 +1101,18 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
 
     // Retrieve every register off the stack
     arg_ptr = 0;
-    for(int i = 0; i < n; i++){
-        if(struct_ptr && masked_regs[i]->name == struct_ptr->name) continue;
-        arg_ptr = ALIGN(arg_ptr, masked_regs[i]->size);
-        arg_ptr += masked_regs[i]->size;
-        gen_load_stack(fptr, masked_regs[i], func_call_sz - arg_ptr);
+    for(int i = 0; i < n_regs; i++){
+        if(struct_ptr && used_regs[i]->name == struct_ptr->name) continue;
+        arg_ptr = ALIGN(arg_ptr, used_regs[i]->size);
+        arg_ptr += used_regs[i]->size;
+        gen_load_stack(fptr, alloc_reg(used_regs[i], false), func_call_sz - arg_ptr);
     }
+    for(int i = 0; i < n_fregs; i++){
+        size_t sz = (used_fregs[i]->dp) ? 8 : 4;
+        arg_ptr = ALIGN(arg_ptr, sz) + sz;
+        gen_loadf_stack(fptr, alloc_freg(used_fregs[i]), func_call_sz - arg_ptr, sz == 8);
+    }
+
     return func_call_sz;
 }
 
@@ -1137,16 +1136,14 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
     if(!expr_type.ptr_depth && expr_type.data == DATA_FLOAT){
         if(target_type.repr && target_type.repr->type == tk_bool){
             reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(1), sign);
-            if(!generate_float_expr(fptr, expr))
-                fail_gen_expr(fptr);
-            gen_cmpz_float(fptr);
+            freg_t* freg = FEXPR_ONCE(expr, expr_type.size == 8);
+            gen_cmpzf(fptr, freg);
             gen_cond_set(fptr, tk_cmp_neq, tmp, false);
             return tmp;
         }else{
             reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(sz), sign);
-            if(!generate_float_expr(fptr, expr))
-                fail_gen_expr(fptr);
-            gen_float_to_int(fptr, tmp);
+            freg_t* freg = FEXPR_ONCE(expr, expr_type.size == 8);
+            gen_float_to_int(fptr, freg, tmp);
             return tmp;
         }
     }else if(!expr_type.ptr_depth && (expr_type.data == DATA_STRUCT || expr_type.data == DATA_UNION)){
@@ -1412,9 +1409,8 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
                 tmp1 = tmp2;
             }else if(t.data == DATA_FLOAT){
                 tmp1 = alloc_reg(prefered ? prefered : GET_FREE_REG(1), sign);
-                if(!generate_float_expr(fptr, expr->bin_op.lhs))
-                    fail_gen_expr(fptr);
-                gen_cmpz_float(fptr);
+                freg_t* freg = FEXPR_ONCE(expr->bin_op.lhs, t.size == 8);
+                gen_cmpzf(fptr, freg);
                 gen_cond_set(fptr, tk_cmp_neq, tmp1, false);
             }
         }else{
@@ -1434,9 +1430,8 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
                 (void) free_reg(tmp2);
                 tmp2 = tmp1;
             }else if(t.data == DATA_FLOAT){
-                if(!generate_float_expr(fptr, expr->bin_op.rhs))
-                    fail_gen_expr(fptr);
-                gen_cmpz_float(fptr);
+                freg_t* freg = FEXPR_ONCE(expr->bin_op.rhs, t.size == 8);
+                gen_cmpzf(fptr, freg);
                 gen_cond_set(fptr, tk_cmp_neq, tmp1, false);
             }
         }else{
@@ -1468,9 +1463,12 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
             (void) free_reg(rhs);
         }else if(biggest_t.data == DATA_FLOAT){
             t1.sign = t2.sign = false;
-            if(!generate_float_expr(fptr, expr->bin_op.rhs) || !generate_float_expr(fptr, expr->bin_op.lhs))
-                fail_gen_expr(fptr);
-            gen_cmp_floats(fptr);
+            t1.size = MAX(t1.size, t2.size);
+            freg_t* freg1 = generate_fexpr(fptr, expr->bin_op.rhs, t1.size == 8);
+            freg_t* freg2 = generate_fexpr(fptr, expr->bin_op.lhs, t1.size == 8);
+            gen_cmpf(fptr, freg1, freg2);
+            (void) free_freg(freg1);
+            (void) free_freg(freg2);
         }else{
             print_context_expr("Cannot compare things other than ints / floats", expr);
             fail_gen_expr(fptr);
@@ -1497,11 +1495,14 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
             print_context_expr("Cannot compare approximately values that are not floats", expr);
             fail_gen_expr(fptr);
         }
-        if(!generate_float_expr(fptr, expr->bin_op.rhs) || !generate_float_expr(fptr, expr->bin_op.lhs))
-            return false;
-        gen_cmp_approx_floats(fptr);
+        t1.size = MAX(t1.size, t2.size);
+        freg_t* freg1 = generate_fexpr(fptr, expr->bin_op.rhs, t1.size == 8);
+        freg_t* freg2 = generate_fexpr(fptr, expr->bin_op.lhs, t1.size == 8);
+        gen_cmp_approx(fptr, freg1, freg2);
+        (void) free_freg(freg1);
+        (void) free_freg(freg2);
         reg_t* tmp = alloc_reg((prefered && prefered->size == 1) ? prefered : GET_FREE_REG(1), sign);
-        gen_cond_set(fptr, tk_cmp_ge, tmp, false);
+        gen_cond_set(fptr, tk_cmp_le, tmp, false);
         if(sz != 1)
             tmp = transfer_reg(fptr, tmp, (prefered && is_reg_free(prefered)) ? prefered : GET_FREE_REG(sz));
         return tmp;
@@ -1754,10 +1755,9 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
         size_t cast_size = SIZEOF_T(cast_type);
         short cast_data = DATAOF_T(cast_type);
         if(cast_data == DATA_FLOAT){
-            if(!generate_float_expr(fptr, expr->type_cast.rhs))
-                fail_gen_expr(fptr);
+            freg_t* freg = FEXPR_ONCE(expr->type_cast.rhs, cast_size);
             reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(sz), sign);
-            gen_float_to_int(fptr, tmp);
+            gen_float_to_int(fptr, freg, tmp);
             return tmp;
         }
         if(sz == cast_size){
@@ -1843,98 +1843,107 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
 }
 
 // Floating point expressions
-bool generate_float_expr(HC_FILE fptr, node_expr* expr){
+freg_t* generate_fexpr(HC_FILE fptr, node_expr* expr, bool dp){
+    freg_t* freg = NULL;
     type_t expr_type = typeof_expr(expr);
     if(!expr_type.data){
         print_context_expr("Expression of invalid type", expr);
-        return false;
+        fail_gen_expr(fptr);
     }else if(!expr_type.ptr_depth && expr_type.data == DATA_INT){
         reg_t* tmp = EXPR_ONCE(expr, ((type_t){8, GET_DUMMY_TYPE(int64), true, DATA_INT, 8, 0}), NULL);
-        gen_int_to_float(fptr, tmp);
-        return true;
+        freg = alloc_freg(GET_FREG(dp));
+        gen_int_to_float(fptr, freg, tmp);
+        return freg;
     }else if(expr_type.data != DATA_FLOAT){
         print_type("Cannot convert type ",expr_type," to float");
         print_context_expr("Cannot convert expression to float", expr);
-        return false;
+        fail_gen_expr(fptr);
     }
 
     // Compile-time evaluation
-    if(expr->type != tk_float_lit){
-        double result;
-        if(eval_float_expr(expr, &result)){
-            gen_load_float_raw(fptr, result);
-            return true;
-        }
+    double result;
+    if(eval_float_expr(expr, &result)){
+        freg = alloc_freg(GET_FREG(dp));
+        gen_loadf(fptr, freg, append_float_literal(result));
+        return freg;
     }
 
     switch(expr->type){
-    case tk_float_lit:
-        gen_load_float(fptr, append_float_literal(&expr->term));
-        break;
     case tk_identifier:{
+        freg = alloc_freg(GET_FREG(dp));
         var_t* var = get_var(expr->term.str, expr->term.strlen);
         if(var->location == VAR_STACK)
-            gen_load_stack_float(fptr, stack_sz - var->stack_ptr, var->type.size == 8);
+            gen_loadf_stack(fptr, freg, stack_sz - var->stack_ptr, var->type.size == 8);
         else if(var->location == VAR_ARG)
-            gen_load_arg_float(fptr, var->stack_ptr, var->type.size == 8);
+            gen_loadf_arg(fptr, freg, var->stack_ptr, var->type.size == 8);
         else if(var->location == VAR_GLOBAL)
-            gen_load_global_float(fptr, var->str, var->strlen, var->type.size == 8);
+            gen_loadf_global(fptr, freg, var->str, var->strlen, var->type.size == 8);
         else{
             print_context_ex("Not implemented", expr->term.str, expr->term.strlen);
-            return false;
+            fail_gen_expr(fptr);
         }
         break;
     }case tk_neg:
-        if(!generate_float_expr(fptr, expr->unary_op.lhs))
-            return false;
-        gen_neg_float(fptr);
+        freg = generate_fexpr(fptr, expr->unary_op.lhs, dp);
+        gen_negf(fptr, freg);
         break;
     case tk_add:
     case tk_sub:
     case tk_mult:
     case tk_div:
-    case tk_mod:
-        if(!generate_float_expr(fptr, expr->bin_op.lhs) || !generate_float_expr(fptr, expr->bin_op.rhs))
-            return false;
+    case tk_mod:{
+        freg = generate_fexpr(fptr, expr->bin_op.lhs, dp);
+        freg_t* tmp = generate_fexpr(fptr, expr->bin_op.rhs, dp);
         if(expr->type == tk_add)
-            gen_add_floats(fptr);
+            gen_addf(fptr, freg, tmp);
         else if(expr->type == tk_sub)
-            gen_sub_floats(fptr);
+            gen_subf(fptr, freg, tmp);
         else if(expr->type == tk_mult)
-            gen_mul_floats(fptr);
+            gen_mulf(fptr, freg, tmp);
         else if(expr->type == tk_mod)
-            gen_mod_floats(fptr);
+            gen_modf(fptr, freg, tmp);
         else
-            gen_div_floats(fptr);
+            gen_divf(fptr, freg, tmp);
+        (void) free_freg(tmp);
         break;
-    case tk_deref:{
+    }case tk_deref:{
+        freg = alloc_freg(GET_FREG(dp));
         expr_type.ptr_depth++;
         reg_t* ptr = EXPR_ONCE(expr->unary_op.lhs, expr_type, NULL);
-        gen_load_ptr_float(fptr, ptr, expr_type.size == 8);
+        gen_loadf_ptr(fptr, freg, ptr, expr_type.size == 8);
         break;
     }
     case tk_open_bracket:{
+        freg = alloc_freg(GET_FREG(dp));
         expr_type.ptr_depth++;
         reg_t* ptr = generate_expr(fptr, expr->bin_op.lhs, expr_type, NULL);
         reg_t* idx = generate_expr(fptr, expr->bin_op.rhs, (type_t){8, GET_DUMMY_TYPE(uint64), false, DATA_INT, 8, 0}, NULL);
-        gen_load_idx_float(fptr, ptr, idx, expr_type.size, expr_type.size == 8);
+        gen_loadf_idx(fptr, freg, ptr, idx, expr_type.size == 8);
         (void) free_reg(ptr);
         (void) free_reg(idx);
         break;
     }
-    case tk_type_cast:
-        return generate_float_expr(fptr, expr->type_cast.rhs);
-    case tk_func_call:{
+    case tk_type_cast:{
+        freg_t* tmp = generate_fexpr(fptr, expr->type_cast.rhs, expr->type_cast.lhs->type == tk_double);
+        if(tmp->dp == dp)
+            return tmp;
+        (void) free_freg(tmp);
+        freg = alloc_freg(GET_FREG(dp));
+        gen_move_freg(fptr, freg, tmp);
+        break;
+    }case tk_func_call:{
         func_t* func = NULL;
         size_t func_call_sz = generate_func_call(fptr, expr, &func, NULL);
 
-        gen_load_stack_float(fptr, 0, expr_type.size == 8);
+        freg = alloc_freg(GET_FREG(dp));
+        gen_loadf_stack(fptr, freg, 0, expr_type.size == 8);
 
         if(func_call_sz)
             gen_dealloc_stack(fptr, func_call_sz);
         stack_sz -= func_call_sz;
         break;
     }case tk_dot:{
+        freg = alloc_freg(GET_FREG(dp));
         if(expr->access.obj->type == tk_identifier){
             module_t* mod = get_module(expr->access.obj->term.str, expr->access.obj->term.strlen);
             if(mod){
@@ -1949,7 +1958,7 @@ bool generate_float_expr(HC_FILE fptr, node_expr* expr){
                 }
                 if(!check_module_private(var->flags, mod, expr->access.member, true))
                     return false;
-                gen_load_global_offset_float(fptr, mod->str, mod->strlen, var->stack_ptr, var->type.size == 8);
+                gen_loadf_global_offset(fptr, freg, mod->str, mod->strlen, var->stack_ptr, var->type.size == 8);
             }
         }
 
@@ -1962,7 +1971,7 @@ bool generate_float_expr(HC_FILE fptr, node_expr* expr){
             struct_t* stru = get_struct_tk(obj_type.repr);
             var_t* member = get_member(stru, expr->access.member->str, expr->access.member->strlen);
             if(!check_private(member->flags, stru, expr, false))
-                return false;
+                fail_gen_expr(fptr);
             if(obj_type.ptr_depth || expr->access.obj->type == tk_deref || expr->access.obj->type == tk_open_bracket || expr->access.obj->type == tk_dot){
                 reg_t* ptr;
                 if(obj_type.ptr_depth)
@@ -1981,23 +1990,22 @@ bool generate_float_expr(HC_FILE fptr, node_expr* expr){
                 }else if(expr->access.obj->type == tk_dot){
                     ptr = alloc_reg(GET_FREE_REG(target_address_size), false);
                     if(!get_expr_address(fptr, ptr, expr->access.obj))
-                        return false;
+                        fail_gen_expr(fptr);
                 }
-                gen_load_offset_float(fptr, ptr, member->stack_ptr, member->type.size == 8);
+                gen_loadf_offset(fptr, freg, ptr, member->stack_ptr, member->type.size == 8);
                 (void) free_reg(ptr);
             }else if(expr->access.obj->type == tk_identifier){
                 var_t* var = get_var(expr->access.obj->term.str, expr->access.obj->term.strlen);
                 if(var->location == VAR_STACK)
-                    gen_load_stack_float(fptr, stack_sz - var->stack_ptr + member->stack_ptr, member->type.size == 8);
+                    gen_loadf_stack(fptr, freg, stack_sz - var->stack_ptr + member->stack_ptr, member->type.size == 8);
                 else if(var->location == VAR_GLOBAL)
-                    gen_load_global_offset_float(fptr, var->str, var->strlen, member->stack_ptr, member->type.size == 8);
+                    gen_loadf_global_offset(fptr, freg, var->str, var->strlen, member->stack_ptr, member->type.size == 8);
                 else if(var->location == VAR_ARG)
-                    gen_load_arg_float(fptr, var->stack_ptr + member->stack_ptr, member->type.size == 8);
+                    gen_loadf_arg(fptr, freg, var->stack_ptr + member->stack_ptr, member->type.size == 8);
             }else{
                 print_context_expr("Not implemented yet", expr);
-                return false;
+                fail_gen_expr(fptr);
             }
-            return true;
         }else if(obj_type.data == DATA_UNION){
             union_t* unio = get_union_tk(obj_type.repr);
             node_stmt* member = get_union_member(unio, expr->access.member->str, expr->access.member->strlen);
@@ -2021,30 +2029,29 @@ bool generate_float_expr(HC_FILE fptr, node_expr* expr){
                 }else if(expr->access.obj->type == tk_dot){
                     ptr = alloc_reg(GET_FREE_REG(target_address_size), false);
                     if(!get_expr_address(fptr, ptr, expr->access.obj))
-                        return false;
+                        fail_gen_expr(fptr);
                 }
-                gen_load_ptr_float(fptr, ptr, member_type.size == 8);
+                gen_loadf_ptr(fptr, freg, ptr, member_type.size == 8);
                 (void) free_reg(ptr);
-                return true;
             }else if(expr->access.obj->type == tk_identifier){
                 var_t* var = get_var(expr->access.obj->term.str, expr->access.obj->term.strlen);
                 if(var->location == VAR_STACK || var->location == VAR_ARRAY)
-                    gen_load_stack_float(fptr, stack_sz - var->stack_ptr, member_type.size == 8);
+                    gen_loadf_stack(fptr, freg, stack_sz - var->stack_ptr, member_type.size == 8);
                 else if(var->location == VAR_GLOBAL || var->location == VAR_GLOBAL_ARR)
-                    gen_load_global_float(fptr, var->str, var->strlen, member_type.size == 8);
+                    gen_loadf_global(fptr, freg, var->str, var->strlen, member_type.size == 8);
                 else if(var->location == VAR_ARG)
-                    gen_load_arg_float(fptr, var->stack_ptr, member_type.size == 8);
-                return true;
+                    gen_loadf_arg(fptr, freg, var->stack_ptr, member_type.size == 8);
             }else{
                 print_context_expr("Not implemented yet", expr);
-                return false;
+                fail_gen_expr(fptr);
             }
         }
+        break;
     }default:
         print_context_expr("Unknown / float operation", expr);
-        return false;
+        fail_gen_expr(fptr);
     }
-    return true;
+    return freg;
 }
 
 bool generate_func(HC_FILE fptr, func_t* target, node_stmt* stmt, token_t* parent, token_t* this){
@@ -2313,9 +2320,8 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             reg_t* cond = EXPR_ONCE(stmt->if_stmt.cond, cond_type, NULL);
             gen_cmpz_reg(fptr, cond);
         }else if(cond_type.data == DATA_FLOAT){
-            if(!generate_float_expr(fptr, stmt->if_stmt.cond))
-                return false;
-            gen_cmpz_float(fptr);
+            freg_t* freg = FEXPR_ONCE(stmt->if_stmt.cond, cond_type.size == 8);
+            gen_cmpzf(fptr, freg);
         }else{
             print_context_expr("Cannot use as a condition", stmt->if_stmt.cond);
             return false;
@@ -2351,9 +2357,8 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
                     reg_t* cond = EXPR_ONCE(stmt->if_stmt.cond, cond_type, NULL);
                     gen_cmpz_reg(fptr, cond);
                 }else if(cond_type.data == DATA_FLOAT){
-                    if(!generate_float_expr(fptr, stmt->if_stmt.cond))
-                        return false;
-                    gen_cmpz_float(fptr);
+                    freg_t* freg = FEXPR_ONCE(stmt->if_stmt.cond, cond_type.size == 8);
+                    gen_cmpzf(fptr, freg);
                 }else{
                     print_context_expr("Cannot use as a condition", stmt->if_stmt.cond);
                     return false;
@@ -2417,9 +2422,8 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             reg_t* cond = EXPR_ONCE(stmt->while_stmt.cond, cond_type, NULL);
             gen_cmpz_reg(fptr, cond);
         }else if(cond_type.data == DATA_FLOAT){
-            if(!generate_float_expr(fptr, stmt->while_stmt.cond))
-                return false;
-            gen_cmpz_float(fptr);
+            freg_t* freg = FEXPR_ONCE(stmt->while_stmt.cond, cond_type.size == 8);
+            gen_cmpzf(fptr, freg);
         }else{
             print_context_expr("Cannot use as a condition", stmt->while_stmt.cond);
             return false;
@@ -2531,9 +2535,8 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             reg_t* cond = EXPR_ONCE(stmt->for_stmt.cond, cond_type, NULL);
             gen_cmpz_reg(fptr, cond);
         }else if(cond_type.data == DATA_FLOAT){
-            if(!generate_float_expr(fptr, stmt->for_stmt.cond))
-                return false;
-            gen_cmpz_float(fptr);
+            freg_t* freg = FEXPR_ONCE(stmt->for_stmt.cond, cond_type.size);
+            gen_cmpzf(fptr, freg);
         }else{
             print_context_expr("Cannot use as a condition", stmt->for_stmt.cond);
             return false;
@@ -2621,9 +2624,8 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
                     reg_t* tmp = EXPR_ONCE(stmt->var_decl.expr, var_type, NULL);
                     gen_save_stack(fptr, tmp, stack_sz - var_ptr);
                 }else if(var_type.data == DATA_FLOAT){
-                    if(!generate_float_expr(fptr, stmt->var_decl.expr))
-                        return false;
-                    gen_save_stack_float(fptr, stack_sz - var_ptr, var_type.size == 8);
+                    freg_t* freg = FEXPR_ONCE(stmt->var_decl.expr, var_type.size == 8);
+                    gen_savef_stack(fptr, freg, stack_sz - var_ptr, var_type.size == 8);
                 }else if(var_type.data == DATA_STRUCT || var_type.data == DATA_UNION){
                     reg_t* ptr = alloc_reg(GET_MASK_REG(target_address_size, allowed_copy_regs), false);
                     gen_load_stack_ptr(fptr, ptr, stack_sz - var_ptr);
@@ -3345,11 +3347,9 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             stack_sz -= func_call_sz;
         }else if(type.ptr_depth || type.data == DATA_INT)
             EXPR_ONCE(stmt->expr.expr, type, NULL);
-        else if(type.data == DATA_FLOAT){
-            if(!generate_float_expr(fptr, stmt->expr.expr))
-                return false;
-            gen_pop_float(fptr);
-        }
+        else if(type.data == DATA_FLOAT)
+            (void) FEXPR_ONCE(stmt->expr.expr, type.size == 8);
+
         return true;
     }
     case tk_continue:
@@ -3450,9 +3450,8 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             if(fn_type.ptr_depth || fn_type.data == DATA_INT)
                 gen_save_arg(fptr, EXPR_ONCE(stmt->ret.expr, fn_type, NULL), 0);
             else if(fn_type.data == DATA_FLOAT){
-                if(!generate_float_expr(fptr, stmt->ret.expr))
-                    return false;
-                gen_save_arg_float(fptr, 0, fn_type.size == 8);
+                freg_t* freg = FEXPR_ONCE(stmt->ret.expr, fn_type.size == 8);
+                gen_savef_arg(fptr, freg, 0, fn_type.size == 8);
             }else if(fn_type.data == DATA_STRUCT || fn_type.data == DATA_UNION){
                 reg_t* ptr = alloc_reg(GET_MASK_REG(target_address_size, allowed_copy_regs), false);
                 gen_load_arg(fptr, ptr, 0);
@@ -3688,14 +3687,6 @@ bool generate(const char* output_file, node_stmt* AST, bool library){
     // Data section
     HC_FPRINTF(fptr, "\n\n%s", target_data_section);
 
-    // Create a static temporary space for floating point operations
-    gen_start_global_decl(fptr, "__FP_TMP", 8, true);
-    gen_declare_int(fptr, 0, 8);
-
-    // Create a static general purpose temporary space
-    gen_start_global_decl(fptr, "__GP_TMP", 8, true);
-    gen_declare_mem(fptr, 64);
-
     // Go through all global variables and add them in the .data section
     for(size_t i = 0; i < vector_size(vars); i++){
         var_t* var = vector_at(vars, i);
@@ -3733,7 +3724,7 @@ bool generate(const char* output_file, node_stmt* AST, bool library){
     // Go through all modules and add them in .data section
     for(size_t i = 0; i < vector_size(modules); i++){
         module_t* mod = vector_at(modules, i);
-        if(mod->external){
+        if(mod->external || mod->size == 0){
             gen_declare_extern(fptr, mod->str, mod->strlen, "data");
             continue;
         }
@@ -3776,8 +3767,8 @@ bool generate(const char* output_file, node_stmt* AST, bool library){
     for(node_term* str_lit = str_literals; str_lit; str_lit = &str_lit->next->term, i++)
         gen_declare_str_lit(fptr, i, str_lit->str, str_lit->strlen);
     i = 0;
-    for(node_term* float_lit = float_literals; float_lit; float_lit = &float_lit->next->term, i++)
-        gen_declare_float_lit(fptr, i, float_lit->str, float_lit->strlen);
+    for(; i < vector_size(float_literals); i++)
+        gen_declare_float_lit(fptr, i, *((double*)vector_at(float_literals, i)));
 
     gen_free(fptr);
     return true;

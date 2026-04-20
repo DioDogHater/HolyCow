@@ -90,9 +90,9 @@ int absi(int x){
     @return = (x < 0) ? -x : x;
 }
 double absf(double x){
-    @asm("fld QWORD [rbp+24]
-    fabs
-    fstp QWORD [rbp+16]");
+    @asm("movsd xmm0, [rbp+24]
+    andpd xmm0, [__FABS_MASKd]
+    movsd [rbp+16], xmm0");
 }
 
 void random(void* data, uint size){
@@ -124,14 +124,6 @@ char to_lower(char c){
 }
 char to_upper(char c){
     @return = is_alpha(c) ? (c & 0b11011111) : c;
-}
-
-void set_rounding(uint8 mode){
-    uint16 fcw;
-    @asm("fstcw [@0]", &fcw);
-    fcw = fcw & 0xF3FF;
-    fcw = fcw | (mode << 8);
-    @asm("fldcw [@0]", &fcw);
 }
 
 double sqrt(double x){
@@ -191,35 +183,31 @@ double atan2(double y, double x){
 }
 
 double round(double x){
-    set_rounding(Rounding.round);
     @asm(
-    "fld QWORD [rbp+24]
-    frndint
-    fstp QWORD [rbp+16]");
+    "movsd xmm0, [rbp+24]
+    roundsd xmm0, xmm0, 0
+    movsd [rbp+16], xmm0");
 }
 
 double floor(double x){
-    set_rounding(Rounding.floor);
     @asm(
-    "fld QWORD [rbp+24]
-    frndint
-    fstp QWORD [rbp+16]");
+    "movsd xmm0, [rbp+24]
+    roundsd xmm0, xmm0, 1
+    movsd [rbp+16], xmm0");
 }
 
 double ceil(double x){
-    set_rounding(Rounding.ceil);
     @asm(
-    "fld QWORD [rbp+24]
-    frndint
-    fstp QWORD [rbp+16]");
+    "movsd xmm0, [rbp+24]
+    roundsd xmm0, xmm0, 2
+    movsd [rbp+16], xmm0");
 }
 
 double trunc(double x){
-    set_rounding();
     @asm(
-    "fld QWORD [rbp+24]
-    frndint
-    fstp QWORD [rbp+16]");
+    "movsd xmm0, [rbp+24]
+    roundsd xmm0, xmm0, 3
+    movsd [rbp+16], xmm0");
 }
 
 // Fixed point arithmetic
@@ -322,7 +310,7 @@ uint strlen(char* str){
     repne scasb
     not rcx
     dec rcx
-    mov [@1], rcx", str, &@return);
+    mov [rbp+16], rcx", str);
 }
 
 int strfind(char* str, char c, uint len, bool reverse){
@@ -627,7 +615,7 @@ void print_format(char* fmt, uint* argv, File* f){
         }else if(*(fmt+1) == 'F')
             print_fixed( (fixed_t) argv[argc++], f );
         else if(*(fmt+1) == 'f')
-            print_double( ((double*) argv)[argc++],, f );
+            print_double( ((double*)argv)[argc++], , f );
         else if(*(fmt+1) == '0'){
             char buffer[64];
             ++fmt;

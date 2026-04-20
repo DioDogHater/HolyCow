@@ -1,7 +1,7 @@
 section .text
 BITS 64
-CPU X64
-default ABS
+CPU ALL
+default REL
 global _start
 _start:
 	fninit
@@ -149,10 +149,10 @@ food.generate:
 	lea rbx, [food+0]
 	sub rsp, 32
 	mov [rsp+24], rbx
-	xor rcx, rcx
-	mov [rsp+8], rcx
-	mov rcx, 0x20
-	mov [rsp+16], rcx
+	xor rbx, rbx
+	mov [rsp+8], rbx
+	mov rbx, 0x20
+	mov [rsp+16], rbx
 	call randint
 	mov rbx, [rsp+24]
 	mov ecx, [rsp+0]
@@ -160,10 +160,10 @@ food.generate:
 	mov [rbx+0], ecx
 	sub rsp, 32
 	mov [rsp+24], rbx
-	xor rcx, rcx
-	mov [rsp+8], rcx
-	mov rcx, 0x10
-	mov [rsp+16], rcx
+	xor rbx, rbx
+	mov [rsp+8], rbx
+	mov rbx, 0x10
+	mov [rsp+16], rbx
 	call randint
 	mov rbx, [rsp+24]
 	mov ecx, [rsp+0]
@@ -201,10 +201,10 @@ food.generate:
 	lea rbx, [food+0]
 	sub rsp, 32
 	mov [rsp+24], rbx
-	xor rcx, rcx
-	mov [rsp+8], rcx
-	mov rcx, 0x20
-	mov [rsp+16], rcx
+	xor rbx, rbx
+	mov [rsp+8], rbx
+	mov rbx, 0x20
+	mov [rsp+16], rbx
 	call randint
 	mov rbx, [rsp+24]
 	mov ecx, [rsp+0]
@@ -212,10 +212,10 @@ food.generate:
 	mov [rbx+0], ecx
 	sub rsp, 32
 	mov [rsp+24], rbx
-	xor rcx, rcx
-	mov [rsp+8], rcx
-	mov rcx, 0x10
-	mov [rsp+16], rcx
+	xor rbx, rbx
+	mov [rsp+8], rbx
+	mov rbx, 0x10
+	mov [rsp+16], rbx
 	call randint
 	mov rbx, [rsp+24]
 	mov ecx, [rsp+0]
@@ -679,6 +679,13 @@ draw_game:
 	mov [rcx+rsi*1], dil
 	jmp .L9
 	.L8:
+	mov rsi, [rsp+24]
+	mov ecx, [rsi+4]
+	mov rdi, [rsp+16]
+	mov esi, [rdi+4]
+	sub ecx, esi
+	test ecx, ecx
+	je .L10
 	lea rcx, [rsp+32]
 	mov rdi, [rsp+24]
 	mov esi, DWORD [rdi+0]
@@ -687,6 +694,17 @@ draw_game:
 	shl rdi, 5
 	add rsi, rdi
 	mov dil, 0x7c
+	mov [rcx+rsi*1], dil
+	jmp .L9
+	.L10:
+	lea rcx, [rsp+32]
+	mov rdi, [rsp+24]
+	mov esi, DWORD [rdi+0]
+	mov r8, [rsp+24]
+	mov edi, DWORD [r8+4]
+	shl rdi, 5
+	add rsi, rdi
+	mov dil, 0x2b
 	mov [rcx+rsi*1], dil
 	.L9:
 	mov rcx, [rsp+24]
@@ -724,27 +742,27 @@ draw_game:
 	call println
 	add rsp, 32
 	mov rbx, 0x10
-	.L10:
+	.L11:
 	test rbx, rbx
-	je .L12
+	je .L13
 	sub rsp, 32
 	mov [rsp+24], rbx
-	mov rcx, STR2
-	mov [rsp+0], rcx
-	mov rcx, 0x20
-	mov [rsp+8], rcx
-	mov rcx, [rsp+40]
-	mov [rsp+16], rcx
+	mov rbx, STR2
+	mov [rsp+0], rbx
+	mov rbx, 0x20
+	mov [rsp+8], rbx
+	mov rbx, [rsp+40]
+	mov [rsp+16], rbx
 	call println
 	mov rbx, [rsp+24]
 	add rsp, 32
 	mov rcx, [rsp+8]
 	add rcx, 0x20
 	mov [rsp+8], rcx
-	.L11:
-	dec rbx
-	jmp .L10
 	.L12:
+	dec rbx
+	jmp .L11
+	.L13:
 	sub rsp, 32
 	mov rbx, STR1
 	mov [rsp+0], rbx
@@ -768,6 +786,7 @@ main:
 	call init_game
 	xor bl, bl
 	mov [rsp+15], bl
+	sub rsp, 16
 	.L1:
 	call draw_game
 	sub rsp, 32
@@ -783,7 +802,7 @@ main:
 	call snake.get_direction
 	mov bl, [rsp+0]
 	add rsp, 16
-	mov [rsp+15], bl
+	mov [rsp+31], bl
 	call snake.move_body
 	sub rsp, 16
 	call snake.check_collisions
@@ -792,7 +811,7 @@ main:
 	test bl, bl
 	je .L3
 	mov bl, 0x1
-	mov [rsp+15], bl
+	mov [rsp+31], bl
 	.L3:
 	.L4:
 	call snake.eat_food
@@ -803,23 +822,34 @@ main:
 	test bl, bl
 	je .L5
 	mov bl, 0x1
-	mov [rsp+15], bl
+	mov [rsp+31], bl
 	.L5:
 	.L6:
-	sub rsp, 16
-	fld QWORD [FP0]
-	fld QWORD [FP1]
+	movsd xmm0, [FP0]
+	movsd xmm1, [FP1]
 	mov rbx, QWORD [snake+8]
-	mov [__FP_TMP], rbx
-	fild QWORD [__FP_TMP]
-	fmulp
-	fsubp
-	fstp QWORD [rsp+0]
-	call sleep
-	add rsp, 16
-	mov bl, [rsp+15]
+	cvtsi2sd xmm2, rbx
+	mulsd xmm1, xmm2
+	subsd xmm0, xmm1
+	movsd [rsp+8], xmm0
+	movsd xmm0, [FP2]
+	movsd xmm1, [rsp+8]
+	comisd xmm1, xmm0
+	setb bl
 	test bl, bl
 	je .L7
+	movsd xmm0, [FP2]
+	movsd [rsp+8], xmm0
+	.L7:
+	.L8:
+	sub rsp, 16
+	movsd xmm0, [rsp+24]
+	movsd [rsp+0], xmm0
+	call sleep
+	add rsp, 16
+	mov bl, [rsp+31]
+	test bl, bl
+	je .L9
 	sub rsp, 16
 	mov rbx, STR4
 	mov [rsp+0], rbx
@@ -842,8 +872,8 @@ main:
 	call TTY.block_stdin
 	call TTY.restore_old
 	sub rsp, 16
-	fld QWORD [FP2]
-	fstp QWORD [rsp+0]
+	movsd xmm0, [FP3]
+	movsd [rsp+0], xmm0
 	call sleep
 	add rsp, 16
 	sub rsp, 16
@@ -859,19 +889,20 @@ main:
 	cmp bl, cl
 	setne bl
 	test bl, bl
-	je .L9
+	je .L11
 	jmp .L0
-	.L9:
-	.L10:
+	.L11:
+	.L12:
 	call init_game
 	xor bl, bl
-	mov [rsp+15], bl
+	mov [rsp+31], bl
 	call TTY.unblock_stdin
 	call TTY.raw_input
-	.L7:
-	.L8:
+	.L9:
+	.L10:
 	jmp .L1
 	.L2:
+	add rsp, 16
 	.L0:
 	leave
 	ret
@@ -973,13 +1004,9 @@ extern string.new:function
 extern string.format:function
 
 
-section .data
-static __FP_TMP:data
-__FP_TMP:
-dq 0
-static __GP_TMP:data
-__GP_TMP:
-times 64 db 0
+section .data align=16
+__FP_TMP: times 4 dq 0
+__GP_TMP: times 4 dq 0
 extern stdout:data
 extern stdin:data
 extern File:data
@@ -988,43 +1015,52 @@ extern string:data
 global TTY:data
 TTY:
 dd 56026
-times 4 db 0
-times 4 db 0
-times 4 db 0
+dd 0
+dd 0
+dd 0
 times 32 db 0
-times 4 db 0
-times 4 db 0
+dd 0
+dd 0
 dd 56026
-times 4 db 0
-times 4 db 0
-times 4 db 0
+dd 0
+dd 0
+dd 0
 times 32 db 0
-times 4 db 0
-times 4 db 0
+dd 0
+dd 0
 global snake:data
 snake:
-times 8 db 0
-times 8 db 0
+dq 0
+dq 0
 times 4096 db 0
 global food:data
 food:
-times 8 db 0
+dq 0
 
 
-section .rodata
+section .rodata align=16
+__FABS_MASKd: dq 0x7FFFFFFFFFFFFFFF, 0
+__FABS_MASKs: dd 0x7FFFFFFF, 0, 0, 0
+__FNEG_MASKd: dq 0x8000000000000000, 0
+__FNEG_MASKs: dd 0x80000000, 0, 0, 0
 STR0:
 db "",0x1b,"[2J",0x1b,"[H",0
+times 6 db 0
 STR1:
 db "+%*c+",0
 STR2:
 db "|%*s|",0
 STR3:
 db "SCORE: %04%APress q to quit.",0
+db 0
 STR4:
 db "> GAME OVER <",10,"Play again? (y/n) ",0
+times 5 db 0
 FP0:
-dq 0.125
+dq 0.1250000000
 FP1:
-dq 0.0025
+dq 0.0010000000
 FP2:
-dq 0.25
+dq 0.0500000000
+FP3:
+dq 0.2500000000

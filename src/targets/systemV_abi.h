@@ -6,36 +6,16 @@
 #include "../generator/hc_types.h"
 #include "../generator/generator.h"
 
-static size_t xmms_used = 0;
-static size_t xmm_idx = 0;
-
-// Load a QWORD / DWORD from a global (offset optionally) in a XMM register
-static void x64_load_global_XMM(HC_FILE fptr, size_t which, const char* str, size_t strlen, size_t offset, bool dp){
-    HC_FPRINTF(fptr, "\tmovs%c xmm%lu, %s [%.*s+%lu]\n", dp?'d':'s', which, dp?"QWORD":"DWORD", (int)strlen, str, offset);
-}
-
-// Load a QWORD from the stack
-static void x64_load_stack_XMM(HC_FILE fptr, size_t which, size_t offset){
-    HC_FPRINTF(fptr, "\tmovsd xmm%lu, QWORD [rsp+%lu]\n", which, offset);
-}
-
-// Save a XMM register in a QWORD / DWORD on the stack
-static void x64_save_stack_XMM(HC_FILE fptr, size_t which, size_t offset, bool dp){
-    HC_FPRINTF(fptr, "\tmovs%c %s [rsp+%lu], xmm%lu\n", dp?'d':'s', dp?"QWORD":"DWORD", offset, which);
-}
-
-// Save a XMM register in a QWORD / DWORD pointed to by register, with offset
-static void x64_save_ptr_XMM(HC_FILE fptr, size_t which, reg_t* ptr, size_t offset, bool dp){
-    HC_FPRINTF(fptr, "\tmovs%c %s [%s+%lu], xmm%lu\n", dp?'d':'s', dp?"QWORD":"DWORD", ptr->name, offset, which);
-}
-
 // Number of integer arguments that can be passed in registers
 #define SYSV_REG_ARGS 6
+
+// Number of float arguments that can be passed in XMM registers
+#define SYSV_XMM_ARGS 8
 
 // Registers used for passing arguments, in order
 static reg_t* sysV_reg_order[SYSV_REG_ARGS] = {0};
 static reg_t* sysV_return_regs[2] = {0};
-static reg_t* sysV_xmm_count;
+static reg_t* sysV_xmm_count = NULL;
 
 // Load an integer argument, either on a register or on the stack
 static void sysV_load_int_arg(HC_FILE fptr, size_t arg_index, size_t* stack_ptr, node_expr* expr, type_t target){
@@ -51,19 +31,19 @@ static void sysV_load_int_arg(HC_FILE fptr, size_t arg_index, size_t* stack_ptr,
     }
 }
 
-// Number of float arguments that can be passed in XMM registers
-#define SYSV_XMM_ARGS 8
+static freg_t* sysV_XMM(size_t idx, bool dp){
+    freg_t* f = &fregs[idx];
+    return alloc_freg(dp ? f : f->children);
+}
 
 // Load a float argument, either in a XMM register or on the stack
 static void sysV_load_float_arg(HC_FILE fptr, size_t arg_index, size_t* stack_ptr, node_expr* expr, bool dp){
-    if(!generate_float_expr(fptr, expr))
-        fail_gen_expr(fptr);
-    if(arg_index < SYSV_XMM_ARGS){
-        gen_save_global_float(fptr, "__FP_TMP", 8, dp);
-        x64_load_global_XMM(fptr, arg_index, "__FP_TMP", 8, 0, dp);
-    }else{
+    freg_t* freg = FEXPR_ONCE(expr, dp);
+    if(arg_index < SYSV_XMM_ARGS)
+        gen_move_freg(fptr, sysV_XMM(arg_index, dp), freg);
+    else{
         *stack_ptr -= 8;
-        gen_save_stack_float(fptr, *stack_ptr, 0);
+        gen_savef_stack(fptr, freg, *stack_ptr, dp);
     }
 }
 
@@ -225,9 +205,6 @@ static void sysV_load_arg(HC_FILE fptr, size_t* int_idx, size_t* float_idx, size
         else if(*float_idx > SYSV_XMM_ARGS)
             *stack_ptr += (*float_idx - SYSV_XMM_ARGS) * 8;
 
-        xmms_used = MIN(*float_idx, SYSV_XMM_ARGS);
-        xmm_idx = xmms_used;
-
         // We want to allocate the space needed on the stack first.
         if(*stack_ptr){
             size_t aligned = ALIGN(*stack_ptr, 16);
@@ -303,7 +280,6 @@ static void sysV_load_arg(HC_FILE fptr, size_t* int_idx, size_t* float_idx, size
     if(arg_type.ptr_depth || arg_type.data == DATA_INT)
         sysV_load_int_arg(fptr, --(*int_idx), stack_ptr, arg_expr, arg_type);
     else if(arg_type.data == DATA_FLOAT){
-        if(*float_idx < SYSV_XMM_ARGS) xmm_idx--;
         sysV_load_float_arg(fptr, --(*float_idx), stack_ptr, arg_expr, var_arg || arg_type.size == 8);
         if(var_arg && *float_idx < SYSV_XMM_ARGS)
             gen_inc_reg(fptr, sysV_xmm_count);
@@ -317,16 +293,14 @@ static void sysV_load_arg(HC_FILE fptr, size_t* int_idx, size_t* float_idx, size
             gen_load_global_ptr(fptr, ptr, "__GP_TMP", 8);
             save_struct(fptr, stru, ptr, arg_expr);
             if(stru->size > 8){
-                if(xmm_stored[1]){
-                    if(*float_idx < SYSV_XMM_ARGS) xmm_idx--;
-                    x64_load_global_XMM(fptr, --(*float_idx), "__GP_TMP", 8, 8, (stru->size - 8) == 8);
-                }else
+                if(xmm_stored[1])
+                    gen_loadf_global_offset(fptr, sysV_XMM(--(*float_idx), (stru->size - 8) == 8), "__GP_TMP", 8, 8, (stru->size - 8) == 8);
+                else
                     gen_load_global_offset(fptr, alloc_reg(sysV_reg_order[--(*int_idx)], false), "__GP_TMP", 8, 8);
             }
-            if(xmm_stored[0]){
-                if(*float_idx < SYSV_XMM_ARGS) xmm_idx--;
-                x64_load_global_XMM(fptr, --(*float_idx), "__GP_TMP", 8, 0, true);
-            }else
+            if(xmm_stored[0])
+                gen_loadf_global(fptr, sysV_XMM(--(*float_idx), stru->size >= 8), "__GP_TMP", 8, stru->size >= 8);
+            else
                 gen_load_global_offset(fptr, alloc_reg(sysV_reg_order[--(*int_idx)], false), "__GP_TMP", 8, 0);
         }
         (void) free_reg(ptr);
@@ -341,14 +315,12 @@ static void sysV_load_arg(HC_FILE fptr, size_t* int_idx, size_t* float_idx, size
             save_union(fptr, unio, ptr, arg_expr);
             if(unio->size > 8){
                 if(xmm_stored[0]){
-                    if(*float_idx < SYSV_XMM_ARGS) xmm_idx--;
-                    x64_load_global_XMM(fptr, --(*float_idx), "__GP_TMP", 8, 8, true);
+                    gen_loadf_global_offset(fptr, sysV_XMM(--(*float_idx), (unio->size - 8) == 8), "__GP_TMP", 8, 8, (unio->size - 8) == 8);
                 }else
                     gen_load_global_offset(fptr, alloc_reg(sysV_reg_order[--(*int_idx)], false), "__GP_TMP", 8, 8);
             }
             if(xmm_stored[0]){
-                if(*float_idx < SYSV_XMM_ARGS) xmm_idx--;
-                x64_load_global_XMM(fptr, --(*float_idx), "__GP_TMP", 8, 0, true);
+                gen_loadf_global(fptr, sysV_XMM(--(*float_idx), unio->size >= 8), "__GP_TMP", 8, unio->size >= 8);
             }else
                 gen_load_global_offset(fptr, alloc_reg(sysV_reg_order[--(*int_idx)], false), "__GP_TMP", 8, 0);
         }
@@ -396,27 +368,28 @@ static void x64_move_ptr_bytes(HC_FILE fptr, reg_t* op, reg_t* ptr, size_t bytes
 }
 
 size_t generate_cfunc_call(HC_FILE fptr, node_expr* expr, func_t* func, reg_t* struct_ptr){
-    reg_t* masked_regs[MAX_REGS];
+    reg_t* used_regs[MAX_REGS];
+    freg_t* used_fregs[MAX_FREGS];
 
     // The amount of bytes allocated on the stack
     size_t func_call_sz = SIZEOF_T(func->type) ? 8 : 0, args_sz = 0;
     size_t int_count = 0, float_count = 0;
     size_t float_vargs = 0;
 
-    // Save last function's state
-    size_t og_xmms_used = xmms_used, og_xmm_idx = xmm_idx;
-    xmms_used = xmm_idx = 0;
-
     // Get the occupied registers to save on the stack
     // (because a function can affect registers)
-    int n = get_mask_occup_regs(ALL_REGS, true, registers, masked_regs);
-    for(int i = 0; i < n; i++){
-        if(masked_regs[i] == struct_ptr)
+    int n_regs = get_mask_occup_regs(ALL_REGS, true, registers, used_regs);
+    for(int i = 0; i < n_regs; i++){
+        if(struct_ptr && used_regs[i]->name == struct_ptr->name)
             continue;
-        func_call_sz = ALIGN(func_call_sz, masked_regs[i]->size);
-        func_call_sz += masked_regs[i]->size;
+        func_call_sz = ALIGN(func_call_sz, used_regs[i]->size);
+        func_call_sz += used_regs[i]->size;
     }
-    func_call_sz += (og_xmms_used - og_xmm_idx) * 8;
+    int n_fregs = get_occup_fregs(fregs, used_fregs);
+    for(int i = 0; i < n_fregs; i++){
+        size_t sz = (used_fregs[i]->dp) ? 8 : 4;
+        func_call_sz = ALIGN(func_call_sz, sz) + sz;
+    }
     func_call_sz = ALIGN(func_call_sz, 16);
     if(func_call_sz){
         gen_alloc_stack(fptr, func_call_sz);
@@ -427,21 +400,26 @@ size_t generate_cfunc_call(HC_FILE fptr, node_expr* expr, func_t* func, reg_t* s
     size_t arg_ptr = struct_ptr ? 8 : 0;
     if(struct_ptr)
         gen_save_stack(fptr, struct_ptr, func_call_sz - 8);
-    for(int i = 0; i < n; i++){
-        if(masked_regs[i] == struct_ptr)
+
+    // Save each occupied register on the stack
+    for(int i = 0; i < n_regs; i++){
+        if(struct_ptr && used_regs[i]->name == struct_ptr->name)
             continue;
-        arg_ptr = ALIGN(arg_ptr, masked_regs[i]->size);
-        arg_ptr += masked_regs[i]->size;
-        gen_save_stack(fptr, masked_regs[i], func_call_sz - arg_ptr);
+        arg_ptr = ALIGN(arg_ptr, used_regs[i]->size);
+        arg_ptr += used_regs[i]->size;
+        gen_save_stack(fptr, free_reg(used_regs[i]), func_call_sz - arg_ptr);
     }
-    for(size_t idx = og_xmm_idx; idx < og_xmms_used; idx++){
-        arg_ptr += 8;
-        x64_save_stack_XMM(fptr, idx, func_call_sz - arg_ptr, true);
+    for(int i = 0; i < n_fregs; i++){
+        size_t sz = (used_fregs[i]->dp) ? 8 : 4;
+        arg_ptr = ALIGN(arg_ptr, sz) + sz;
+        gen_savef_stack(fptr, free_freg(used_fregs[i]), func_call_sz - arg_ptr, sz == 8);
     }
 
     // Free every register to be able to use them for evaluating expressions
     for(size_t i = 0; i < REGISTER_COUNT; i++)
         free_reg(&registers[i]);
+    for(size_t i = 0; i < FREG_COUNT; i++)
+        free_freg(&fregs[i]);
 
     // Tracks if return value (if its a struct / union) is given in registers
     bool ret_in_regs = true;
@@ -478,6 +456,8 @@ size_t generate_cfunc_call(HC_FILE fptr, node_expr* expr, func_t* func, reg_t* s
     // Free every register that wasnt used before
     for(size_t i = 0; i < REGISTER_COUNT; i++)
         free_reg(&registers[i]);
+    for(size_t i = 0; i < FREG_COUNT; i++)
+        free_freg(&fregs[i]);
 
     arg_ptr = struct_ptr ? 8 : 0;
 
@@ -487,17 +467,17 @@ size_t generate_cfunc_call(HC_FILE fptr, node_expr* expr, func_t* func, reg_t* s
         gen_load_stack(fptr, struct_ptr, func_call_sz - arg_ptr);
         if(func->type.size <= 8){
             if(xmm_stored[0])
-                x64_save_ptr_XMM(fptr, 0, struct_ptr, 0, func->type.size == 8);
+                gen_savef_ptr(fptr, sysV_XMM(0, func->type.size == 8), struct_ptr, func->type.size == 8);
             else
                 x64_move_ptr_bytes(fptr, sysV_return_regs[0], struct_ptr, func->type.size);
         }else{
             size_t xmm = 0, reg = 0;
             if(xmm_stored[0])
-                x64_save_ptr_XMM(fptr, xmm++, struct_ptr, 0, true);
+                gen_savef_ptr(fptr, sysV_XMM(xmm++, func->type.size >= 8), struct_ptr, func->type.size >= 8);
             else
                 gen_save_ptr(fptr, sysV_return_regs[reg++], struct_ptr);
-            if(xmm_stored[1])
-                x64_save_ptr_XMM(fptr, xmm, struct_ptr, 8, (func->type.size - 8) == 8);
+            if((func->type.data == DATA_UNION && xmm_stored[0]) || xmm_stored[1])
+                gen_savef_offset(fptr, sysV_XMM(xmm, (func->type.size - 8) == 8), struct_ptr, 8, (func->type.size - 8) == 8);
             else{
                 if(reg)
                     gen_add_reg(fptr, struct_ptr, 8);
@@ -509,23 +489,20 @@ size_t generate_cfunc_call(HC_FILE fptr, node_expr* expr, func_t* func, reg_t* s
     else if(func->type.ptr_depth || func->type.data == DATA_INT)
         gen_save_stack(fptr, sysV_return_regs[0], 0);
     else if(func->type.data == DATA_FLOAT)
-        x64_save_stack_XMM(fptr, 0, 0, func->type.size == 8);
+        gen_savef_stack(fptr, sysV_XMM(0, func->type.size == 8), 0, func->type.size == 8);
 
-    // Retrieve every register's old value off the stack
-    for(int i = 0; i < n; i++){
-        if(masked_regs[i] == struct_ptr)
-            continue;
-        arg_ptr = ALIGN(arg_ptr, masked_regs[i]->size);
-        arg_ptr += masked_regs[i]->size;
-        gen_load_stack(fptr, alloc_reg(masked_regs[i], false), func_call_sz - arg_ptr);
+    // Retrieve every register off the stack
+    for(int i = 0; i < n_regs; i++){
+        if(struct_ptr && used_regs[i]->name == struct_ptr->name) continue;
+        arg_ptr = ALIGN(arg_ptr, used_regs[i]->size);
+        arg_ptr += used_regs[i]->size;
+        gen_load_stack(fptr, alloc_reg(used_regs[i], false), func_call_sz - arg_ptr);
     }
-    for(size_t idx = og_xmm_idx; idx < og_xmms_used; idx++){
-        arg_ptr += 8;
-        x64_load_stack_XMM(fptr, idx, func_call_sz - arg_ptr);
+    for(int i = 0; i < n_fregs; i++){
+        size_t sz = (used_fregs[i]->dp) ? 8 : 4;
+        arg_ptr = ALIGN(arg_ptr, sz) + sz;
+        gen_loadf_stack(fptr, alloc_freg(used_fregs[i]), func_call_sz - arg_ptr, sz == 8);
     }
-
-    // Restore last function's state
-    xmms_used = og_xmms_used, xmm_idx = og_xmm_idx;
 
     return func_call_sz;
 }

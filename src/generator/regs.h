@@ -5,13 +5,12 @@
 #include "../dev/libs.h"
 #include "target_requirements.h"
 
-// Find if a register is free or not depending on its children
+// Check if a register is free or not depending on its children
 bool is_reg_free(reg_t* reg);
 
 // Get a free register with a certain size or NULL if there are none
 reg_t* get_free_reg(size_t size, reg_t* reg_arr);
 #define GET_FREE_REG(sz) get_free_reg((sz), registers)
-
 
 // Get a occupied / free register masked with a reg_mask or NULL if there are none
 reg_t* get_occup_mask_reg(size_t size, bool occup, reg_mask mask, reg_t* reg_arr);
@@ -34,10 +33,34 @@ int get_mask_occup_regs(reg_mask mask, bool occup, reg_t* reg_arr, reg_t* masked
 // Get reg with name
 reg_t* get_named_reg(const char* str, size_t strlen, reg_t* reg_arr);
 
+// Allocate register
 reg_t* alloc_reg(reg_t* reg, bool sign);
+
+// Free register
 reg_t* free_reg(reg_t* reg);
 
+// Transfer value from a -> b, allocating b and freeing a
 reg_t* transfer_reg(HC_FILE fptr, reg_t* a, reg_t* b);
+
+// Get lower n bytes of op
 reg_t* get_lower_nbytes(HC_FILE fptr, reg_t* op, size_t n);
+
+// Floating point registers
+
+// Check if a float register is free depending on its children
+bool is_freg_free(freg_t* reg);
+
+// Get a free float register or NULL if there are none
+freg_t* get_free_freg(bool ds, freg_t* freg_arr);
+#define GET_FREG(ds) get_free_freg((ds), fregs)
+
+// Get all occupied float registers
+int get_occup_fregs(freg_t* freg_arr, freg_t* arr[FREG_COUNT]);
+
+// Allocate a float register
+freg_t* alloc_freg(freg_t* reg);
+
+// Free a float register
+freg_t* free_freg(freg_t* reg);
 
 #endif

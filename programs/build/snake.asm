@@ -117,7 +117,7 @@ TTY.raw_input:
 	lea rbx, [TTY+56]
 	lea r8, [TTY+0]
 	cld
-	mov rdi, rbx
+	lea rdi, [rbx]
 	lea rsi, [r8]
 	mov rcx, 7
 	rep movsq

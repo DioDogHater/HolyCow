@@ -496,14 +496,24 @@ void print_hex(uint x, File* f){
     char buffer[64];
     buffer[63] = 0;
     char* lookup = "0123456789ABCDEF";
-    char* ptr = buffer + 30;
+    char* ptr = buffer + 62;
     if(x == 0)
         *(ptr--) = '0';
     for(; x; x = x >> 4, --ptr)
         *ptr = lookup[x & 0xF];
-    *(ptr--) = 'x';
-    *(ptr) = '0';
-    print_str(ptr,, f);
+    print_str(ptr+1,,f);
+}
+
+// Prints an unsigned 64 bit int in binary form
+void print_binary(uint x, File* f){
+    char buffer[80];
+    buffer[79] = 0;
+    char* ptr = buffer + 78;
+    if(x == 0)
+        *(ptr--) = '0';
+    for(; x; x = x >> 1, --ptr)
+        *ptr = '0' + (x & 1);
+    print_str(ptr+1,,f);
 }
 
 // Prints a fixed point number
@@ -520,6 +530,7 @@ void print_fixed(fixed_t x, File* f){
     print_str(uint_to_string(fractional, buffer, 5, '0'),, f);
 }
 
+// Print a double precision float
 void print_double(double x, uint digits, File* f){
     char buffer[128];
     bool sign = (x < 0.0);
@@ -612,6 +623,8 @@ void print_format(char* fmt, uint* argv, File* f){
                 print_str("true",, f);
             else
                 print_str("false",, f);
+        }else if(*(fmt+1) == 'B'){
+            print_binary(argv[argc++], f);
         }else if(*(fmt+1) == 'F')
             print_fixed( (fixed_t) argv[argc++], f );
         else if(*(fmt+1) == 'f')
@@ -634,6 +647,12 @@ void print_format(char* fmt, uint* argv, File* f){
             else if(*(fmt+1) == 'c'){
                 char c = argv[argc++];
                 repeat(mod){ print_char(c, f); }
+            }else if(*(fmt+1) == 'B'){
+                char* c = (char*) argv[argc++];
+                repeat(mod){
+                    print_hex(*(c++), f);
+                    print_char('/', f);
+                }
             }else if(*(fmt+1) == 'L'){
                 char c = argv[argc++];
                 left_align(f, last, mod, c);

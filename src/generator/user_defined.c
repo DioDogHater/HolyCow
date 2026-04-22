@@ -86,8 +86,27 @@ union_t* get_union_tk(token_t* tk){
 // Find a union's member
 node_stmt* get_union_member(union_t* uni, const char* str, size_t strlen){
     for(node_stmt* ptr = uni->members; ptr; ptr = ptr->next){
-        if(ptr->var_decl.identifier->strlen == strlen && strncmp(ptr->var_decl.identifier->str, str, strlen) == 0)
+        if(ptr->type == tk_var_decl && ptr->var_decl.identifier->strlen == strlen && strncmp(ptr->var_decl.identifier->str, str, strlen) == 0)
             return ptr;
+        else if(ptr->type == tk_arr_decl && ptr->arr_decl.identifier->strlen == strlen && strncmp(ptr->arr_decl.identifier->str, str, strlen) == 0)
+            return ptr;
+    }
+    return NULL;
+}
+
+// Find a union's member with its type
+node_var_decl* get_union_type_member(union_t* uni, type_t t){
+    for(node_stmt* ptr = uni->members; ptr; ptr = ptr->next){
+        if(ptr->type == tk_var_decl){
+            type_t vt = type_from_tk(ptr->var_decl.var_type);
+            if(vt.data == t.data && vt.size == t.size && vt.sign == t.sign && vt.ptr_depth == t.ptr_depth){
+                if(DATAOF_T(vt) == DATA_STRUCT || DATAOF_T(vt) == DATA_UNION){
+                    if(vt.repr && t.repr && vt.repr->strlen == t.repr->strlen && strncmp(vt.repr->str, t.repr->str, vt.repr->strlen) == 0)
+                        return &ptr->var_decl;
+                }else
+                    return &ptr->var_decl;
+            }
+        }
     }
     return NULL;
 }

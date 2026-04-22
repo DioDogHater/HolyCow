@@ -232,6 +232,40 @@ bool save_struct(HC_FILE fptr, struct_t* stru, reg_t* ptr, node_expr* value){
 }
 
 bool save_union(HC_FILE fptr, union_t* unio, reg_t* ptr, node_expr* value){
+    if(value->type == tk_type_cast || value->type == tk_struct){
+        type_t t;
+        if(value->type == tk_type_cast)
+            t = type_from_tk(value->type_cast.lhs->start);
+        else
+            t = type_from_tk(value->construct.struc);
+        if(!t.data)
+            return false;
+        node_var_decl* member = get_union_type_member(unio, t);
+        if(!member){
+            print_context_expr("Union does not contain that type", value);
+            return false;
+        }
+        if(t.ptr_depth || t.data == DATA_INT)
+            gen_save_ptr(fptr, EXPR_ONCE(value->type_cast.rhs, t, NULL), ptr);
+        else if(t.data == DATA_FLOAT){
+            freg_t* freg = FEXPR_ONCE(value->type_cast.rhs, t.size == 8);
+            gen_savef_ptr(fptr, freg, ptr, t.size == 8);
+        }else if(t.data == DATA_STRUCT){
+            struct_t* stru = get_struct_tk(t.repr);
+            if(!save_struct(fptr, stru, ptr, value))
+                return false;
+        }
+        if(unio->is_variant){
+            enum_t* enu = get_enum(unio->str, unio->strlen);
+            int64_t val;
+            get_enum_val(enu, member->identifier->str, member->identifier->strlen, &val);
+            reg_t* tmp = GET_FREE_REG(unio->align);
+            gen_set_reg_raw(fptr, tmp, val);
+            gen_save_offset(fptr, tmp, ptr, unio->size - unio->align);
+        }
+        return true;
+    }
+
     type_t value_type = typeof_expr(value);
     if(value_type.ptr_depth || value_type.data != DATA_UNION){
         print_context_expr("Expected union", value);
@@ -310,9 +344,11 @@ static bool check_private(size_t flags, struct_t* stru, node_expr* expr, bool wr
             is_accessible = check_module_private(var->flags, mod, dot->member, write);
         }else{
             type_t obj_type = typeof_expr(dot->obj);
-            struct_t* stru2 = get_struct_tk(obj_type.repr);
-            var_t* member = get_member(stru2, dot->member->str, dot->member->strlen);
-            is_accessible = check_private(member->flags, stru2, (node_expr*) dot, write);
+            if(obj_type.data == DATA_STRUCT){
+                struct_t* stru2 = get_struct_tk(obj_type.repr);
+                var_t* member = get_member(stru2, dot->member->str, dot->member->strlen);
+                is_accessible = check_private(member->flags, stru2, (node_expr*) dot, write);
+            }
         }
     }else if(expr->access.obj->type == tk_func_call && expr->access.obj->func.func->type == tk_dot){
         node_access* dot = &expr->access.obj->func.func->access;
@@ -322,9 +358,11 @@ static bool check_private(size_t flags, struct_t* stru, node_expr* expr, bool wr
             is_accessible = check_module_private(func->flags, mod, dot->member, write);
         }else{
             type_t obj_type = typeof_expr(dot->obj);
-            struct_t* stru2 = get_struct_tk(obj_type.repr);
-            func_t* method = get_method(stru2, dot->member->str, dot->member->strlen);
-            is_accessible = check_private(method->flags, stru2, (node_expr*) dot, write);
+            if(obj_type.data == DATA_STRUCT){
+                struct_t* stru2 = get_struct_tk(obj_type.repr);
+                func_t* method = get_method(stru2, dot->member->str, dot->member->strlen);
+                is_accessible = check_private(method->flags, stru2, (node_expr*) dot, write);
+            }
         }
     }
     if(!is_accessible)
@@ -399,6 +437,10 @@ bool get_expr_address(HC_FILE fptr, reg_t* tmp,  node_expr* expr){
         if(obj_type.data == DATA_STRUCT){
             struct_t* stru = get_struct_tk(obj_type.repr);
             var_t* member = get_member(stru, expr->access.member->str, expr->access.member->strlen);
+            if(!member){
+                print_context("No such member in struct", expr->access.member);
+                return false;
+            }
             if(member->location == VAR_ARRAY){
                 print_context("Cannot get address to array, array is the address itself", expr->access.member);
                 return false;
@@ -414,8 +456,18 @@ bool get_expr_address(HC_FILE fptr, reg_t* tmp,  node_expr* expr){
                 gen_load_offset_ptr(fptr, tmp, tmp, member->stack_ptr);
             }
             return true;
-        }else if(obj_type.data == DATA_UNION)
-            return get_expr_address(fptr, tmp, expr->access.obj);
+        }else if(obj_type.data == DATA_UNION){
+            union_t* unio = get_union_tk(obj_type.repr);
+            if(!get_expr_address(fptr, tmp, expr->access.obj))
+                return false;
+            if(expr->access.member->strlen == 4 && strncmp(expr->access.member->str, "type", 4) == 0)
+                gen_load_offset_ptr(fptr, tmp, tmp, unio->size - unio->align);
+            else if(!get_union_member(unio, expr->access.member->str, expr->access.member->strlen)){
+                print_context("No such member in union", expr->access.member);
+                return false;
+            }
+            return true;
+        }
     }
 
     print_context_expr("Unable to get address of expression", expr);
@@ -426,7 +478,8 @@ bool get_expr_address(HC_FILE fptr, reg_t* tmp,  node_expr* expr){
 bool save_expr(HC_FILE fptr, node_expr* expr, node_expr* value){
     {
         type_t expr_type = typeof_expr(expr), val_type = typeof_expr(value);
-        if(!types_compatible(expr_type, val_type)){
+        if(DATAOF_T(expr_type) == DATA_UNION && (value->type == tk_type_cast || value->type == tk_struct));
+        else if(!types_compatible(expr_type, val_type)){
             print_context_expr("Types are incompatible", value);
             print_type("Type ", val_type, " is not compatible with");
             print_type("the expected type ", expr_type, "!");
@@ -1238,14 +1291,14 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
     case tk_dec:{
         reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(sz), sign);
         if(!inc_expr(fptr, expr->unary_op.lhs, tmp, true, expr->type == tk_inc))
-            return false;
+            fail_gen_expr(fptr);
         return tmp;
     }
     case tk_post_inc:
     case tk_post_dec:{
         reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(sz), sign);
         if(!inc_expr(fptr, expr->unary_op.lhs, tmp, false, expr->type == tk_post_inc))
-            return false;
+            fail_gen_expr(fptr);
         return tmp;
     }
 #define ADD_LIKE_EXPR(n, m) \
@@ -1469,8 +1522,34 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
             gen_cmpf(fptr, freg1, freg2);
             (void) free_freg(freg1);
             (void) free_freg(freg2);
+        }else if((expr->type == tk_cmp_eq || expr->type == tk_cmp_neq) && biggest_t.data == DATA_STRUCT){
+            struct_t* stru = get_struct_tk(biggest_t.repr);
+            size_t alloc = ((expr->bin_op.lhs->type == tk_struct) + (expr->bin_op.rhs->type == tk_struct)) * biggest_t.size;
+            size_t stack_ptr = 0;
+            reg_t* ptr1 = alloc_reg(GET_MASK_REG(target_address_size, allowed_memcmp_regs), false);
+            reg_t* ptr2 = alloc_reg(GET_MASK_REG(target_address_size, allowed_memcmp_regs), false);
+            if(alloc)
+                gen_alloc_stack(fptr, alloc * biggest_t.size);
+            stack_sz += alloc * biggest_t.size;
+            if(expr->bin_op.lhs->type == tk_struct){
+                stack_ptr += biggest_t.size;
+                gen_load_stack_ptr(fptr, ptr1, alloc - stack_ptr);
+                if(!save_struct(fptr, stru, ptr1, expr->bin_op.lhs))
+                    fail_gen_expr(fptr);
+            }else if(!get_expr_address(fptr, ptr1, expr->bin_op.lhs))
+                fail_gen_expr(fptr);
+            if(expr->bin_op.rhs->type == tk_struct){
+                stack_ptr += biggest_t.size;
+                gen_load_stack_ptr(fptr, ptr2, alloc - stack_ptr);
+                if(!save_struct(fptr, stru, ptr2, expr->bin_op.rhs))
+                    fail_gen_expr(fptr);
+            }else if(!get_expr_address(fptr, ptr2, expr->bin_op.rhs))
+                fail_gen_expr(fptr);
+            gen_memcmp(fptr, ptr1, ptr2, biggest_t.size);
+            (void) free_reg(ptr1);
+            (void) free_reg(ptr2);
         }else{
-            print_context_expr("Cannot compare things other than ints / floats", expr);
+            print_context_expr("Cannot compare things other than int / float / structures", expr);
             fail_gen_expr(fptr);
         }
         if(!tmp) tmp = alloc_reg(GET_FREE_REG(1), sign);
@@ -1759,6 +1838,9 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
             reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(sz), sign);
             gen_float_to_int(fptr, freg, tmp);
             return tmp;
+        }else if(cast_data != DATA_INT){
+            print_context_expr("Cannot convert non numeric value to numeric value!", expr);
+            fail_gen_expr(fptr);
         }
         if(sz == cast_size){
             reg_t* tmp = generate_expr(fptr, expr->type_cast.rhs, cast_type, prefered);

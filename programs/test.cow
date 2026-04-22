@@ -47,7 +47,7 @@ variant msg_data {
 class msg {
     // Can only be changed inside msg's methods
     // but can be read / pointed to from anywhere. (@peek)
-    private @peek msg_data data = msg_data.integer{ 0 };
+    msg_data data = msg_data.integer{ 0 };
 
     // Setters
     void set_text(char* txt){

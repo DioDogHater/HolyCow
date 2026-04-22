@@ -94,7 +94,13 @@ int main(uint argc, char** argv){
     println("n length uint:      %04", 25);
 
     // Print an unsigned int in hexadecimal form
-    println("uint (hex):         %x", 0xBEEF);
+    println("uint (hex):         0x%x", 0xBEEF);
+
+    // Print a number in binary
+    println("uint (binary):      0b%B", 0b1001);
+
+    // Print n bytes of data in hexadecimal
+    println("binary data (hex):  \"%*B\"", 4, "\x14\x67\x1b\xab");
 
     // Print a boolean
     println("bool:               %b", true);

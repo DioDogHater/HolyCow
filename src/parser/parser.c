@@ -222,13 +222,16 @@ node_expr* parse_term(token_t** tokens){
             token_t* member = consume_token(tokens);
             consume_token(tokens);
             expr = (node_expr*) ARENA_ALLOC(arena, node_uconstruct);
-            expr->uconstruct = (node_uconstruct){tk_union, NULL, token, member, parse_expr(tokens, 0)};
+            expr->uconstruct = (node_uconstruct){tk_union, NULL, token, member, NULL};
 
-            if(!expr->uconstruct.elem){
-                print_context("Expected expression", *tokens);
-                return NULL;
+            if(peek_tk_type(tokens, tk_close_braces));
+            else{
+                expr->uconstruct.elem = parse_expr(tokens, 0);
+                if(!expr->uconstruct.elem){
+                    print_context("Expected expression", *tokens);
+                    return NULL;
+                }
             }
-
             if(!consume_tk_type(tokens, tk_close_braces)){
                 print_context("Expected closing }", *tokens);
                 return NULL;

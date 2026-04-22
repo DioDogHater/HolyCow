@@ -247,6 +247,14 @@ void print_double(double x, uint digits = 4, File* f = stdout);
  *  Print bool b
  *      print("%b", b);
  *
+ * %B:
+ *  Print binary representation of int64 x
+ *      print("%B", x);
+ *
+ * %*B:
+ *  Print n bytes from address p in hexadecimal, separated by slashes
+ *      print("%*B", n, p);
+ *
  * %[, %L, %*L:
  *  Align text between %[ and %L (or %*L) left to be at least n characters long
  *  When using %L, spaces will be used to fill space

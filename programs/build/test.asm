@@ -344,7 +344,7 @@ test.print:
 	lea r8, [rbp+16]
 	lea r8, [r8+16]
 	cld
-	mov rdi, rbx
+	lea rdi, [rbx]
 	lea rsi, [r8]
 	mov rcx, 2
 	rep movsq
@@ -420,7 +420,7 @@ main:
 	sub rsp, 32
 	lea rbx, [rsp+0]
 	cld
-	mov rdi, rbx
+	lea rdi, [rbx]
 	lea rsi, [rsp+80]
 	mov rcx, 4
 	rep movsq

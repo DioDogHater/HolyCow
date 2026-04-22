@@ -222,12 +222,28 @@ main:
 	sub rsp, 16
 	mov rbx, STR20
 	mov [rsp+0], rbx
-	mov rbx, 0x1
+	mov rbx, 0x9
 	mov [rsp+8], rbx
 	call println
 	add rsp, 16
 	sub rsp, 32
 	mov rbx, STR21
+	mov [rsp+0], rbx
+	mov rbx, 0x4
+	mov [rsp+8], rbx
+	mov rbx, STR22
+	mov [rsp+16], rbx
+	call println
+	add rsp, 32
+	sub rsp, 16
+	mov rbx, STR23
+	mov [rsp+0], rbx
+	mov rbx, 0x1
+	mov [rsp+8], rbx
+	call println
+	add rsp, 16
+	sub rsp, 32
+	mov rbx, STR24
 	mov [rsp+8], rbx
 	mov rbx, 0xffffffffffffffff
 	mov [rsp+16], rbx
@@ -236,21 +252,21 @@ main:
 	add rsp, 32
 	mov [rsp+12], ebx
 	sub rsp, 16
-	mov rbx, STR22
+	mov rbx, STR25
 	mov [rsp+0], rbx
 	movsxd rbx, DWORD [rsp+28]
 	mov [rsp+8], rbx
 	call println
 	add rsp, 16
 	sub rsp, 16
-	mov rbx, STR23
+	mov rbx, STR26
 	mov [rsp+0], rbx
 	movsd xmm0, [FP0]
 	movsd [rsp+8], xmm0
 	call println
 	add rsp, 16
 	sub rsp, 32
-	mov rbx, STR24
+	mov rbx, STR27
 	mov [rsp+0], rbx
 	mov rbx, 0x6
 	mov [rsp+8], rbx
@@ -416,21 +432,30 @@ STR18:
 db "n length uint:      %04",0
 times 6 db 0
 STR19:
-db "uint (hex):         %x",0
-times 7 db 0
+db "uint (hex):         0x%x",0
+times 5 db 0
 STR20:
+db "uint (binary):      0b%B",0
+times 5 db 0
+STR21:
+db "binary data (hex):  ",34,"%*B",34,"",0
+dd 0
+STR22:
+db "",0x14,"",0x67,"",0x1b,"",0xab,"",0
+db 0
+STR23:
 db "bool:               %b",0
 times 7 db 0
-STR21:
+STR24:
 db "-16.2126",0
 times 5 db 0
-STR22:
+STR25:
 db "fixed point:        %F",0
 times 7 db 0
-STR23:
+STR26:
 db "float:              %f",0
 times 7 db 0
-STR24:
+STR27:
 db "float (n digits):   %*f",0
 times 6 db 0
 FP0:

@@ -6,6 +6,52 @@
 
 double FP_PRECISION = EPSILON;
 
+class Ball {
+    Vector3 pos;
+    Vector3 vel;
+
+    void update(float delta){
+        this.pos = Vector3Add(this.pos, Vector3Scale(this.vel, delta));
+    }
+}
+
+module Balls {
+    constexpr int max = 16;
+
+    Ball arr[Balls.max];
+    uint offset = 0;
+    uint count = 0;
+
+    void new(Vector3 pos, Quaternion rot){
+        uint x = Balls.count;
+        if(Balls.count == Balls.max){
+            x = (x + Balls.offset++) % Balls.max;
+            Balls.offset %= Balls.max;
+        }else
+            Balls.count++;
+        Ball* b = &Balls.arr[x];
+        b.pos = pos;
+        b.vel = Vector3RotateByQuaternion(Vector3{0.0, 0.0, -5.0}, rot);
+    }
+
+    void update(float delta){
+        for(uint i = 0; i < Balls.count; i++){
+            uint x = (i + Balls.offset) % Balls.max;
+            Ball* b = &Balls.arr[x];
+            b.update(delta);
+            DrawSphere(b.pos, 0.5, RED);
+        }
+    }
+}
+
+float clampf(float x, float min, float max){
+    if(x < min)
+        return min;
+    if(x > max)
+        return max;
+    @return = x;
+}
+
 int main(uint argc, char** argv){
     InitWindow(500, 500, "Hello world!");
 
@@ -34,10 +80,15 @@ int main(uint argc, char** argv){
         if(IsMouseButtonDown(MouseButton.RIGHT)){
             Vector2 delta_mouse = GetMouseDelta();
             cam_rot = Vector3Add(cam_rot, Vector3{-delta_mouse.y * 0.005, -delta_mouse.x * 0.005, 0.0});
+            cam_rot.x = clampf(cam_rot.x, -M_PI_2 + 0.01, M_PI_2 - 0.01);
             cam_quat = QuaternionFromEuler(cam_rot.x, cam_rot.y, cam_rot.z);
             cam.position = Vector3RotateByQuaternion(Vector3{0.0, 0.0, 5.0}, cam_quat);
             cam.position = Vector3Add(cam.position, cam.target);
         }
+
+        // Shoot a ball
+        if(IsMouseButtonPressed(MouseButton.LEFT))
+            Balls.new(cam.target, cam_quat);
 
         // Linear movement
         Vector3 delta_pos = Vector3{IsKeyDown(Key.D) - IsKeyDown(Key.A), IsKeyDown(Key.SPACE) - IsKeyDown(Key.C), IsKeyDown(Key.S) - IsKeyDown(Key.W)};
@@ -51,8 +102,8 @@ int main(uint argc, char** argv){
         BeginDrawing();
             ClearBackground(BLACK);
             BeginMode3D(cam);
-                // Cube and sphere
-                DrawCube(cam.target, 1.0, 1.0, 1.0, WHITE);
+                // Player
+                DrawSphere(cam.target, 0.25, WHITE);
 
                 // Podium looking thing
                 DrawCylinder(Vector3{0.0, 0.0, 0.0}, 0.25, 0.5, 1.0, 16, GRAY);
@@ -63,7 +114,7 @@ int main(uint argc, char** argv){
                 DrawSphere(orb_pos, 0.05, GREEN);
 
                 // 3D Grid
-                DrawGrid(32, 5.0);
+                DrawGrid(32, 3.0);
 
                 // White diamond shape around the orb and podium
                 DrawSphereWires(Vector3_ZERO, 3.0, 1, 4, WHITE);
@@ -73,6 +124,8 @@ int main(uint argc, char** argv){
                 Vector3 v = Vector3RotateByQuaternion(Vector3{0.0, 0.0, 3.0}, rot_axis);
                 DrawCircle3D(Vector3{0.0, v.y, 0.0}, sqrtf(v.x*v.x + v.z*v.z), Vector3{1.0, 0.0, 0.0}, 90.0, BLUE);
 
+                Balls.update(delta);
+
                 angle += 5.0 * delta;
                 DrawSphere(v, 0.25, BLUE);
             EndMode3D();
@@ -81,7 +134,8 @@ int main(uint argc, char** argv){
             DrawFPS(0, 0);
 
             // Test text
-            DrawText("WASD to move, Space and C to go up and down\nDrag right click to unlock and move camera", 0, 20, 16, GREEN);
+            DrawText(
+            "WASD to move, Space and C to go up and down\nDrag right click to unlock and move camera\nLeft click to shoot red balls", 0, 20, 16, GREEN);
         EndDrawing();
     }
 

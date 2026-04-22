@@ -22,7 +22,7 @@ module Plane {
 class Plane {
     private @peek Vector3 pos;    // Position (m)
     private @peek Vector3 vel;    // Velocity (m/s)
-    private @peek Vector3 forces;       // Sum of forces (N)
+    private @peek Vector3 forces; // Sum of forces (N)
 
     private Vector3 rot;        // Rotation as Euler angles
 

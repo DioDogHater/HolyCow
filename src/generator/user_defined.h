@@ -101,6 +101,8 @@ union_t* get_union(const char* str, size_t strlen);
 union_t* get_union_tk(token_t* name);
 // Find a union's member
 node_stmt* get_union_member(union_t* unio, const char* str, size_t strlen);
+// Find a union's member with its type
+node_var_decl* get_union_type_member(union_t* unio, type_t t);
 
 
 typedef struct {

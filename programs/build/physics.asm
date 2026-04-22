@@ -30,7 +30,7 @@ Plane.update:
 	mov r8, [rbp+16]
 	lea r8, [r8+24]
 	cld
-	mov rdi, rbx
+	lea rdi, [rbx]
 	lea rsi, [r8]
 	mov rcx, 3
 	rep movsd
@@ -57,7 +57,7 @@ Plane.update:
 	mov r8, [rbp+16]
 	lea r8, [r8+24]
 	cld
-	mov rdi, rbx
+	lea rdi, [rbx]
 	lea rsi, [r8]
 	mov rcx, 3
 	rep movsd
@@ -75,7 +75,7 @@ Plane.update:
 	mov r8, [rbp+16]
 	lea r8, [r8+12]
 	cld
-	mov rdi, rbx
+	lea rdi, [rbx]
 	lea rsi, [r8]
 	mov rcx, 3
 	rep movsd
@@ -103,7 +103,7 @@ Plane.update:
 	mov r8, [rbp+16]
 	lea r8, [r8+12]
 	cld
-	mov rdi, rbx
+	lea rdi, [rbx]
 	lea rsi, [r8]
 	mov rcx, 3
 	rep movsd
@@ -121,7 +121,7 @@ Plane.update:
 	mov r8, [rbp+16]
 	lea r8, [r8+0]
 	cld
-	mov rdi, rbx
+	lea rdi, [rbx]
 	lea rsi, [r8]
 	mov rcx, 3
 	rep movsd
@@ -158,7 +158,7 @@ Plane.impulse:
 	movss [rsp+12], xmm1
 	lea rbx, [__GP_TMP]
 	cld
-	mov rdi, rbx
+	lea rdi, [rbx]
 	lea rsi, [rbp+24]
 	mov rcx, 3
 	rep movsd
@@ -168,7 +168,7 @@ Plane.impulse:
 	mov r8, [rbp+16]
 	lea r8, [r8+12]
 	cld
-	mov rdi, rbx
+	lea rdi, [rbx]
 	lea rsi, [r8]
 	mov rcx, 3
 	rep movsd
@@ -197,7 +197,7 @@ Plane.apply_force:
 	movss [rsp+12], xmm1
 	lea rbx, [__GP_TMP]
 	cld
-	mov rdi, rbx
+	lea rdi, [rbx]
 	lea rsi, [rbp+24]
 	mov rcx, 3
 	rep movsd
@@ -207,7 +207,7 @@ Plane.apply_force:
 	mov r8, [rbp+16]
 	lea r8, [r8+24]
 	cld
-	mov rdi, rbx
+	lea rdi, [rbx]
 	lea rsi, [r8]
 	mov rcx, 3
 	rep movsd
@@ -238,7 +238,7 @@ Plane.get_camera_pos:
 	lea r8, [Plane+0]
 	lea r8, [r8+0]
 	cld
-	mov rdi, rbx
+	lea rdi, [rbx]
 	lea rsi, [r8]
 	mov rcx, 8
 	rep movsq
@@ -267,7 +267,7 @@ Plane.get_camera_pos:
 	mov r8, [rbp+24]
 	lea r8, [r8+0]
 	cld
-	mov rdi, rbx
+	lea rdi, [rbx]
 	lea rsi, [r8]
 	mov rcx, 3
 	rep movsd
@@ -276,7 +276,7 @@ Plane.get_camera_pos:
 	lea rbx, [__GP_TMP]
 	mov r8, [rbp+16]
 	cld
-	mov rdi, rbx
+	lea rdi, [rbx]
 	lea rsi, [r8]
 	mov rcx, 3
 	rep movsd
@@ -316,7 +316,7 @@ Plane.rotate:
 	mov r8, [rbp+16]
 	lea r8, [r8+36]
 	cld
-	mov rdi, rbx
+	lea rdi, [rbx]
 	lea rsi, [r8]
 	mov rcx, 3
 	rep movsd
@@ -348,7 +348,7 @@ Plane.draw:
 	lea r8, [r8+36]
 	mov r9, rdi
 	cld
-	mov rdi, rbx
+	lea rdi, [rbx]
 	lea rsi, [r8]
 	mov rcx, 3
 	rep movsd
@@ -380,7 +380,7 @@ Plane.draw:
 	lea r8, [r8+0]
 	mov r9, rdi
 	cld
-	mov rdi, rbx
+	lea rdi, [rbx]
 	lea rsi, [r8]
 	mov rcx, 3
 	rep movsd
@@ -391,7 +391,7 @@ Plane.draw:
 	lea r8, [Plane+0]
 	mov r9, rdi
 	cld
-	mov rdi, rbx
+	lea rdi, [rbx]
 	lea rsi, [r8]
 	mov rcx, 15
 	rep movsq
@@ -440,7 +440,7 @@ Plane.new:
 	mov rbx, [rbp+16]
 	lea r8, [rbx+0]
 	cld
-	mov rdi, r8
+	lea rdi, [r8]
 	lea rsi, [rbp+24]
 	mov rcx, 3
 	rep movsd
@@ -480,7 +480,7 @@ Plane.unload:
 	lea rbx, [rsp+0]
 	lea r8, [Plane+0]
 	cld
-	mov rdi, rbx
+	lea rdi, [rbx]
 	lea rsi, [r8]
 	mov rcx, 15
 	rep movsq
@@ -527,7 +527,7 @@ Gravity.apply:
 	mov [rsp+0], rbx
 	lea rbx, [rsp+8]
 	cld
-	mov rdi, rbx
+	lea rdi, [rbx]
 	lea rsi, [rsp+44]
 	mov rcx, 3
 	rep movsd
@@ -597,7 +597,7 @@ DragForce.apply:
 	mov r8, [rbp+16]
 	lea r8, [r8+12]
 	cld
-	mov rdi, rbx
+	lea rdi, [rbx]
 	lea rsi, [r8]
 	mov rcx, 3
 	rep movsd
@@ -630,7 +630,7 @@ DragForce.apply:
 	mov r8, [rbp+16]
 	lea r8, [r8+12]
 	cld
-	mov rdi, rbx
+	lea rdi, [rbx]
 	lea rsi, [r8]
 	mov rcx, 3
 	rep movsd
@@ -649,7 +649,7 @@ DragForce.apply:
 	mov [rsp+0], rbx
 	lea rbx, [rsp+8]
 	cld
-	mov rdi, rbx
+	lea rdi, [rbx]
 	lea rsi, [rsp+36]
 	mov rcx, 3
 	rep movsd
@@ -786,7 +786,7 @@ main:
 	lea r8, [rsp+20]
 	lea r8, [r8+0]
 	cld
-	mov rdi, rbx
+	lea rdi, [rbx]
 	lea rsi, [r8]
 	mov rcx, 3
 	rep movsd
@@ -831,7 +831,7 @@ main:
 	sub rsp, 48
 	lea rbx, [rsp+0]
 	cld
-	mov rdi, rbx
+	lea rdi, [rbx]
 	lea rsi, [rsp+132]
 	mov rcx, 11
 	rep movsd

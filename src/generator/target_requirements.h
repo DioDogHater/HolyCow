@@ -135,11 +135,17 @@ void gen_inc_offset(HC_FILE, reg_t*, size_t, size_t size, bool inc); // inc = tr
 
 // Copy memory
 extern const reg_mask allowed_copy_regs;    // Alls regs except those used to copy data
+extern const reg_mask affected_copy_regs;
 void gen_copy_global(HC_FILE, reg_t* dest, const char* str, size_t strlen, size_t sz);
 void gen_copy_stack(HC_FILE, reg_t* dest, size_t ptr, size_t sz);
 void gen_copy_arg(HC_FILE, reg_t* dest, size_t ptr, size_t sz);
 void gen_copy_ptr(HC_FILE, reg_t* dest, reg_t* src, size_t sz);
 void gen_copy_idx(HC_FILE, reg_t* dest, reg_t* src, reg_t* idx, size_t sz);
+
+// Compare memory
+extern const reg_mask allowed_memcmp_regs;
+extern const reg_mask affected_memcmp_regs;
+void gen_memcmp(HC_FILE, reg_t* ptr1, reg_t* ptr2, size_t sz);
 
 // Register transfer
 void gen_move_reg(HC_FILE, reg_t*, reg_t*);

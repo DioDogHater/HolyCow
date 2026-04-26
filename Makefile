@@ -4,12 +4,12 @@
 ifeq ($(OS),Windows_NT)
 	HCC := .\build\hcc.exe
 	# For now, STDLIB will be the linux standard library even in Windows
-	STDLIB := std/linux/linux.cow std/linux/stdlib.cow
+	STDLIB := std/linux/stdlib.cow std/linux/linux.cow std/linux/memalloc.cow
 	LIBRAYLIB := libraylib_win64.a
 	EXT := .exe
 else
 	HCC := ./build/hcc
-	STDLIB := std/linux/linux.cow std/linux/stdlib.cow
+	STDLIB := std/linux/stdlib.cow std/linux/linux.cow std/linux/memalloc.cow
 	LIBRAYLIB := libraylib_linux_x64.a
 	EXT :=
 endif
@@ -42,4 +42,4 @@ $(stdlib_execs): $(build)/%$(EXT): $(src)/%.cow std/stdlib.o std/stdlib.hcw $(HC
 
 # For now, linux by default
 std/stdlib.o: $(STDLIB) std/stdlib.hcw $(HCC)
-	$(HCC) -s $(HCC_FLAGS) $(STDLIB) -o std/stdlib
+	$(HCC) -s $(HCC_FLAGS) $< -o std/stdlib

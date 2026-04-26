@@ -718,10 +718,10 @@ main:
 	movss xmm1, [rsp+4]
 	add rsp, 16
 	lea rbx, [rsp+4]
-	sub rsp, 48
+	sub rsp, 32
 	mov [rsp+0], rbx
-	movsd [rsp+40], xmm0
-	movss [rsp+36], xmm1
+	movsd [rsp+24], xmm0
+	movss [rsp+20], xmm1
 	lea rbx, [rsp+8]
 	cvtsd2ss xmm0, [FP1]
 	movss [rbx+0], xmm0
@@ -730,9 +730,9 @@ main:
 	cvtsd2ss xmm0, [FP1]
 	movss [rbx+8], xmm0
 	call Plane.new
-	movsd xmm0, [rsp+40]
-	movss xmm1, [rsp+36]
-	add rsp, 48
+	movsd xmm0, [rsp+24]
+	movss xmm1, [rsp+20]
+	add rsp, 32
 	sub rsp, 16
 	.L1:
 	sub rsp, 32

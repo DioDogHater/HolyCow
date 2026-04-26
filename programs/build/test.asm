@@ -359,17 +359,79 @@ test.print:
 	leave
 	ret
 
+global print_int_vector:function
+print_int_vector:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 16
+	mov bl, 0x5b
+	mov [rsp+0], bl
+	mov rbx, QWORD [stdout]
+	mov [rsp+8], rbx
+	call print_char
+	add rsp, 16
+	sub rsp, 16
+	xor rbx, rbx
+	mov [rsp+8], rbx
+	.L1:
+	mov rbx, [rsp+8]
+	mov rsi, [rbp+16]
+	mov rcx, [rsi+8]
+	cmp rbx, rcx
+	setl bl
+	test bl, bl
+	je .L3
+	mov rbx, [rsp+8]
+	test rbx, rbx
+	je .L4
+	sub rsp, 16
+	mov rbx, STR14
+	mov [rsp+0], rbx
+	call print
+	add rsp, 16
+	.L4:
+	.L5:
+	sub rsp, 16
+	mov rbx, STR15
+	mov [rsp+0], rbx
+	sub rsp, 32
+	mov rbx, [rbp+16]
+	mov [rsp+8], rbx
+	mov rbx, [rsp+56]
+	mov [rsp+16], rbx
+	call vector.at
+	mov rbx, [rsp+0]
+	add rsp, 32
+	mov rcx, [rbx]
+	mov [rsp+8], rcx
+	call print
+	add rsp, 16
+	.L2:
+	mov rbx, [rsp+8]
+	inc QWORD [rsp+8]
+	jmp .L1
+	.L3:
+	add rsp, 16
+	sub rsp, 16
+	mov rbx, STR16
+	mov [rsp+0], rbx
+	call println
+	add rsp, 16
+	.L0:
+	leave
+	ret
+
 global main:function
 main:
 	push rbp
 	mov rbp, rsp
-	sub rsp, 96
+	sub rsp, 176
 	movsd xmm0, [FP0]
-	movsd [rsp+88], xmm0
+	movsd [rsp+168], xmm0
 	movsd xmm0, [FP1]
-	movsd [rsp+80], xmm0
-	movsd xmm0, [rsp+80]
-	movsd xmm1, [rsp+88]
+	movsd [rsp+160], xmm0
+	movsd xmm0, [rsp+160]
+	movsd xmm1, [rsp+168]
 	movsd xmm2, xmm0
 	subsd xmm2, xmm1
 	andpd xmm2, [__FABS_MASKd]
@@ -378,15 +440,15 @@ main:
 	test bl, bl
 	je .L1
 	sub rsp, 48
-	mov rbx, STR14
+	mov rbx, STR17
 	mov [rsp+0], rbx
 	mov rbx, 0xa
 	mov [rsp+8], rbx
-	movsd xmm0, [rsp+136]
+	movsd xmm0, [rsp+216]
 	movsd [rsp+16], xmm0
 	mov rbx, 0xa
 	mov [rsp+24], rbx
-	movsd xmm0, [rsp+128]
+	movsd xmm0, [rsp+208]
 	movsd [rsp+32], xmm0
 	movsd xmm0, [FP_PRECISION]
 	movsd [rsp+40], xmm0
@@ -395,19 +457,19 @@ main:
 	.L1:
 	.L2:
 	sub rsp, 48
-	mov rbx, STR15
+	mov rbx, STR18
 	mov [rsp+0], rbx
 	mov rbx, 0x3
 	mov [rsp+8], rbx
-	mov rbx, STR16
+	mov rbx, STR19
 	mov [rsp+16], rbx
-	mov rbx, STR17
+	mov rbx, STR20
 	mov [rsp+24], rbx
-	mov rbx, STR18
+	mov rbx, STR21
 	mov [rsp+32], rbx
 	call frame
 	add rsp, 48
-	lea rbx, [rsp+48]
+	lea rbx, [rsp+128]
 	mov rcx, 0x6
 	mov [rbx+0], rcx
 	xor rcx, rcx
@@ -415,13 +477,13 @@ main:
 	lea r8, [rbx+16]
 	mov rcx, STR8
 	mov [r8+0], rcx
-	mov rcx, STR19
+	mov rcx, STR22
 	mov [r8+8], rcx
 	sub rsp, 32
 	lea rbx, [rsp+0]
 	cld
 	lea rdi, [rbx]
-	lea rsi, [rsp+80]
+	lea rsi, [rsp+160]
 	mov rcx, 4
 	rep movsq
 	call test.print
@@ -434,7 +496,7 @@ main:
 	add rsp, 16
 	call test.print
 	add rsp, 32
-	lea rbx, [rsp+16]
+	lea rbx, [rsp+96]
 	sub rsp, 32
 	mov [rsp+0], rbx
 	mov rbx, STR8
@@ -443,57 +505,218 @@ main:
 	mov [rsp+16], rbx
 	call string.from_str
 	add rsp, 32
-	sub rsp, 16
-	mov rbx, STR20
+	sub rsp, 32
+	mov rbx, STR23
 	mov [rsp+0], rbx
-	lea rbx, [rsp+32]
+	lea rbx, [rsp+128]
 	mov [rsp+8], rbx
-	call println
+	sub rsp, 16
+	lea rbx, [rsp+144]
+	mov [rsp+8], rbx
+	call string.is_heap
+	movzx rbx, BYTE [rsp+0]
 	add rsp, 16
-	lea rbx, [rsp+0]
+	mov [rsp+16], rbx
+	sub rsp, 16
+	lea rbx, [rsp+144]
+	mov [rsp+8], rbx
+	call string.is_shared
+	movzx rbx, BYTE [rsp+0]
+	add rsp, 16
+	mov [rsp+24], rbx
+	call println
+	add rsp, 32
+	sub rsp, 16
+	lea rbx, [rsp+112]
+	mov [rsp+0], rbx
+	call string.free
+	add rsp, 16
+	lea rbx, [rsp+96]
+	sub rsp, 32
+	mov [rsp+0], rbx
+	mov rbx, STR24
+	mov [rsp+8], rbx
+	mov rbx, STR25
+	mov [rsp+16], rbx
+	call string.format
+	add rsp, 32
+	sub rsp, 32
+	mov rbx, STR23
+	mov [rsp+0], rbx
+	lea rbx, [rsp+128]
+	mov [rsp+8], rbx
+	sub rsp, 16
+	lea rbx, [rsp+144]
+	mov [rsp+8], rbx
+	call string.is_heap
+	movzx rbx, BYTE [rsp+0]
+	add rsp, 16
+	mov [rsp+16], rbx
+	sub rsp, 16
+	lea rbx, [rsp+144]
+	mov [rsp+8], rbx
+	call string.is_shared
+	movzx rbx, BYTE [rsp+0]
+	add rsp, 16
+	mov [rsp+24], rbx
+	call println
+	add rsp, 32
+	lea rbx, [rsp+64]
+	sub rsp, 16
+	mov [rsp+0], rbx
+	lea rbx, [rsp+112]
+	mov [rsp+8], rbx
+	call string.from_shared
+	add rsp, 16
+	sub rsp, 32
+	lea rbx, [rsp+96]
+	mov [rsp+0], rbx
+	mov rbx, 0x6
+	mov [rsp+8], rbx
+	xor rbx, rbx
+	mov [rsp+16], rbx
+	call string.slice
+	add rsp, 32
+	sub rsp, 32
+	mov rbx, STR23
+	mov [rsp+0], rbx
+	lea rbx, [rsp+96]
+	mov [rsp+8], rbx
+	sub rsp, 16
+	lea rbx, [rsp+112]
+	mov [rsp+8], rbx
+	call string.is_heap
+	movzx rbx, BYTE [rsp+0]
+	add rsp, 16
+	mov [rsp+16], rbx
+	sub rsp, 16
+	lea rbx, [rsp+112]
+	mov [rsp+8], rbx
+	call string.is_shared
+	movzx rbx, BYTE [rsp+0]
+	add rsp, 16
+	mov [rsp+24], rbx
+	call println
+	add rsp, 32
+	sub rsp, 16
+	lea rbx, [rsp+80]
+	mov [rsp+0], rbx
+	call string.free
+	add rsp, 16
+	sub rsp, 16
+	lea rbx, [rsp+112]
+	mov [rsp+0], rbx
+	call string.free
+	add rsp, 16
+	lea rbx, [rsp+32]
+	sub rsp, 32
+	mov [rsp+0], rbx
+	mov rbx, 0x8
+	mov [rsp+8], rbx
+	mov rbx, 0x40
+	mov [rsp+16], rbx
+	call vector.new
+	add rsp, 32
+	mov rbx, 0x5
+	mov [rsp+24], rbx
+	sub rsp, 32
+	lea rbx, [rsp+64]
+	mov [rsp+8], rbx
+	lea rbx, [rsp+56]
+	mov [rsp+16], rbx
+	call vector.pushback
+	add rsp, 32
+	mov rbx, 0xa
+	mov [rsp+24], rbx
+	sub rsp, 32
+	lea rbx, [rsp+64]
+	mov [rsp+8], rbx
+	lea rbx, [rsp+56]
+	mov [rsp+16], rbx
+	call vector.pushback
+	add rsp, 32
+	sub rsp, 16
+	lea rbx, [rsp+48]
+	mov [rsp+0], rbx
+	call print_int_vector
+	add rsp, 16
+	mov rbx, 0xfffffffffffffffb
+	mov [rsp+24], rbx
+	sub rsp, 32
+	lea rbx, [rsp+64]
+	mov [rsp+8], rbx
+	mov rbx, 0x1
+	mov [rsp+16], rbx
+	lea rbx, [rsp+56]
+	mov [rsp+24], rbx
+	call vector.insert
+	add rsp, 32
+	sub rsp, 16
+	lea rbx, [rsp+48]
+	mov [rsp+0], rbx
+	call print_int_vector
+	add rsp, 16
+	sub rsp, 16
+	lea rbx, [rsp+48]
+	mov [rsp+0], rbx
+	xor rbx, rbx
+	mov [rsp+8], rbx
+	call vector.remove
+	add rsp, 16
+	sub rsp, 16
+	lea rbx, [rsp+48]
+	mov [rsp+0], rbx
+	call print_int_vector
+	add rsp, 16
+	sub rsp, 16
+	lea rbx, [rsp+48]
+	mov [rsp+0], rbx
+	call vector.free
+	add rsp, 16
+	lea rbx, [rsp+8]
 	lea r8, [rbx+0]
 	xor rcx, rcx
 	mov [r8], rcx
 	mov rcx, 0x2
 	mov [r8+8], rcx
 	sub rsp, 16
-	lea rbx, [rsp+16]
+	lea rbx, [rsp+24]
 	mov [rsp+0], rbx
 	call msg.print
 	add rsp, 16
 	sub rsp, 16
-	lea rbx, [rsp+16]
+	lea rbx, [rsp+24]
 	mov [rsp+0], rbx
 	mov rbx, STR8
 	mov [rsp+8], rbx
 	call msg.set_text
 	add rsp, 16
 	sub rsp, 16
-	lea rbx, [rsp+16]
+	lea rbx, [rsp+24]
 	mov [rsp+0], rbx
 	call msg.print
 	add rsp, 16
 	sub rsp, 16
-	lea rbx, [rsp+16]
+	lea rbx, [rsp+24]
 	mov [rsp+0], rbx
 	cvtsd2ss xmm0, [FP2]
 	movss [rsp+8], xmm0
 	call msg.set_number
 	add rsp, 16
 	sub rsp, 16
-	lea rbx, [rsp+16]
+	lea rbx, [rsp+24]
 	mov [rsp+0], rbx
 	call msg.print
 	add rsp, 16
 	sub rsp, 16
-	lea rbx, [rsp+16]
+	lea rbx, [rsp+24]
 	mov [rsp+0], rbx
 	xor bl, bl
 	mov [rsp+8], bl
 	call msg.set_confirm
 	add rsp, 16
 	sub rsp, 16
-	lea rbx, [rsp+16]
+	lea rbx, [rsp+24]
 	mov [rsp+0], rbx
 	call msg.print
 	add rsp, 16
@@ -540,6 +763,7 @@ extern strequal:function
 extern strlen:function
 extern ceil:function
 extern print_str:function
+extern _align:function
 extern to_upper:function
 extern print_udecimal:function
 extern input:function
@@ -564,14 +788,29 @@ extern File.println:function
 extern File.set_buffering:function
 extern File.set_buffer:function
 extern File.flush:function
-extern string.share:function
 extern string.print:function
+extern string.copy:function
+extern string.slice:function
+extern string.replace:function
+extern string.find:function
+extern string.dfind:function
 extern string.compare:function
 extern string.is_equal:function
 extern string.str_equals:function
 extern string.is_heap:function
 extern string.is_shared:function
 extern string.free:function
+extern vector.reserve:function
+extern vector.copy:function
+extern vector.in_range:function
+extern vector.at:function
+extern vector.pushback:function
+extern vector.popback:function
+extern vector.append_arr:function
+extern vector.append:function
+extern vector.insert:function
+extern vector.remove:function
+extern vector.free:function
 extern File.open:function
 extern File.close:function
 extern fixed.from_int:function
@@ -586,6 +825,9 @@ extern string.from_str:function
 extern string.from_shared:function
 extern string.new:function
 extern string.format:function
+extern vector.empty:function
+extern vector.new:function
+extern vector.from_arr:function
 
 
 section .data align=16
@@ -599,6 +841,7 @@ dq 0.0001000000
 extern File:data
 extern fixed:data
 extern string:data
+extern vector:data
 extern test:data
 
 
@@ -648,26 +891,41 @@ STR13:
 db "}",0
 dd 0
 STR14:
+db ", ",0
+times 3 db 0
+STR15:
+db "%i",0
+times 3 db 0
+STR16:
+db "]",0
+dd 0
+STR17:
 db "%*f ~= %*f ± %f",0
 times 5 db 0
-STR15:
+STR18:
 db "Foo tierlist",0
 db 0
-STR16:
+STR19:
 db "1. Foo",0
 times 7 db 0
-STR17:
+STR20:
 db "2. Bar",0
 times 7 db 0
-STR18:
+STR21:
 db "3. Foo-bar",0
 times 3 db 0
-STR19:
+STR22:
 db "Foo bar",0
 times 6 db 0
-STR20:
-db "%S",0
-times 3 db 0
+STR23:
+db "(",34,"%S",34,", is_heap=%b, is_shared=%b)",0
+times 5 db 0
+STR24:
+db "Hello %s!",0
+dd 0
+STR25:
+db "friend",0
+times 7 db 0
 FP0:
 dq 3.1415926536
 FP1:

@@ -640,6 +640,661 @@ time:
 	leave
 	ret
 
+global mmap:function
+mmap:
+	push rbp
+	mov rbp, rsp
+	mov rax, 9
+    mov rdi, [rbp+24]
+    mov rsi, [rbp+32]
+    mov rdx, [rbp+40]
+    mov r10, [rbp+48]
+    mov r8,  [rbp+56]
+    mov r9,  [rbp+64]
+    syscall
+    mov [rbp+16], rax
+	mov rbx, [rbp+16]
+	xor rcx, rcx
+	cmp rbx, rcx
+	setl bl
+	test bl, bl
+	je .L1
+	mov rbx, [rbp+16]
+	neg rbx
+	mov [errno], rbx
+	.L1:
+	.L2:
+	.L0:
+	leave
+	ret
+
+global _align:function
+_align:
+	push rbp
+	mov rbp, rsp
+	mov rax, [rbp+24]
+	mov rbx, [rbp+32]
+	add rax, rbx
+	dec rax
+	mov rbx, [rbp+32]
+	xor rdx, rdx
+	div rbx
+	mov rbx, [rbp+32]
+	mul rbx
+	mov [rbp+16], rax
+	.L0:
+	leave
+	ret
+
+global MemNode.next:function
+MemNode.next:
+	push rbp
+	mov rbp, rsp
+	mov rcx, [rbp+24]
+	mov bl, [rcx+9]
+	test bl, bl
+	je .L1
+	xor rbx, rbx
+	mov [rbp+16], rbx
+	jmp .L0
+	.L1:
+	.L2:
+	mov rcx, [rbp+24]
+	lea rbx, [rcx+16]
+	mov rsi, [rbp+24]
+	mov rcx, [rsi+0]
+	add rbx, rcx
+	mov [rbp+16], rbx
+	.L0:
+	leave
+	ret
+
+global MemNode.next_free:function
+MemNode.next_free:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 16
+	mov rbx, [rbp+24]
+	mov [rsp+8], rbx
+	call MemNode.next
+	mov rbx, [rsp+0]
+	add rsp, 16
+	mov [rbp+16], rbx
+	.L1:
+	mov rbx, [rbp+16]
+	test rbx, rbx
+	setne cl
+	je .L4
+	mov rsi, [rbp+16]
+	mov bl, [rsi+8]
+	test bl, bl
+	sete cl
+	.L4:
+	test cl, cl
+	je .L3
+	.L2:
+	sub rsp, 16
+	mov rbx, [rbp+16]
+	mov [rsp+8], rbx
+	call MemNode.next
+	mov rbx, [rsp+0]
+	add rsp, 16
+	mov [rbp+16], rbx
+	jmp .L1
+	.L3:
+	.L0:
+	leave
+	ret
+
+global MemNode.find_empty:function
+MemNode.find_empty:
+	push rbp
+	mov rbp, rsp
+	mov rcx, [rbp+24]
+	mov bl, [rcx+8]
+	test bl, bl
+	je .L3
+	mov rsi, [rbp+24]
+	mov rcx, [rsi+0]
+	mov rsi, [rbp+32]
+	cmp rcx, rsi
+	setae bl
+	.L3:
+	test bl, bl
+	je .L1
+	mov rbx, [rbp+24]
+	mov [rbp+16], rbx
+	jmp .L0
+	.L1:
+	.L2:
+	sub rsp, 16
+	mov rbx, [rbp+24]
+	mov [rsp+8], rbx
+	call MemNode.next_free
+	mov rbx, [rsp+0]
+	add rsp, 16
+	mov [rbp+16], rbx
+	.L4:
+	mov rbx, [rbp+16]
+	test rbx, rbx
+	setne cl
+	je .L7
+	mov rsi, [rbp+16]
+	mov rbx, [rsi+0]
+	mov rsi, [rbp+32]
+	cmp rbx, rsi
+	setb cl
+	.L7:
+	test cl, cl
+	je .L6
+	.L5:
+	sub rsp, 16
+	mov rbx, [rbp+16]
+	mov [rsp+8], rbx
+	call MemNode.next_free
+	mov rbx, [rsp+0]
+	add rsp, 16
+	mov [rbp+16], rbx
+	jmp .L4
+	.L6:
+	.L0:
+	leave
+	ret
+
+global MemNode.alloc:function
+MemNode.alloc:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 16
+	mov rcx, [rbp+16]
+	mov rbx, [rcx+0]
+	mov rcx, [rbp+24]
+	cmp rbx, rcx
+	sete bl
+	test bl, bl
+	jne .L3
+	mov rsi, [rbp+16]
+	mov rcx, [rsi+0]
+	mov rsi, [rbp+24]
+	sub rcx, rsi
+	mov rsi, 0x20
+	cmp rcx, rsi
+	setl bl
+	.L3:
+	test bl, bl
+	je .L1
+	mov rbx, [rbp+16]
+	xor cl, cl
+	mov [rbx+8], cl
+	jmp .L0
+	.L1:
+	.L2:
+	mov rcx, [rbp+16]
+	lea rbx, [rcx+16]
+	mov rcx, [rbp+24]
+	add rbx, rcx
+	mov [rsp+8], rbx
+	mov rbx, [rsp+8]
+	mov rsi, [rbp+16]
+	mov rcx, [rsi+0]
+	mov rsi, [rbp+24]
+	sub rcx, rsi
+	sub rcx, 0x10
+	mov [rbx+0], rcx
+	mov rbx, [rsp+8]
+	mov cl, 0x1
+	mov [rbx+8], cl
+	mov rcx, [rbp+16]
+	mov bl, [rcx+9]
+	test bl, bl
+	je .L4
+	mov rbx, [rsp+8]
+	mov cl, 0x1
+	mov [rbx+9], cl
+	mov rbx, [rbp+16]
+	xor cl, cl
+	mov [rbx+9], cl
+	.L4:
+	.L5:
+	mov rbx, [rbp+16]
+	mov rcx, [rbp+24]
+	mov [rbx+0], rcx
+	mov rbx, [rbp+16]
+	xor cl, cl
+	mov [rbx+8], cl
+	.L0:
+	leave
+	ret
+
+global MemNode.optimize:function
+MemNode.optimize:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 16
+	sub rsp, 16
+	mov rbx, [rbp+16]
+	mov [rsp+8], rbx
+	call MemNode.next
+	mov rbx, [rsp+0]
+	add rsp, 16
+	mov [rsp+8], rbx
+	mov rbx, [rsp+8]
+	test rbx, rbx
+	setne cl
+	je .L3
+	mov rbx, [rsp+8]
+	mov cl, [rbx+8]
+	.L3:
+	test cl, cl
+	je .L1
+	mov rbx, [rbp+16]
+	mov rsi, [rbp+16]
+	mov rcx, [rsi+0]
+	mov rdi, [rsp+8]
+	mov rsi, [rdi+0]
+	add rsi, 0x10
+	add rcx, rsi
+	mov [rbx+0], rcx
+	mov rbx, [rbp+16]
+	mov rsi, [rsp+8]
+	mov cl, [rsi+9]
+	mov [rbx+9], cl
+	.L1:
+	.L2:
+	.L0:
+	leave
+	ret
+
+global MemNode.free:function
+MemNode.free:
+	push rbp
+	mov rbp, rsp
+	mov rbx, [rbp+16]
+	mov cl, 0x1
+	mov [rbx+8], cl
+	sub rsp, 16
+	mov rbx, [rbp+16]
+	mov [rsp+0], rbx
+	call MemNode.optimize
+	add rsp, 16
+	.L0:
+	leave
+	ret
+
+global __MAlloc.init:function
+__MAlloc.init:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 64
+	xor rbx, rbx
+	mov [rsp+8], rbx
+	mov rbx, 0x10000010
+	mov [rsp+16], rbx
+	mov rbx, 0x3
+	mov [rsp+24], rbx
+	mov rbx, 0x22
+	mov [rsp+32], rbx
+	mov rbx, 0xffffffffffffffff
+	mov [rsp+40], rbx
+	xor rbx, rbx
+	mov [rsp+48], rbx
+	call mmap
+	mov rbx, [rsp+0]
+	add rsp, 64
+	mov [__MAlloc+0], rbx
+	mov rbx, QWORD [__MAlloc+0]
+	mov rcx, 0xffffffffffffffff
+	cmp rbx, rcx
+	sete bl
+	test bl, bl
+	je .L1
+	sub rsp, 16
+	mov rbx, STR0
+	mov [rsp+0], rbx
+	mov rbx, QWORD [errno]
+	mov [rsp+8], rbx
+	call error
+	add rsp, 16
+	.L1:
+	.L2:
+	mov rbx, QWORD [__MAlloc+0]
+	mov rcx, 0x10000000
+	mov [rbx+0], rcx
+	mov cl, 0x1
+	mov [rbx+8], cl
+	mov cl, 0x1
+	mov [rbx+9], cl
+	xor ecx, ecx
+	mov [rbx+12], ecx
+	.L0:
+	leave
+	ret
+
+global __MAlloc.alloc:function
+__MAlloc.alloc:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 16
+	mov rcx, QWORD [__MAlloc+0]
+	test rcx, rcx
+	sete bl
+	test bl, bl
+	je .L1
+	call __MAlloc.init
+	.L1:
+	.L2:
+	sub rsp, 32
+	mov rbx, [rbp+24]
+	mov [rsp+8], rbx
+	mov rbx, 0x10
+	mov [rsp+16], rbx
+	call _align
+	mov rbx, [rsp+0]
+	add rsp, 32
+	mov [rbp+24], rbx
+	sub rsp, 32
+	mov rbx, QWORD [__MAlloc+0]
+	mov [rsp+8], rbx
+	mov rbx, [rbp+24]
+	mov [rsp+16], rbx
+	call MemNode.find_empty
+	mov rbx, [rsp+0]
+	add rsp, 32
+	mov [rsp+8], rbx
+	mov rcx, [rsp+8]
+	test rcx, rcx
+	sete bl
+	test bl, bl
+	je .L3
+	sub rsp, 16
+	mov rbx, STR1
+	mov [rsp+0], rbx
+	mov rbx, [rbp+24]
+	mov [rsp+8], rbx
+	call println
+	add rsp, 16
+	xor rbx, rbx
+	mov [rbp+16], rbx
+	jmp .L0
+	.L3:
+	.L4:
+	sub rsp, 16
+	mov rbx, [rsp+24]
+	mov [rsp+0], rbx
+	mov rbx, [rbp+24]
+	mov [rsp+8], rbx
+	call MemNode.alloc
+	add rsp, 16
+	mov rcx, [rsp+8]
+	lea rbx, [rcx+16]
+	mov [rbp+16], rbx
+	jmp .L0
+	.L0:
+	leave
+	ret
+
+global __MAlloc.free:function
+__MAlloc.free:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 16
+	mov rcx, QWORD [__MAlloc+0]
+	test rcx, rcx
+	sete bl
+	test bl, bl
+	je .L1
+	sub rsp, 16
+	mov rbx, STR2
+	mov [rsp+0], rbx
+	call error
+	add rsp, 16
+	.L1:
+	.L2:
+	mov rbx, QWORD [__MAlloc+0]
+	mov [rsp+8], rbx
+	.L3:
+	mov rbx, [rsp+8]
+	test rbx, rbx
+	setne cl
+	je .L7
+	mov rbx, [rsp+8]
+	mov rsi, [rbp+16]
+	cmp rbx, rsi
+	setne cl
+	.L7:
+	test cl, cl
+	je .L6
+	sub rsp, 32
+	mov [rsp+31], cl
+	mov rbx, [rsp+40]
+	mov [rsp+8], rbx
+	call MemNode.next
+	mov cl, [rsp+31]
+	mov rbx, [rsp+0]
+	add rsp, 32
+	mov rsi, [rbp+16]
+	cmp rbx, rsi
+	setne cl
+	.L6:
+	test cl, cl
+	je .L5
+	.L4:
+	sub rsp, 16
+	mov rbx, [rsp+24]
+	mov [rsp+8], rbx
+	call MemNode.next
+	mov rbx, [rsp+0]
+	add rsp, 16
+	mov [rsp+8], rbx
+	jmp .L3
+	.L5:
+	mov rbx, [rsp+8]
+	xor rcx, rcx
+	cmp rbx, rcx
+	sete bl
+	test bl, bl
+	je .L8
+	sub rsp, 16
+	mov rbx, STR3
+	mov [rsp+0], rbx
+	call error
+	add rsp, 16
+	.L8:
+	.L9:
+	mov rcx, [rbp+16]
+	mov bl, [rcx+8]
+	test bl, bl
+	je .L10
+	sub rsp, 16
+	mov rbx, STR4
+	mov [rsp+0], rbx
+	call error
+	add rsp, 16
+	.L10:
+	.L11:
+	sub rsp, 16
+	mov rbx, [rbp+16]
+	mov [rsp+0], rbx
+	call MemNode.free
+	add rsp, 16
+	mov rbx, [rsp+8]
+	mov rcx, [rbp+16]
+	cmp rbx, rcx
+	setne bl
+	test bl, bl
+	je .L14
+	mov rcx, [rsp+8]
+	mov bl, [rcx+8]
+	.L14:
+	test bl, bl
+	je .L12
+	sub rsp, 16
+	mov rbx, [rsp+24]
+	mov [rsp+0], rbx
+	call MemNode.optimize
+	add rsp, 16
+	.L12:
+	.L13:
+	.L0:
+	leave
+	ret
+
+global malloc:function
+malloc:
+	push rbp
+	mov rbp, rsp
+	mov rcx, [rbp+24]
+	test rcx, rcx
+	sete bl
+	test bl, bl
+	je .L1
+	xor rbx, rbx
+	mov [rbp+16], rbx
+	jmp .L0
+	.L1:
+	.L2:
+	mov rbx, [rbp+24]
+	mov rcx, 0x400000
+	cmp rbx, rcx
+	setge bl
+	test bl, bl
+	je .L3
+	sub rsp, 16
+	mov rbx, STR5
+	mov [rsp+0], rbx
+	mov rbx, [rbp+24]
+	mov [rsp+8], rbx
+	call println
+	add rsp, 16
+	xor rbx, rbx
+	mov [rbp+16], rbx
+	jmp .L0
+	.L3:
+	.L4:
+	sub rsp, 16
+	mov rbx, [rbp+24]
+	mov [rsp+8], rbx
+	call __MAlloc.alloc
+	mov rbx, [rsp+0]
+	add rsp, 16
+	mov [rbp+16], rbx
+	.L0:
+	leave
+	ret
+
+global realloc:function
+realloc:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 32
+	mov rcx, [rbp+32]
+	test rcx, rcx
+	sete bl
+	test bl, bl
+	je .L1
+	xor rbx, rbx
+	mov [rbp+16], rbx
+	jmp .L0
+	.L1:
+	.L2:
+	mov rbx, [rbp+32]
+	mov rcx, 0x400000
+	cmp rbx, rcx
+	setge bl
+	test bl, bl
+	je .L3
+	sub rsp, 16
+	mov rbx, STR5
+	mov [rsp+0], rbx
+	mov rbx, [rbp+32]
+	mov [rsp+8], rbx
+	call println
+	add rsp, 16
+	xor rbx, rbx
+	mov [rbp+16], rbx
+	jmp .L0
+	.L3:
+	.L4:
+	mov rcx, [rbp+24]
+	test rcx, rcx
+	sete bl
+	test bl, bl
+	je .L5
+	sub rsp, 16
+	mov rbx, [rbp+32]
+	mov [rsp+8], rbx
+	call malloc
+	mov rbx, [rsp+0]
+	add rsp, 16
+	mov [rbp+16], rbx
+	jmp .L0
+	.L5:
+	.L6:
+	mov rbx, [rbp+24]
+	sub rbx, 0x10
+	mov [rsp+24], rbx
+	mov rcx, [rsp+24]
+	mov rbx, [rcx+0]
+	mov [rsp+16], rbx
+	mov rbx, [rsp+16]
+	mov rcx, [rbp+32]
+	cmp rbx, rcx
+	seta bl
+	test bl, bl
+	je .L7
+	mov rbx, [rbp+32]
+	mov [rsp+16], rbx
+	.L7:
+	.L8:
+	sub rsp, 16
+	mov rbx, [rsp+40]
+	mov [rsp+0], rbx
+	call __MAlloc.free
+	add rsp, 16
+	sub rsp, 16
+	mov rbx, [rbp+32]
+	mov [rsp+8], rbx
+	call __MAlloc.alloc
+	mov rbx, [rsp+0]
+	add rsp, 16
+	mov [rsp+8], rbx
+	sub rsp, 32
+	mov rbx, [rbp+24]
+	mov [rsp+0], rbx
+	mov rbx, [rsp+40]
+	mov [rsp+8], rbx
+	mov rbx, [rsp+48]
+	mov [rsp+16], rbx
+	call memmove
+	add rsp, 32
+	mov rbx, [rsp+8]
+	mov [rbp+16], rbx
+	.L0:
+	leave
+	ret
+
+global free:function
+free:
+	push rbp
+	mov rbp, rsp
+	mov rcx, [rbp+16]
+	test rcx, rcx
+	sete bl
+	test bl, bl
+	je .L1
+	jmp .L0
+	.L1:
+	.L2:
+	sub rsp, 16
+	mov rbx, [rbp+16]
+	sub rbx, 0x10
+	mov [rsp+0], rbx
+	call __MAlloc.free
+	add rsp, 16
+	.L0:
+	leave
+	ret
+
 global File.write:function
 File.write:
 	push rbp
@@ -822,7 +1477,7 @@ File.println:
 	sub rsp, 32
 	mov rbx, [rbp+16]
 	mov [rsp+0], rbx
-	mov rbx, STR0
+	mov rbx, STR6
 	mov [rsp+8], rbx
 	mov rbx, 0x1
 	mov [rsp+16], rbx
@@ -1864,37 +2519,6 @@ string.mem_size:
 	leave
 	ret
 
-global string.share:function
-string.share:
-	push rbp
-	mov rbp, rsp
-	mov rcx, [rbp+16]
-	mov rbx, [rcx+24]
-	xor rcx, rcx
-	cmp rbx, rcx
-	sete bl
-	test bl, bl
-	je .L1
-	jmp .L0
-	.L1:
-	.L2:
-	mov rbx, [rbp+16]
-	mov rcx, 0x2
-	mov [rbx+24], rcx
-	sub rsp, 32
-	mov [rsp+24], rbx
-	mov rbx, [rbp+16]
-	mov [rsp+8], rbx
-	call string.ref_cnt
-	mov rbx, [rsp+24]
-	mov rcx, [rsp+0]
-	add rsp, 32
-	mov rbx, [rcx]
-	inc QWORD [rcx]
-	.L0:
-	leave
-	ret
-
 global string.print:function
 string.print:
 	push rbp
@@ -1910,6 +2534,165 @@ string.print:
 	mov [rsp+16], rbx
 	call File.write
 	add rsp, 32
+	.L0:
+	leave
+	ret
+
+global string.copy:function
+string.copy:
+	push rbp
+	mov rbp, rsp
+	mov rbx, [rbp+16]
+	sub rsp, 32
+	mov [rsp+0], rbx
+	mov rcx, [rbp+24]
+	mov rbx, [rcx+0]
+	mov [rsp+8], rbx
+	mov rcx, [rbp+24]
+	mov rbx, [rcx+8]
+	mov [rsp+16], rbx
+	call string.new
+	add rsp, 32
+	.L0:
+	leave
+	ret
+
+global string.slice:function
+string.slice:
+	push rbp
+	mov rbp, rsp
+	mov rbx, [rbp+24]
+	mov rcx, [rbp+32]
+	add rbx, rcx
+	mov rsi, [rbp+16]
+	mov rcx, [rsi+8]
+	cmp rbx, rcx
+	setae bl
+	test bl, bl
+	je .L1
+	mov rbx, [rbp+16]
+	xor rcx, rcx
+	mov [rbx+8], rcx
+	.L1:
+	.L2:
+	mov rbx, [rbp+16]
+	mov rsi, [rbp+16]
+	mov rcx, [rsi+0]
+	mov rsi, [rbp+24]
+	add rcx, rsi
+	mov [rbx+0], rcx
+	mov rbx, [rbp+16]
+	mov rsi, [rbp+16]
+	mov rcx, [rsi+16]
+	mov rsi, [rbp+24]
+	add rcx, rsi
+	mov [rbx+16], rcx
+	mov rbx, [rbp+16]
+	mov rsi, [rbp+16]
+	mov rcx, [rsi+8]
+	mov rsi, [rbp+32]
+	mov rdi, [rbp+24]
+	add rsi, rdi
+	sub rcx, rsi
+	mov [rbx+8], rcx
+	.L0:
+	leave
+	ret
+
+global string.replace:function
+string.replace:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 16
+	sub rsp, 16
+	mov rbx, [rbp+16]
+	mov [rsp+8], rbx
+	call string.is_shared
+	mov bl, [rsp+0]
+	add rsp, 16
+	test bl, bl
+	je .L1
+	mov rbx, [rbp+16]
+	sub rsp, 16
+	mov [rsp+0], rbx
+	mov rbx, [rbp+16]
+	mov [rsp+8], rbx
+	call string.copy
+	add rsp, 16
+	.L1:
+	.L2:
+	mov rcx, [rbp+16]
+	mov rbx, [rcx+0]
+	mov [rsp+8], rbx
+	mov rcx, [rbp+16]
+	mov rbx, [rcx+8]
+	.L3:
+	test rbx, rbx
+	je .L5
+	mov rcx, [rsp+8]
+	mov sil, [rcx]
+	mov cl, [rbp+24]
+	cmp sil, cl
+	sete cl
+	test cl, cl
+	je .L6
+	mov r8, [rsp+8]
+	mov cl, [rbp+25]
+	mov [r8], cl
+	.L6:
+	.L7:
+	mov rcx, [rsp+8]
+	inc QWORD [rsp+8]
+	.L4:
+	dec rbx
+	jmp .L3
+	.L5:
+	.L0:
+	leave
+	ret
+
+global string.find:function
+string.find:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 48
+	mov rcx, [rbp+24]
+	mov rbx, [rcx+0]
+	mov [rsp+8], rbx
+	mov bl, [rbp+32]
+	mov [rsp+16], bl
+	mov rcx, [rbp+24]
+	mov rbx, [rcx+8]
+	mov [rsp+24], rbx
+	mov bl, [rbp+33]
+	mov [rsp+32], bl
+	call strfind
+	mov rbx, [rsp+0]
+	add rsp, 48
+	mov [rbp+16], rbx
+	.L0:
+	leave
+	ret
+
+global string.dfind:function
+string.dfind:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 48
+	mov rcx, [rbp+24]
+	mov rbx, [rcx+0]
+	mov [rsp+8], rbx
+	mov bl, [rbp+32]
+	mov [rsp+16], bl
+	mov rcx, [rbp+24]
+	mov rbx, [rcx+8]
+	mov [rsp+24], rbx
+	mov bl, [rbp+33]
+	mov [rsp+32], bl
+	call strdfind
+	mov rbx, [rsp+0]
+	add rsp, 48
+	mov [rbp+16], rbx
 	.L0:
 	leave
 	ret
@@ -2001,12 +2784,82 @@ global string.is_shared:function
 string.is_shared:
 	push rbp
 	mov rbp, rsp
+	xor bl, bl
+	mov [rbp+16], bl
 	mov rcx, [rbp+24]
 	mov rbx, [rcx+24]
-	mov rcx, 0x2
+	mov rcx, 0x1
 	cmp rbx, rcx
 	sete bl
+	test bl, bl
+	je .L1
+	sub rsp, 16
+	mov rbx, [rbp+24]
+	mov [rsp+8], rbx
+	call string.ref_cnt
+	mov rbx, [rsp+0]
+	add rsp, 16
+	mov rcx, [rbx]
+	mov rbx, 0x1
+	cmp rcx, rbx
+	setg bl
 	mov [rbp+16], bl
+	.L1:
+	.L2:
+	.L0:
+	leave
+	ret
+
+global string.free:function
+string.free:
+	push rbp
+	mov rbp, rsp
+	mov rcx, [rbp+16]
+	mov rbx, [rcx+24]
+	mov rcx, 0x1
+	cmp rbx, rcx
+	sete bl
+	test bl, bl
+	je .L3
+	sub rsp, 32
+	mov [rsp+31], bl
+	mov [rsp+16], rcx
+	mov rbx, [rbp+16]
+	mov [rsp+8], rbx
+	call string.ref_cnt
+	mov bl, [rsp+31]
+	mov rcx, [rsp+16]
+	mov rsi, [rsp+0]
+	add rsp, 32
+	dec QWORD [rsi]
+	mov rcx, [rsi]
+	xor rsi, rsi
+	cmp rcx, rsi
+	sete bl
+	.L3:
+	test bl, bl
+	je .L1
+	sub rsp, 16
+	sub rsp, 16
+	mov rbx, [rbp+16]
+	mov [rsp+8], rbx
+	call string.ref_cnt
+	mov rbx, [rsp+0]
+	add rsp, 16
+	mov [rsp+0], rbx
+	call free
+	add rsp, 16
+	.L1:
+	.L2:
+	mov rbx, [rbp+16]
+	xor rcx, rcx
+	mov [rbx+0], rcx
+	mov rbx, [rbp+16]
+	xor rcx, rcx
+	mov [rbx+8], rcx
+	mov rbx, [rbp+16]
+	xor rcx, rcx
+	mov [rbx+24], rcx
 	.L0:
 	leave
 	ret
@@ -2047,11 +2900,25 @@ global string.from_shared:function
 string.from_shared:
 	push rbp
 	mov rbp, rsp
-	sub rsp, 16
+	mov rcx, [rbp+24]
+	mov rbx, [rcx+24]
+	mov rcx, 0x1
+	cmp rbx, rcx
+	sete bl
+	test bl, bl
+	je .L1
+	sub rsp, 32
+	mov [rsp+24], rbx
 	mov rbx, [rbp+24]
-	mov [rsp+0], rbx
-	call string.share
-	add rsp, 16
+	mov [rsp+8], rbx
+	call string.ref_cnt
+	mov rbx, [rsp+24]
+	mov rcx, [rsp+0]
+	add rsp, 32
+	mov rbx, [rcx]
+	inc QWORD [rcx]
+	.L1:
+	.L2:
 	mov rbx, [rbp+16]
 	mov r8, [rbp+24]
 	cld
@@ -2059,6 +2926,113 @@ string.from_shared:
 	lea rsi, [r8]
 	mov rcx, 4
 	rep movsq
+	.L0:
+	leave
+	ret
+
+global string.new:function
+string.new:
+	push rbp
+	mov rbp, rsp
+	mov rbx, [rbp+32]
+	xor rcx, rcx
+	cmp rbx, rcx
+	setl bl
+	test bl, bl
+	je .L1
+	sub rsp, 16
+	mov rbx, [rbp+24]
+	mov [rsp+8], rbx
+	call strlen
+	mov rbx, [rsp+0]
+	add rsp, 16
+	mov [rbp+32], rbx
+	.L1:
+	.L2:
+	mov rbx, [rbp+16]
+	sub rsp, 32
+	mov [rsp+24], rbx
+	mov rbx, [rbp+32]
+	add rbx, 0x9
+	mov [rsp+8], rbx
+	call malloc
+	mov rbx, [rsp+24]
+	mov rcx, [rsp+0]
+	add rsp, 32
+	add rcx, 0x8
+	mov [rbx+0], rcx
+	mov rcx, [rbp+32]
+	mov [rbx+8], rcx
+	xor rcx, rcx
+	mov [rbx+16], rcx
+	mov rcx, 0x1
+	mov [rbx+24], rcx
+	sub rsp, 32
+	mov [rsp+24], rbx
+	mov rbx, [rbp+16]
+	mov [rsp+8], rbx
+	call string.ref_cnt
+	mov rbx, [rsp+24]
+	mov rcx, [rsp+0]
+	add rsp, 32
+	mov rbx, [rcx]
+	inc QWORD [rcx]
+	sub rsp, 32
+	mov rcx, [rbp+16]
+	mov rbx, [rcx+0]
+	mov [rsp+0], rbx
+	mov rbx, [rbp+24]
+	mov [rsp+8], rbx
+	mov rbx, [rbp+32]
+	mov [rsp+16], rbx
+	call memcpy
+	add rsp, 32
+	mov rcx, [rbp+16]
+	mov rbx, [rcx+0]
+	mov rcx, [rbp+32]
+	add rbx, rcx
+	xor cl, cl
+	mov [rbx], cl
+	.L0:
+	leave
+	ret
+
+global string.format:function
+string.format:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 4194352
+	lea rbx, [rsp+8]
+	mov rcx, 0xffffffffffffffff
+	mov [rbx+0], rcx
+	lea rcx, [rsp+48]
+	mov [rbx+8], rcx
+	mov rcx, 0x400000
+	mov [rbx+16], rcx
+	xor rcx, rcx
+	mov [rbx+24], rcx
+	mov ecx, 0x1
+	mov [rbx+32], ecx
+	mov ecx, 0x1
+	mov [rbx+36], ecx
+	sub rsp, 32
+	mov rbx, [rbp+24]
+	mov [rsp+0], rbx
+	lea rbx, [rbp+32]
+	mov [rsp+8], rbx
+	lea rbx, [rsp+40]
+	mov [rsp+16], rbx
+	call print_format
+	add rsp, 32
+	mov rbx, [rbp+16]
+	sub rsp, 32
+	mov [rsp+0], rbx
+	lea rbx, [rsp+80]
+	mov [rsp+8], rbx
+	mov rbx, [rsp+64]
+	mov [rsp+16], rbx
+	call string.new
+	add rsp, 32
 	.L0:
 	leave
 	ret
@@ -2073,7 +3047,7 @@ print_str:
 	test bl, bl
 	je .L1
 	sub rsp, 32
-	mov rbx, STR1
+	mov rbx, STR7
 	mov [rsp+0], rbx
 	mov rbx, 0xffffffffffffffff
 	mov [rsp+8], rbx
@@ -2196,7 +3170,7 @@ print_hex:
 	mov rcx, 0x3f
 	xor sil, sil
 	mov [rbx+rcx*1], sil
-	mov rbx, STR2
+	mov rbx, STR8
 	mov [rsp+8], rbx
 	lea rbx, [rsp+16]
 	add rbx, 0x3e
@@ -2475,7 +3449,7 @@ left_align:
 	test bl, bl
 	je .L1
 	sub rsp, 16
-	mov rbx, STR3
+	mov rbx, STR9
 	mov [rsp+0], rbx
 	call error
 	add rsp, 16
@@ -2532,7 +3506,7 @@ right_align:
 	test bl, bl
 	je .L1
 	sub rsp, 16
-	mov rbx, STR4
+	mov rbx, STR10
 	mov [rsp+0], rbx
 	call error
 	add rsp, 16
@@ -2612,7 +3586,7 @@ center:
 	test bl, bl
 	je .L1
 	sub rsp, 16
-	mov rbx, STR5
+	mov rbx, STR11
 	mov [rsp+0], rbx
 	call error
 	add rsp, 16
@@ -3013,7 +3987,7 @@ print_format:
 	test bl, bl
 	je .L19
 	sub rsp, 16
-	mov rbx, STR6
+	mov rbx, STR12
 	mov [rsp+0], rbx
 	call error
 	add rsp, 16
@@ -3077,7 +4051,7 @@ print_format:
 	test rsi, rsi
 	je .L24
 	sub rsp, 32
-	mov rbx, STR7
+	mov rbx, STR13
 	mov [rsp+0], rbx
 	mov rbx, 0xffffffffffffffff
 	mov [rsp+8], rbx
@@ -3088,7 +4062,7 @@ print_format:
 	jmp .L25
 	.L24:
 	sub rsp, 32
-	mov rbx, STR8
+	mov rbx, STR14
 	mov [rsp+0], rbx
 	mov rbx, 0xffffffffffffffff
 	mov [rsp+8], rbx
@@ -3190,7 +4164,7 @@ print_format:
 	test bl, bl
 	je .L30
 	sub rsp, 16
-	mov rbx, STR9
+	mov rbx, STR15
 	mov [rsp+0], rbx
 	call error
 	add rsp, 16
@@ -3491,7 +4465,7 @@ print_format:
 	test bl, bl
 	je .L50
 	sub rsp, 16
-	mov rbx, STR10
+	mov rbx, STR16
 	mov [rsp+0], rbx
 	call error
 	add rsp, 16
@@ -3575,7 +4549,7 @@ print_format:
 	jmp .L36
 	.L54:
 	sub rsp, 32
-	mov rbx, STR11
+	mov rbx, STR17
 	mov [rsp+0], rbx
 	mov rbx, 0x2
 	mov [rsp+8], rbx
@@ -3589,7 +4563,7 @@ print_format:
 	jmp .L6
 	.L34:
 	sub rsp, 16
-	mov rbx, STR12
+	mov rbx, STR18
 	mov [rsp+0], rbx
 	mov rbx, [rbp+16]
 	inc rbx
@@ -3723,7 +4697,7 @@ input:
 	test bl, bl
 	je .L1
 	sub rsp, 16
-	mov rbx, STR13
+	mov rbx, STR19
 	mov [rsp+0], rbx
 	mov rbx, [rsp+24]
 	mov [rsp+8], rbx
@@ -3772,7 +4746,7 @@ input_char:
 	test bl, bl
 	je .L1
 	sub rsp, 16
-	mov rbx, STR14
+	mov rbx, STR20
 	mov [rsp+0], rbx
 	mov rbx, [rsp+16]
 	mov [rsp+8], rbx
@@ -4064,19 +5038,599 @@ string_to_int:
 	leave
 	ret
 
+global vector.reserve:function
+vector.reserve:
+	push rbp
+	mov rbp, rsp
+	mov rbx, [rbp+24]
+	mov rsi, [rbp+24]
+	mov rcx, [rsi+8]
+	mov rsi, [rbp+32]
+	add rcx, rsi
+	mov [rbx+8], rcx
+	sub rsp, 32
+	mov rbx, [rbp+24]
+	mov [rsp+8], rbx
+	mov rbx, [rbp+32]
+	neg rbx
+	mov [rsp+16], rbx
+	call vector.at
+	mov rbx, [rsp+0]
+	add rsp, 32
+	mov [rbp+16], rbx
+	mov rcx, [rbp+24]
+	mov rbx, [rcx+8]
+	mov rsi, [rbp+24]
+	mov rcx, [rsi+16]
+	cmp rbx, rcx
+	seta bl
+	test bl, bl
+	je .L1
+	mov rbx, [rbp+24]
+	mov rdi, [rbp+24]
+	mov sil, [rdi+16]
+	test sil, sil
+	je .L3
+	mov rsi, [rbp+24]
+	mov rcx, [rsi+16]
+	shl rcx, 1
+	jmp .L4
+	.L3:
+	mov rdi, [rbp+24]
+	mov rsi, [rdi+8]
+	mov rdi, 0x40
+	cmp rsi, rdi
+	setl sil
+	test sil, sil
+	je .L5
+	mov rcx, 0x40
+	jmp .L6
+	.L5:
+	mov rsi, [rbp+24]
+	mov rcx, [rsi+8]
+	.L6:
+	.L4:
+	mov [rbx+16], rcx
+	mov rbx, [rbp+24]
+	sub rsp, 32
+	mov [rsp+24], rbx
+	mov rcx, [rbp+24]
+	mov rbx, [rcx+0]
+	mov [rsp+8], rbx
+	mov rbx, [rbp+24]
+	mov rax, [rbx+16]
+	mov rcx, [rbp+24]
+	mov rbx, [rcx+24]
+	mul rbx
+	mov [rsp+16], rax
+	call realloc
+	mov rbx, [rsp+24]
+	mov rcx, [rsp+0]
+	add rsp, 32
+	mov [rbx+0], rcx
+	mov rsi, [rbp+24]
+	mov rcx, [rsi+0]
+	test rcx, rcx
+	sete bl
+	test bl, bl
+	je .L7
+	sub rsp, 32
+	mov rbx, STR21
+	mov [rsp+0], rbx
+	mov rbx, [rbp+32]
+	mov [rsp+8], rbx
+	mov rbx, [rbp+24]
+	mov rax, [rbx+16]
+	mov rcx, [rbp+24]
+	mov rbx, [rcx+24]
+	mul rbx
+	mov [rsp+16], rax
+	call error
+	add rsp, 32
+	.L7:
+	.L8:
+	.L1:
+	.L2:
+	.L0:
+	leave
+	ret
+
+global vector.copy:function
+vector.copy:
+	push rbp
+	mov rbp, rsp
+	mov rbx, [rbp+16]
+	sub rsp, 32
+	mov [rsp+0], rbx
+	mov rcx, [rbp+24]
+	mov rbx, [rcx+24]
+	mov [rsp+8], rbx
+	mov rcx, [rbp+24]
+	mov rbx, [rcx+0]
+	mov [rsp+16], rbx
+	mov rcx, [rbp+24]
+	mov rbx, [rcx+8]
+	mov [rsp+24], rbx
+	call vector.from_arr
+	add rsp, 32
+	.L0:
+	leave
+	ret
+
+global vector.in_range:function
+vector.in_range:
+	push rbp
+	mov rbp, rsp
+	mov rbx, [rbp+32]
+	xor rcx, rcx
+	cmp rbx, rcx
+	setge bl
+	test bl, bl
+	jne .L1
+	mov rcx, [rbp+32]
+	mov rdi, [rbp+24]
+	mov rsi, [rdi+8]
+	cmp rcx, rsi
+	setl bl
+	.L1:
+	mov [rbp+16], bl
+	.L0:
+	leave
+	ret
+
+global vector.at:function
+vector.at:
+	push rbp
+	mov rbp, rsp
+	mov rbx, [rbp+32]
+	xor rcx, rcx
+	cmp rbx, rcx
+	setl bl
+	test bl, bl
+	je .L1
+	mov rcx, [rbp+24]
+	mov rbx, [rcx+8]
+	mov rcx, [rbp+32]
+	add rbx, rcx
+	mov [rbp+32], rbx
+	.L1:
+	.L2:
+	sub rsp, 32
+	mov [rsp+31], bl
+	mov rbx, [rbp+24]
+	mov [rsp+8], rbx
+	mov rbx, [rbp+32]
+	mov [rsp+16], rbx
+	call vector.in_range
+	mov bl, [rsp+31]
+	mov cl, [rsp+0]
+	add rsp, 32
+	test cl, cl
+	sete bl
+	test bl, bl
+	je .L3
+	sub rsp, 16
+	mov rbx, STR22
+	mov [rsp+0], rbx
+	mov rbx, [rbp+32]
+	mov [rsp+8], rbx
+	call error
+	add rsp, 16
+	.L3:
+	.L4:
+	mov rcx, [rbp+24]
+	mov rbx, [rcx+0]
+	mov rax, [rbp+32]
+	mov rsi, [rbp+24]
+	mov rcx, [rsi+24]
+	mul rcx
+	add rbx, rax
+	mov [rbp+16], rbx
+	.L0:
+	leave
+	ret
+
+global vector.pushback:function
+vector.pushback:
+	push rbp
+	mov rbp, rsp
+	mov rcx, [rbp+32]
+	test rcx, rcx
+	sete bl
+	test bl, bl
+	je .L1
+	sub rsp, 16
+	mov rbx, STR23
+	mov [rsp+0], rbx
+	call error
+	add rsp, 16
+	.L1:
+	.L2:
+	sub rsp, 32
+	mov rbx, [rbp+24]
+	mov [rsp+8], rbx
+	mov rbx, 0x1
+	mov [rsp+16], rbx
+	call vector.reserve
+	mov rbx, [rsp+0]
+	add rsp, 32
+	mov [rbp+16], rbx
+	sub rsp, 32
+	mov rbx, [rbp+16]
+	mov [rsp+0], rbx
+	mov rbx, [rbp+32]
+	mov [rsp+8], rbx
+	mov rcx, [rbp+24]
+	mov rbx, [rcx+24]
+	mov [rsp+16], rbx
+	call memcpy
+	add rsp, 32
+	.L0:
+	leave
+	ret
+
+global vector.popback:function
+vector.popback:
+	push rbp
+	mov rbp, rsp
+	mov rcx, [rbp+16]
+	mov rbx, [rcx+8]
+	xor rcx, rcx
+	cmp rbx, rcx
+	sete bl
+	test bl, bl
+	je .L1
+	sub rsp, 16
+	mov rbx, STR24
+	mov [rsp+0], rbx
+	call error
+	add rsp, 16
+	.L1:
+	.L2:
+	mov rcx, [rbp+16]
+	lea rcx, [rcx+8]
+	mov rbx, [rcx]
+	dec QWORD [rcx]
+	.L0:
+	leave
+	ret
+
+global vector.append_arr:function
+vector.append_arr:
+	push rbp
+	mov rbp, rsp
+	mov rcx, [rbp+24]
+	test rcx, rcx
+	sete bl
+	test bl, bl
+	je .L1
+	sub rsp, 16
+	mov rbx, STR25
+	mov [rsp+0], rbx
+	mov rbx, [rbp+32]
+	mov [rsp+8], rbx
+	call error
+	add rsp, 16
+	.L1:
+	.L2:
+	sub rsp, 32
+	sub rsp, 32
+	mov rbx, [rbp+16]
+	mov [rsp+8], rbx
+	mov rbx, [rbp+32]
+	mov [rsp+16], rbx
+	call vector.reserve
+	mov rbx, [rsp+0]
+	add rsp, 32
+	mov [rsp+0], rbx
+	mov rbx, [rbp+24]
+	mov [rsp+8], rbx
+	mov rbx, [rbp+16]
+	mov rax, [rbx+24]
+	mov rbx, [rbp+32]
+	mul rbx
+	mov [rsp+16], rax
+	call memcpy
+	add rsp, 32
+	.L0:
+	leave
+	ret
+
+global vector.append:function
+vector.append:
+	push rbp
+	mov rbp, rsp
+	mov rcx, [rbp+24]
+	test rcx, rcx
+	sete bl
+	test bl, bl
+	je .L1
+	sub rsp, 16
+	mov rbx, STR26
+	mov [rsp+0], rbx
+	call error
+	add rsp, 16
+	.L1:
+	.L2:
+	sub rsp, 32
+	mov rbx, [rbp+16]
+	mov [rsp+0], rbx
+	mov rcx, [rbp+24]
+	mov rbx, [rcx+0]
+	mov [rsp+8], rbx
+	mov rcx, [rbp+24]
+	mov rbx, [rcx+8]
+	mov [rsp+16], rbx
+	call vector.append_arr
+	add rsp, 32
+	.L0:
+	leave
+	ret
+
+global vector.insert:function
+vector.insert:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 16
+	mov rcx, [rbp+40]
+	test rcx, rcx
+	sete bl
+	test bl, bl
+	je .L1
+	sub rsp, 16
+	mov rbx, STR27
+	mov [rsp+0], rbx
+	call error
+	add rsp, 16
+	.L1:
+	.L2:
+	mov rbx, [rbp+32]
+	mov rsi, [rbp+24]
+	mov rcx, [rsi+8]
+	cmp rbx, rcx
+	seta bl
+	test bl, bl
+	je .L3
+	sub rsp, 32
+	mov rbx, STR28
+	mov [rsp+0], rbx
+	mov rbx, [rbp+32]
+	mov [rsp+8], rbx
+	mov rcx, [rbp+24]
+	mov rbx, [rcx+24]
+	mov [rsp+16], rbx
+	mov rbx, [rbp+40]
+	mov [rsp+24], rbx
+	call error
+	add rsp, 32
+	.L3:
+	.L4:
+	mov rcx, [rbp+24]
+	mov rbx, [rcx+8]
+	mov rcx, [rbp+32]
+	sub rbx, rcx
+	mov [rsp+8], rbx
+	sub rsp, 32
+	mov rbx, [rbp+24]
+	mov [rsp+8], rbx
+	mov rbx, 0x1
+	mov [rsp+16], rbx
+	call vector.reserve
+	add rsp, 32
+	mov rbx, [rsp+8]
+	test rbx, rbx
+	je .L5
+	sub rsp, 32
+	sub rsp, 32
+	mov rbx, [rbp+24]
+	mov [rsp+8], rbx
+	mov rbx, [rbp+32]
+	inc rbx
+	mov [rsp+16], rbx
+	call vector.at
+	mov rbx, [rsp+0]
+	add rsp, 32
+	mov [rsp+0], rbx
+	sub rsp, 32
+	mov rbx, [rbp+24]
+	mov [rsp+8], rbx
+	mov rbx, [rbp+32]
+	mov [rsp+16], rbx
+	call vector.at
+	mov rbx, [rsp+0]
+	add rsp, 32
+	mov [rsp+8], rbx
+	mov rax, [rsp+40]
+	mov rcx, [rbp+24]
+	mov rbx, [rcx+24]
+	mul rbx
+	mov [rsp+16], rax
+	call memmove
+	add rsp, 32
+	.L5:
+	.L6:
+	sub rsp, 32
+	sub rsp, 32
+	mov rbx, [rbp+24]
+	mov [rsp+8], rbx
+	mov rbx, [rbp+32]
+	mov [rsp+16], rbx
+	call vector.at
+	mov rbx, [rsp+0]
+	add rsp, 32
+	mov [rsp+0], rbx
+	mov rbx, [rbp+40]
+	mov [rsp+8], rbx
+	mov rcx, [rbp+24]
+	mov rbx, [rcx+24]
+	mov [rsp+16], rbx
+	call memcpy
+	add rsp, 32
+	.L0:
+	leave
+	ret
+
+global vector.remove:function
+vector.remove:
+	push rbp
+	mov rbp, rsp
+	mov rbx, [rbp+24]
+	mov rsi, [rbp+16]
+	mov rcx, [rsi+8]
+	cmp rbx, rcx
+	setae bl
+	test bl, bl
+	je .L1
+	sub rsp, 16
+	mov rbx, STR29
+	mov [rsp+0], rbx
+	mov rbx, [rbp+24]
+	mov [rsp+8], rbx
+	call error
+	add rsp, 16
+	.L1:
+	.L2:
+	sub rsp, 32
+	sub rsp, 32
+	mov rbx, [rbp+16]
+	mov [rsp+8], rbx
+	mov rbx, [rbp+24]
+	mov [rsp+16], rbx
+	call vector.at
+	mov rbx, [rsp+0]
+	add rsp, 32
+	mov [rsp+0], rbx
+	sub rsp, 32
+	mov rbx, [rbp+16]
+	mov [rsp+8], rbx
+	mov rbx, [rbp+24]
+	inc rbx
+	mov [rsp+16], rbx
+	call vector.at
+	mov rbx, [rsp+0]
+	add rsp, 32
+	mov [rsp+8], rbx
+	mov rbx, [rbp+16]
+	lea rbx, [rbx+8]
+	dec QWORD [rbx]
+	mov rax, [rbx]
+	mov rbx, [rbp+24]
+	sub rax, rbx
+	mov rcx, [rbp+16]
+	mov rbx, [rcx+24]
+	mul rbx
+	mov [rsp+16], rax
+	call memmove
+	add rsp, 32
+	.L0:
+	leave
+	ret
+
+global vector.free:function
+vector.free:
+	push rbp
+	mov rbp, rsp
+	mov rcx, [rbp+16]
+	mov rbx, [rcx+0]
+	test rbx, rbx
+	je .L1
+	sub rsp, 16
+	mov rcx, [rbp+16]
+	mov rbx, [rcx+0]
+	mov [rsp+0], rbx
+	call free
+	add rsp, 16
+	.L1:
+	.L2:
+	mov rbx, [rbp+16]
+	xor rcx, rcx
+	mov [rbx+0], rcx
+	mov rbx, [rbp+16]
+	xor rcx, rcx
+	mov [rbx+8], rcx
+	mov rbx, [rbp+16]
+	xor rcx, rcx
+	mov [rbx+16], rcx
+	.L0:
+	leave
+	ret
+
+global vector.empty:function
+vector.empty:
+	push rbp
+	mov rbp, rsp
+	mov rbx, [rbp+16]
+	xor rcx, rcx
+	mov [rbx+0], rcx
+	xor rcx, rcx
+	mov [rbx+8], rcx
+	xor rcx, rcx
+	mov [rbx+16], rcx
+	mov rcx, [rbp+24]
+	mov [rbx+24], rcx
+	.L0:
+	leave
+	ret
+
+global vector.new:function
+vector.new:
+	push rbp
+	mov rbp, rsp
+	mov rbx, [rbp+16]
+	sub rsp, 32
+	mov [rsp+24], rbx
+	mov rax, [rbp+24]
+	mov rbx, [rbp+32]
+	mul rbx
+	mov [rsp+8], rax
+	call malloc
+	mov rbx, [rsp+24]
+	mov rcx, [rsp+0]
+	add rsp, 32
+	mov [rbx+0], rcx
+	xor rcx, rcx
+	mov [rbx+8], rcx
+	mov rcx, [rbp+32]
+	mov [rbx+16], rcx
+	mov rcx, [rbp+24]
+	mov [rbx+24], rcx
+	.L0:
+	leave
+	ret
+
+global vector.from_arr:function
+vector.from_arr:
+	push rbp
+	mov rbp, rsp
+	mov rbx, [rbp+16]
+	sub rsp, 32
+	mov [rsp+0], rbx
+	mov rbx, [rbp+24]
+	mov [rsp+8], rbx
+	mov rbx, [rbp+40]
+	mov [rsp+16], rbx
+	call vector.new
+	add rsp, 32
+	sub rsp, 32
+	mov rbx, [rbp+16]
+	mov [rsp+0], rbx
+	mov rbx, [rbp+32]
+	mov [rsp+8], rbx
+	mov rbx, [rbp+40]
+	mov [rsp+16], rbx
+	call vector.append_arr
+	add rsp, 32
+	.L0:
+	leave
+	ret
+
 
 extern set_rounding:function
-extern malloc:function
 extern main:function
-extern free:function
 extern flush_stdout:function
-extern realloc:function
 extern string.str_equals:function
-extern string.free:function
 extern File.open:function
 extern File.close:function
-extern string.new:function
-extern string.format:function
 
 
 section .data align=16
@@ -4113,6 +5667,10 @@ dd 2
 extern File:data
 extern fixed:data
 extern string:data
+extern vector:data
+global __MAlloc:data
+__MAlloc:
+dq 0
 
 
 section .rodata align=16
@@ -4121,47 +5679,92 @@ __FABS_MASKs: dd 0x7FFFFFFF, 0, 0, 0
 __FNEG_MASKd: dq 0x8000000000000000, 0
 __FNEG_MASKs: dd 0x80000000, 0, 0, 0
 STR0:
+db "mmap failed to alloc heap : errno = %u",0
+times 7 db 0
+STR1:
+db "Failed to allocate %u bytes!",0
+db 0
+STR2:
+db "Could not free memory : Heap is not initialized",0
+times 6 db 0
+STR3:
+db "Could not free memory : Pointer given is invalid",0
+times 5 db 0
+STR4:
+db "Could not free memory : Double free",0
+dw 0
+STR5:
+db "Cannot allocate more than %u bytes",0
+times 3 db 0
+STR6:
 db "",10,"",0
 dd 0
-STR1:
+STR7:
 db "(NULL)",0
 times 7 db 0
-STR2:
+STR8:
 db "0123456789ABCDEF",0
 times 5 db 0
-STR3:
+STR9:
 db "",10,"Expected %[ before %L to enclose text to align left",0
 db 0
-STR4:
+STR10:
 db "",10,"Expected %[ before %R to enclose text to align right",0
-STR5:
+STR11:
 db "",10,"Expected %[ before %C to enclose text to center",0
 times 5 db 0
-STR6:
+STR12:
 db "",10,"Expected %[ before %T to enclose text to truncate",10,"",0
 dw 0
-STR7:
+STR13:
 db "true",0
 db 0
-STR8:
+STR14:
 db "false",0
-STR9:
+STR15:
 db "",10,"Expected in to be in the range [1, 9] in format specifier %%0n",0
 times 6 db 0
-STR10:
+STR16:
 db "",10,"Expected %[ before %*T to enclose text to truncate",0
 dw 0
-STR11:
+STR17:
 db "",10,"Unexpected format specifier %%%*s",0
 times 3 db 0
-STR12:
+STR18:
 db "",10,"Unexpected format specifier %%%c",0
 dd 0
-STR13:
+STR19:
 db "input() error: %i",0
 dd 0
-STR14:
+STR20:
 db "input_char() error: %i",0
+times 7 db 0
+STR21:
+db "vector.reserve(%u) : failed to allocate %u bytes",0
+times 5 db 0
+STR22:
+db "vector.at(%i) : index out of range",0
+times 3 db 0
+STR23:
+db "vector.pushback(NULL) : element is null",0
+times 6 db 0
+STR24:
+db "vector.popback() : array is empty",0
+dd 0
+STR25:
+db "vector.append_arr(NULL, %u) : array is null",0
+dw 0
+STR26:
+db "vector.append(NULL) : vector is null",0
+db 0
+STR27:
+db "vector.insert(%u, NULL) : element is null",0
+dd 0
+STR28:
+db "vector.insert(%u, %*B) : index out of range",0
+dw 0
+STR29:
+db "vector.remove(%u) : index out of range",0
 times 7 db 0
 FP0:
 dq 1.0000000000

@@ -123,6 +123,16 @@ module test {
     }
 }
 
+void print_int_vector(vector* v){
+    print_char('[');
+    for(int i = 0; i < v.size; i++){
+        if(i)
+            print(", ");
+        print("%i", *(int*)v.at(i));
+    }
+    println("]");
+}
+
 int main(uint argc, char** argv){
     double pi = PI;
     double almost_pi = 3.14153;
@@ -137,7 +147,29 @@ int main(uint argc, char** argv){
     test.print(test.get());
 
     string s = string.from_str("Hello world!");
-    println("%S", &s);
+    println("(\"%S\", is_heap=%b, is_shared=%b)", &s, s.is_heap(), s.is_shared());
+    s.free();
+
+    s = string.format("Hello %s!", "friend");
+    println("(\"%S\", is_heap=%b, is_shared=%b)", &s, s.is_heap(), s.is_shared());
+    string s2 = string.from_shared(&s);
+    s2.slice(6, 0);
+    println("(\"%S\", is_heap=%b, is_shared=%b)", &s2, s2.is_heap(), s2.is_shared());
+    s2.free();
+    s.free();
+
+    vector ints = vector.new(sizeof(int));
+    int x = 5;
+    ints.pushback(&x);
+    x = 10;
+    ints.pushback(&x);
+    print_int_vector(&ints);
+    x = -5;
+    ints.insert(1, &x);
+    print_int_vector(&ints);
+    ints.remove(0);
+    print_int_vector(&ints);
+    ints.free();
 
     msg m = msg{};
     m.print();

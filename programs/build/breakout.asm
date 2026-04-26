@@ -1627,6 +1627,7 @@ extern strlen:function
 extern ioctl:function
 extern ceil:function
 extern print_str:function
+extern _align:function
 extern to_upper:function
 extern print_udecimal:function
 extern input:function
@@ -1655,14 +1656,29 @@ extern File.println:function
 extern File.set_buffering:function
 extern File.set_buffer:function
 extern File.flush:function
-extern string.share:function
 extern string.print:function
+extern string.copy:function
+extern string.slice:function
+extern string.replace:function
+extern string.find:function
+extern string.dfind:function
 extern string.compare:function
 extern string.is_equal:function
 extern string.str_equals:function
 extern string.is_heap:function
 extern string.is_shared:function
 extern string.free:function
+extern vector.reserve:function
+extern vector.copy:function
+extern vector.in_range:function
+extern vector.at:function
+extern vector.pushback:function
+extern vector.popback:function
+extern vector.append_arr:function
+extern vector.append:function
+extern vector.insert:function
+extern vector.remove:function
+extern vector.free:function
 extern File.open:function
 extern File.close:function
 extern fixed.from_int:function
@@ -1677,6 +1693,9 @@ extern string.from_str:function
 extern string.from_shared:function
 extern string.new:function
 extern string.format:function
+extern vector.empty:function
+extern vector.new:function
+extern vector.from_arr:function
 
 
 section .data align=16
@@ -1687,6 +1706,7 @@ extern stdin:data
 extern File:data
 extern fixed:data
 extern string:data
+extern vector:data
 global TTY:data
 TTY:
 dd 56026

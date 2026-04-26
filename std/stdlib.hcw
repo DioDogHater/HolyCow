@@ -159,10 +159,18 @@ class string {
     private @peek uint offset = 0;
     private uint type = 0;
 
-    // Share the string (increments the reference count)
-    void share();
-
     void print(File* f = stdout);
+    string copy();
+
+    // Non-destructive slicing of string
+    void slice(uint start, uint end);
+
+    // Replace all old characters with the new characters
+    void replace(char old, char new);
+    // Find first equal character
+    int find(char c, bool reverse = false);
+    // Find first different character
+    int dfind(char c, bool reverse = false);
 
     int compare(string* str);
     bool is_equal(string* str);
@@ -320,9 +328,49 @@ char* int_to_string(int x, char* str, uint len, char filler = 0);
 char* uint_to_string(uint x, char* str, uint len, char filler = 0);
 int string_to_int(char* str, uint len = -1);
 
+constexpr int MAX_ALLOC = 1024 * 4096;      // 4 MB
+constexpr int MAX_HEAP = 64 * 1024 * 4096;  // 256 MB
+uint _align(uint x, uint align);
 void* malloc(uint sz);
 void* realloc(void* ptr, uint sz);
 void free(void* ptr);
+
+// Vector class
+// CAREFUL ! Pointers to elements in vectors will eventually become invalid!
+// Therefore, pointers should only be used temporarily, and should not be kept
+// if you are adding more elements to the vector. In future implementations,
+// vectors will be more memory safe.
+class vector {
+    private void* mem = NULL;
+    private @peek uint size = 0;
+    private uint capacity = 0;
+    private uint data_size;
+
+    // Returns reserved memory block
+    void* reserve(uint count);
+    vector copy();
+
+    bool in_range(int index);
+    void* at(int index);
+    void* pushback(void* elem);
+    void popback();
+
+    void append_arr(void* arr, uint count);
+    void append(vector* v);
+
+    void* insert(uint index, void* elem);
+    void remove(uint index);
+
+    void free();
+}
+
+module vector extern {
+    constexpr float growth_factor = 2.0;
+    constexpr int init_size = 64;
+    vector empty(uint data_size);
+    vector new(uint data_size, uint capacity = vector.init_size);
+    vector from_arr(uint data_size, void* arr, uint count);
+}
 
 #define EXIT_SUCCESS  0
 #define EXIT_FAILURE -1

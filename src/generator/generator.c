@@ -979,7 +979,7 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
     // (because a function can affect registers)
     int n_regs = get_mask_occup_regs(ALL_REGS, true, registers, used_regs);
     for(int i = 0; i < n_regs; i++){
-        if(struct_ptr && used_fregs[i]->name == struct_ptr->name)
+        if(struct_ptr && used_regs[i]->name == struct_ptr->name)
             continue;
         func_call_sz = ALIGN(func_call_sz, used_regs[i]->size);
         func_call_sz += used_regs[i]->size;
@@ -3260,6 +3260,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             mod->external = false;
 
         current_module = mod;
+        current_class = get_struct(mod->str, mod->strlen);
 
         for(node_stmt* ptr = stmt->struct_decl.members; ptr; ptr = ptr->next){
             if(ptr->type == tk_var_decl){
@@ -3372,6 +3373,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
         }
 
         current_module = NULL;
+        current_class = NULL;
 
         return true;
     }case tk_enum:{

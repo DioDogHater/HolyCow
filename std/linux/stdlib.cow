@@ -1,7 +1,6 @@
 #include "../stdlib.hcw"
-#include "syscall.hcw"
-#include "unistd.hcw"
-#include "fcntl.hcw"
+#include "linux.cow"
+#include "memalloc.cow"
 
 class File {
     // Its ok to have members as public
@@ -402,26 +401,50 @@ bool strequal(char* s1, char* s2){
     @return = (strcmp(s1, s2) == 0);
 }
 
-// String class
+
 enum string {
     unknown   = 0x00,   // Cannot be freed (we dont know where it comes from)
-    heap      = 0x01,   // Allocated on the heap
-    shared    = 0x02    // Shared with another string
+    heap      = 0x01    // Allocated on the heap
 }
 
+// String class
 class string {
     private uint64* ref_cnt(){ @return = (uint64*)(this.str - this.offset - 8); }
     private uint mem_size(){ @return = this.offset + this.length; }
 
-    void share(){
-        if(this.type == string.unknown)
-            return;
-        this.type = string.shared;
-        (*this.ref_cnt())++;
-    }
-
     void print(File* f){
         f.write(this.str, this.length);
+    }
+
+    string copy(){
+        *@return = string.new(this.str, this.length);
+    }
+
+    void slice(uint start, uint end){
+        if(start + end >= this.length)
+            this.length = 0;
+        this.str += start;
+        this.offset += start;
+        this.length -= end + start;
+    }
+
+    void replace(char old, char new){
+        if(this.is_shared())
+            *this = this.copy();
+        char* s = this.str;
+        repeat(this.length){
+            if(*s == old)
+                *s = new;
+            s++;
+        }
+    }
+
+    int find(char c, bool reverse){
+        @return = strfind(this.str, c, this.length, reverse);
+    }
+
+    int dfind(char c, bool reverse){
+        @return = strdfind(this.str, c, this.length, reverse);
     }
 
     int compare(string* b){
@@ -436,17 +459,18 @@ class string {
         @return = (this.type == string.heap);
     }
     bool is_shared(){
-        @return = (this.type == string.shared);
+        @return = false;
+        if(this.type == string.heap)
+            @return = *this.ref_cnt() > 1;
     }
 
-    // void free(){
-    //     if(this.type == string.heap)
-    //         free(this.str);
-    //     else if(this.type == string.shared){
-    //         uint refs = --(*this.ref_cnt());
-    //         if(!refs) free(this.ref_cnt());
-    //     }
-    // }
+    void free(){
+        if(this.type == string.heap && --(*this.ref_cnt()) == 0)
+            free(this.ref_cnt());
+        this.str = NULL;
+        this.length = 0;
+        this.type = string.unknown;
+    }
 }
 
 module string = {
@@ -454,9 +478,26 @@ module string = {
         if(len < 0) len = strlen(str);
         *@return = string{str, len, 0, string.unknown};
     }
-    string from_shared(string* og){
-        og.share();
-        *@return = *og;
+
+    string from_shared(string* original){
+        if(original.type == string.heap)
+            (*original.ref_cnt())++;
+        *@return = *original;
+    }
+
+    string new(char* str, uint len){
+        if(len < 0) len = strlen(str);
+        *@return = string{malloc(len + 9) + 8, len, 0, string.heap};
+        (*@return.ref_cnt())++;
+        memcpy(@return.str, str, len);
+        *(@return.str + len) = '\0';
+    }
+
+    string format(char* fmt, ...){
+        char buffer[MAX_ALLOC];
+        File dummy_file = File{-1, buffer, MAX_ALLOC, 0, Buffering.full, File.write};
+        print_format(fmt, VARGS, &dummy_file);
+        *@return = string.new(buffer, dummy_file.cursor);
     }
 }
 
@@ -775,4 +816,96 @@ int string_to_int(char* str, uint len){
     if(sign)
         result = -result;
     @return = result;
+}
+
+class vector {
+    void* reserve(uint count){
+        this.size += count;
+        @return = this.at(-count);
+        if(this.size > this.capacity){
+            this.capacity = (this.capacity) ? (uint)(this.capacity * vector.growth_factor) : ((this.size < vector.init_size) ? vector.init_size : this.size);
+            this.mem = realloc(this.mem, this.capacity * this.data_size);
+            if(!this.mem)
+                error("vector.reserve(%u) : failed to allocate %u bytes", count, this.capacity * this.data_size);
+        }
+    }
+
+    vector copy(){
+        *@return = vector.from_arr(this.data_size, this.mem, this.size);
+    }
+
+    bool in_range(int index){
+        @return = index >= 0 || index < this.size;
+    }
+
+    void* at(int index){
+        if(index < 0) index = this.size + index;
+        if(!this.in_range(index))
+            error("vector.at(%i) : index out of range", index);
+        @return = this.mem + index * this.data_size;
+    }
+
+    void* pushback(void* elem){
+        if(!elem)
+            error("vector.pushback(NULL) : element is null");
+        @return = this.reserve(1);
+        memcpy(@return, elem, this.data_size);
+    }
+
+    void popback(){
+        if(this.size == 0)
+            error("vector.popback() : array is empty");
+        this.size--;
+    }
+
+    void append_arr(void* arr, uint count){
+        if(!arr)
+            error("vector.append_arr(NULL, %u) : array is null", count);
+        memcpy(this.reserve(count), arr, this.data_size * count);
+    }
+
+    void append(vector* v){
+        if(!v)
+            error("vector.append(NULL) : vector is null");
+        this.append_arr(v.mem, v.size);
+    }
+
+    void* insert(uint index, void* elem){
+        if(!elem)
+            error("vector.insert(%u, NULL) : element is null");
+        if(index > this.size)
+            error("vector.insert(%u, %*B) : index out of range", index, this.data_size, elem);
+        uint after = this.size - index;
+        this.reserve(1);
+        if(after)
+            memmove(this.at(index+1), this.at(index), after * this.data_size);
+        memcpy(this.at(index), elem, this.data_size);
+    }
+
+    void remove(uint index){
+        if(index >= this.size)
+            error("vector.remove(%u) : index out of range", index);
+        memmove(this.at(index), this.at(index+1), (--this.size - index) * this.data_size);
+    }
+
+    void free(){
+        if(this.mem)
+            free(this.mem);
+        this.mem = NULL;
+        this.size = 0;
+        this.capacity = 0;
+    }
+}
+
+module vector = {
+    vector empty(uint data_size){
+        *@return = vector{ , , , data_size};
+    }
+    vector new(uint data_size, uint capacity){
+        *@return = vector{malloc(data_size * capacity), 0, capacity, data_size};
+    }
+    vector from_arr(uint data_size, void* arr, uint count){
+        *@return = vector.new(data_size, count);
+        @return.append_arr(arr, count);
+    }
 }

@@ -1,0 +1,165 @@
+#include "../stdlib.hcw"
+#include "linux.cow"
+
+// Reference : https://people.kth.se/~johanmon/ose/assignments/maplloc.pdf
+// Originally sbrk implementation using mmap, adapted for only heap setup
+
+#define PROT_READ	  0x1	/* Page can be read.  */
+#define PROT_WRITE	  0x2	/* Page can be written.  */
+#define MAP_PRIVATE	  0x02	/* Changes are private.  */
+#define MAP_ANONYMOUS 0x20	/* Don't use a file.  */
+int mmap(uint addr, uint len, uint prot, uint flags, uint fd, uint off){
+    @asm(rax, rdi, rsi, rdx, r10, r8, r9,
+    "mov rax, 9
+    mov rdi, [rbp+24]
+    mov rsi, [rbp+32]
+    mov rdx, [rbp+40]
+    mov r10, [rbp+48]
+    mov r8,  [rbp+56]
+    mov r9,  [rbp+64]
+    syscall
+    mov [rbp+16], rax");
+    if(@return < 0)
+        errno = -@return;
+}
+
+// Align an address
+uint _align(uint x, uint align){
+    @return = (x + align - 1) / align * align;
+}
+
+class MemNode {
+    uint64 size;        // Size of allocated memory
+    bool is_free;       // Is this node free?
+    bool is_last;       // Is there a node after this one?
+    uint32 __pad = 0x0;
+    uint8 mem[0];       // Lets us access memory after this struct
+
+    MemNode* next(){
+        if(this.is_last)
+            return NULL;
+        @return = (MemNode*)(this.mem + this.size);
+    }
+
+    MemNode* next_free(){
+        @return = this.next();
+        for(; @return && !@return.is_free; @return = @return.next());
+    }
+
+    MemNode* find_empty(uint size){
+        if(this.is_free && this.size >= size)
+            return this;
+        @return = this.next_free();
+        for(; @return && @return.size < size; @return = @return.next_free());
+    }
+
+    void alloc(uint size){
+        // If we need to give the whole node
+        //println("- Allocating %u bytes in %u bytes node", size, this.size);
+        if(this.size == size || this.size - size < 32){
+            this.is_free = false;
+            return;
+        }
+
+        // New node
+        MemNode* n = (MemNode*)(this.mem + size);
+        n.size = this.size - size - 16;
+        n.is_free = true;
+        if(this.is_last){
+            n.is_last = true;
+            this.is_last = false;
+        }
+
+        // Slice this node's size
+        this.size = size;
+        this.is_free = false;
+    }
+
+    void optimize(){
+        MemNode* next = this.next();
+        if(next && next.is_free){
+            this.size += sizeof(MemNode) + next.size;
+            //println("- Merged memory nodes into %u bytes", this.size);
+            this.is_last = next.is_last;
+        }
+    }
+
+    void free(){
+        //println("- Freeing %u bytes", this.size);
+        this.is_free = true;
+        this.optimize();
+    }
+}
+
+module __MAlloc {
+    MemNode* head = NULL;
+
+    private void init(){
+        __MAlloc.head = (MemNode*) mmap(0, MAX_HEAP + 16, (PROT_READ | PROT_WRITE), (MAP_PRIVATE | MAP_ANONYMOUS), -1, 0);
+        if(__MAlloc.head == (MemNode*) -1)
+            error("mmap failed to alloc heap : errno = %u", errno);
+        *(__MAlloc.head) = MemNode{MAX_HEAP, true, true};
+    }
+
+    void* alloc(uint sz){
+        if(!__MAlloc.head)
+            __MAlloc.init();
+
+        sz = _align(sz, 16);
+        MemNode* n = __MAlloc.head.find_empty(sz);
+        if(!n){
+            println("Failed to allocate %u bytes!", sz);
+            return NULL;
+        }
+        n.alloc(sz);
+        return (void*) n.mem;
+    }
+
+    void free(MemNode* m){
+        if(!__MAlloc.head)
+            error("Could not free memory : Heap is not initialized");
+        MemNode* n = __MAlloc.head;
+        for(; n && n != m && n.next() != m; n = n.next());
+        if(n == NULL)
+            error("Could not free memory : Pointer given is invalid");
+        if(m.is_free)
+            error("Could not free memory : Double free");
+        m.free();
+        if(n != m && n.is_free)
+            n.optimize();
+    }
+}
+
+void* malloc(uint sz){
+    if(!sz)
+        return NULL;
+    if(sz >= MAX_ALLOC){
+        println("Cannot allocate more than %u bytes", sz);
+        return NULL;
+    }
+    @return = __MAlloc.alloc(sz);
+}
+
+void* realloc(void* ptr, uint sz){
+    if(!sz)
+        return NULL;
+    if(sz >= MAX_ALLOC){
+        println("Cannot allocate more than %u bytes", sz);
+        return NULL;
+    }
+    if(!ptr)
+        return malloc(sz);
+    MemNode* m = (MemNode*)(ptr - sizeof(MemNode));
+    uint size = m.size;
+    if(size > sz) size = sz;
+    __MAlloc.free(m);
+    void* new_mem = __MAlloc.alloc(sz);
+    memmove(ptr, new_mem, size);
+    @return = new_mem;
+}
+
+void free(void* ptr){
+    if(!ptr)
+        return;
+    __MAlloc.free(ptr - sizeof(MemNode));
+}

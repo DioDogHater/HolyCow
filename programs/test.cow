@@ -123,8 +123,16 @@ module test {
     }
 }
 
+// Nothing stops you from adding stuff in classes already defined
+// So hell yeah add whatever extension your want
+class string {
+    void print_debug(){
+        println("(\"%S\", is_heap=%b, is_shared=%b)", this, this.is_heap(), this.is_shared());
+    }
+}
+
 void print_int_vector(vector* v){
-    print_char('[');
+    print("[");
     for(int i = 0; i < v.size; i++){
         if(i)
             print(", ");
@@ -147,30 +155,52 @@ int main(uint argc, char** argv){
     test.print(test.get());
 
     string s = string.from_str("Hello world!");
-    println("(\"%S\", is_heap=%b, is_shared=%b)", &s, s.is_heap(), s.is_shared());
-    s.free();
+    s.print_debug();
 
+    s.free();   // Free that string (does nothing since its on the stack)
+
+    // Creates a formatted string (on the heap)
     s = string.format("Hello %s!", "friend");
-    println("(\"%S\", is_heap=%b, is_shared=%b)", &s, s.is_heap(), s.is_shared());
+    s.print_debug();
+
+    // Shares the string (increases reference counter)
     string s2 = string.from_shared(&s);
     s2.slice(6, 0);
-    println("(\"%S\", is_heap=%b, is_shared=%b)", &s2, s2.is_heap(), s2.is_shared());
-    s2.free();
+    s2.print_debug();
+
+    // We copy the string to perform destructive operation
+    // (decreases reference counter)
+    s2.replace('!', '?');
+    s2.print_debug();
+
+    s2.free();  // Free your strings buddy
     s.free();
 
+    // Temporary variable
+    int x;
+
+    // Vector of integers
     vector ints = vector.new(sizeof(int));
-    int x = 5;
+
+    x = 5;
     ints.pushback(&x);
+
     x = 10;
     ints.pushback(&x);
+
     print_int_vector(&ints);
+
     x = -5;
     ints.insert(1, &x);
+
     print_int_vector(&ints);
+
     ints.remove(0);
     print_int_vector(&ints);
-    ints.free();
 
+    ints.free();    // Never forget to free your shit
+
+    // Can contain any message
     msg m = msg{};
     m.print();
 

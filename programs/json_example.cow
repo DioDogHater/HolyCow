@@ -1,0 +1,50 @@
+#include "json_parser.hcw"
+
+int main(uint argc, char** argv){
+    // Create a JSON structure inside HolyCow
+    JSON_Array arr = JSON_Array{};
+    arr.append((int) 50);
+    arr.append((double) 67.6767);
+    arr.append((bool) true);
+
+    arr.print(JSON.compact);
+    println();
+
+    JSON_Object obj = JSON_Object{};
+    obj.append("test", JSON_Data.arr{ arr });
+    obj.append("bro", (char*) "Lebron james");
+
+    obj.print(JSON.compact);
+    println();
+
+    // Save the JSON structure in a file
+    {
+        // For spacing to work, you must provide a line buffered file
+        char buffer[256];
+        File* f = File.open("programs/assets/output.json", File.write);
+        f.set_buffer(buffer, 256);
+        f.set_buffering(Buffering.line);
+        obj.print(JSON.spaced, f);
+        f = File.close(f);
+    }
+
+    obj.free();
+
+    // Read a JSON structure in a file
+    File* f = File.open("programs/assets/test.json", File.read);
+    if(!f)
+        return -1;
+
+    // Read in a 8 KB buffer
+    char buffer[8 * 1024];
+    uint n = f.read(buffer, 8 * 1024 - 1);
+    buffer[n] = '\0';
+
+    // The JSON structure still references the file's contents.
+    JSON_Data data = JSON.parse(buffer);
+    JSON.print(&data, JSON.spaced);
+    println();
+
+    f = File.close(f);
+    JSON.free(&data);
+}

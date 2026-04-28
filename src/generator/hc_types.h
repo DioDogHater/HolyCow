@@ -79,4 +79,7 @@ type_t typeof_expr(node_expr* expr);
 // Check if types are compatible (includes wether one type can be converted to the other)
 bool types_compatible(type_t a, type_t b);
 
+// Update a type (if its a struct / union type, it needs to be updated when members are defined)
+type_t update_type(type_t t);
+
 #endif

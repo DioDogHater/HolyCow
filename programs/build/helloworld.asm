@@ -280,6 +280,7 @@ main:
 
 
 extern log:function
+extern get_allocated_heap:function
 extern sin:function
 extern print_char:function
 extern trunc:function
@@ -287,6 +288,8 @@ extern print:function
 extern set_rounding:function
 extern pow:function
 extern memmove:function
+extern is_printable:function
+extern get_free_heap:function
 extern random:function
 extern is_num:function
 extern memset:function
@@ -324,6 +327,7 @@ extern cos:function
 extern strcpy:function
 extern print_double:function
 extern println:function
+extern is_whitespace:function
 extern round:function
 extern sqrt:function
 extern error:function
@@ -346,7 +350,7 @@ extern string.find:function
 extern string.dfind:function
 extern string.compare:function
 extern string.is_equal:function
-extern string.str_equals:function
+extern string.str_equal:function
 extern string.is_heap:function
 extern string.is_shared:function
 extern string.free:function

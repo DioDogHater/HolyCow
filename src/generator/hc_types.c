@@ -1,6 +1,7 @@
 #include "hc_types.h"
 #include "generator.h"
 #include "regs.h"
+#include "user_defined.h"
 
 token_t dummy_types[] = {
     DUMMY_TYPE(int8),
@@ -304,9 +305,9 @@ type_t typeof_expr(node_expr* expr){
             max = typeof_expr(expr->bin_op.lhs);
             break;
         case tk_ternary:
-            max = typeof_expr(expr->bin_op.lhs);
-            if(!types_compatible(max, typeof_expr(expr->bin_op.rhs))){
-                print_context_expr("Ternary operator must give the same type", expr->bin_op.lhs);
+            max = typeof_expr(expr->ternary.lhs);
+            if(!types_compatible(max, typeof_expr(expr->ternary.rhs))){
+                print_context_expr("Ternary operator must give the same type", expr->ternary.lhs);
                 return INVALID_TYPE;
             }
             break;
@@ -328,10 +329,14 @@ type_t typeof_expr(node_expr* expr){
                     max = t2;
             }else if(dt1 == DATA_FLOAT && dt2 == DATA_INT)
                 max = t1;
-            else if(dt1 == DATA_FLOAT && dt2 == DATA_INT)
+            else if(dt2 == DATA_FLOAT && dt1 == DATA_INT){
                 max = t2;
-            else if(dt1 == DATA_FLOAT && dt2 == DATA_FLOAT)
-                max = t1;
+            }else if(dt1 == DATA_FLOAT && dt2 == DATA_FLOAT){
+                if(SIZEOF_T(t1) > SIZEOF_T(t2))
+                    max = t1;
+                else
+                    max = t2;
+            }
             break;
         }
         case tk_func_call:{
@@ -381,11 +386,26 @@ bool types_compatible(type_t a, type_t b){
         return false;
     else if(a.ptr_depth && (a.size != b.size || a.data != b.data) && (!a.repr || a.repr->type != tk_void) && (!b.repr || b.repr->type != tk_void))
         return false;
-    if((d1 == DATA_STRUCT && d2 == DATA_STRUCT) || (d1 == DATA_UNION && d2 == DATA_UNION))
-        return (a.repr->strlen == b.repr->strlen) && strncmp(a.repr->str, b.repr->str, a.repr->strlen) == 0;
+    else if(d1 == DATA_STRUCT && d2 == DATA_STRUCT)
+        return get_struct_tk(a.repr) == get_struct_tk(b.repr);
+    else if(d1 == DATA_UNION && d2 == DATA_UNION)
+        return get_union_tk(a.repr) == get_union_tk(b.repr);
     else if((d1 == DATA_INT && d2 == DATA_FLOAT) || (d1 == DATA_FLOAT && d2 == DATA_INT))
         return true;
     else if(d1 == d2)
         return true;
     return false;
+}
+
+type_t update_type(type_t t){
+    if(t.data == DATA_STRUCT){
+        struct_t* stru = get_struct_tk(t.repr);
+        t.size = stru->size;
+        t.align = stru->align;
+    }else if(t.data == DATA_UNION){
+        union_t* unio = get_union_tk(t.repr);
+        t.size = unio->size;
+        t.align = unio->align;
+    }
+    return t;
 }

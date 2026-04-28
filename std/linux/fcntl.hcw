@@ -29,3 +29,4 @@
 #define F_SETFL		4	/* Set file status flags.  */
 
 int fcntl(uint fd, uint cmd, uint arg = 0);
+int open(char* filepath, uint flags, uint mode);

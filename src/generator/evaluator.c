@@ -1,6 +1,39 @@
 #include "evaluator.h"
 #include "generator.h"
 
+uint64_t eval_special_char(char c){
+    switch(c){
+        case 't':
+            return '\t';
+        case 'n':
+            return '\n';
+        case 'r':
+            return '\r';
+        case 'b':
+            return '\b';
+        case 'a':
+            return '\a';
+        case 'f':
+            return '\f';
+        case 'v':
+            return '\v';
+        case '\\':
+            return '\\';
+        case '\'':
+            return '\'';
+        case '"':
+            return '"';
+        case '0':
+            return '\0';
+        case 'e':
+            return '\e';
+        default:
+            HC_WARN("Unknown special character \\%c", c);
+            HC_WARN("Value of character defaulting to 0.");
+            return 0;
+    }
+}
+
 uint64_t eval_char_lit(node_term* char_lit){
     const char* str = char_lit->str;
     size_t strlen = char_lit->strlen;
@@ -9,20 +42,8 @@ uint64_t eval_char_lit(node_term* char_lit){
         HC_WARN("Value of character defaulting to 0.");
         return 0;
     }
-    if(str[1] == '\\') switch(str[2]){
-        case 't':
-            return '\t';
-        case 'n':
-            return '\n';
-        case '0':
-            return '\0';
-        case 'e':
-            return '\e';
-        default:
-            print_context_ex("Unknown special character", str, strlen);
-            HC_WARN("Value of character defaulting to 0.");
-            return 0;
-    }
+    if(str[1] == '\\')
+        return eval_special_char(str[2]);
     return str[1];
 }
 

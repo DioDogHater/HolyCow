@@ -8,11 +8,10 @@ enum Buffering {
 }
 
 enum File {
-    write = 0x01,
-    read = 0x02,
-    read_write = 0x03,
-    append = 0x04,
-    none = 0x00
+    write       = 0x01,
+    read        = 0x02,
+    read_write  = 0x03,
+    append      = 0x04
 }
 
 class File {
@@ -22,7 +21,7 @@ class File {
     int read(uint8* dest, uint sz);
 
     void print(char* fmt, ...);
-    void println(char* fmt, ...);
+    void println(char* fmt = "", ...);
 
     void set_buffering(uint mode);
     void set_buffer(uint8* buff, uint buff_size);
@@ -30,8 +29,10 @@ class File {
 }
 
 module File extern {
+    // Open a file using file path and file flags
     File* open(char* filepath, uint mode = File.read);
-    void close();
+    // Closes file f and returns NULL
+    File* close(File* f);
 }
 
 #define STDOUT_BUFF_SZ 4096
@@ -71,6 +72,10 @@ bool is_alpha(char c);
 bool is_num(char c);
 // Check if character is either alphabetic or numerical
 bool is_alnum(char c);
+// Check if character is whitespace
+bool is_whitespace(char c);
+// Check if character is printable
+bool is_printable(char c);
 // Makes character lowercase
 char to_lower(char c);
 // Makes character uppercase
@@ -174,7 +179,7 @@ class string {
 
     int compare(string* str);
     bool is_equal(string* str);
-    bool str_equals(char* str, uint len = -1);
+    bool str_equal(char* str, uint len = -1);
 
     bool is_heap();
     bool is_shared();
@@ -330,10 +335,22 @@ int string_to_int(char* str, uint len = -1);
 
 constexpr int MAX_ALLOC = 1024 * 4096;      // 4 MB
 constexpr int MAX_HEAP = 64 * 1024 * 4096;  // 256 MB
+// Align an integer or address to align (bytes)
 uint _align(uint x, uint align);
+// Manually Allocate memory block of sz bytes
 void* malloc(uint sz);
+// Reallocates memory block given by ptr to be
+// sz bytes big. If ptr is NULL, will act like
+// malloc.
 void* realloc(void* ptr, uint sz);
+// Free a memory block given by ptr
 void free(void* ptr);
+
+// MEMORY MONITORING
+// Returns bytes of free heap memory left
+uint get_free_heap();
+// Returns bytes of allocated heap memory
+uint get_allocated_heap();
 
 // Vector class
 // CAREFUL ! Pointers to elements in vectors will eventually become invalid!

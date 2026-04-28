@@ -11,10 +11,8 @@ size_t stack_ptr = 0;
 size_t stack_sz = 0;
 size_t label_count = 1;
 
-node_term* str_literals = NULL;
-size_t str_literal_count = 0;
-
 vector_t float_literals[1] = { NEW_VECTOR(double) };
+vector_t str_literals[1] = { NEW_VECTOR(node_term) };
 
 static vector_t global_var_values[1] = { NEW_VECTOR(node_expr) };
 
@@ -72,24 +70,6 @@ void gen_quit_scope(HC_FILE fptr, scope_t snapshot){
         vector_popback(vars);
 }
 
-// Append a string literal to the linked list of string literals
-// Returns the id (index) of the string
-size_t append_string_literal(node_term* str_lit){
-    node_term* ptr = str_literals;
-    str_lit->next = NULL;
-    if(str_literal_count == 0){
-        str_literals = str_lit;
-    }else{
-        if(ptr->strlen == str_lit->strlen && strncmp(ptr->str, str_lit->str, ptr->strlen) == 0)
-            return 0;
-        for(size_t i = 1; ptr->next; ptr = &ptr->next->term, i++)
-            if(ptr->next->term.strlen == str_lit->strlen && strncmp(ptr->next->term.str, str_lit->str, str_lit->strlen) == 0)
-                return i;
-        ptr->next = (node_expr*) str_lit;
-    }
-    return str_literal_count++;
-}
-
 static void gen_free(HC_FILE fptr){
     vector_destroy(vars);
     hashtable_destroy(funcs);
@@ -101,6 +81,8 @@ static void gen_free(HC_FILE fptr){
     vector_destroy(structs);
     vector_destroy(unions);
     vector_destroy(enums);
+    vector_destroy(float_literals);
+    vector_destroy(str_literals);
     HC_FCLOSE(fptr);
 }
 
@@ -109,6 +91,16 @@ void fail_gen_expr(HC_FILE fptr){
     gen_free(fptr);
     compiler_quit();
     HC_FAIL();
+}
+
+size_t append_string_literal(node_term* str_lit){
+    for(size_t i = 0; i < vector_size(str_literals); i++){
+        node_term* other = vector_at(str_literals, i);
+        if(other->strlen == str_lit->strlen && strncmp(other->str, str_lit->str, other->strlen) == 0)
+            return i;
+    }
+    vector_append(str_literals, str_lit);
+    return vector_size(str_literals) - 1;
 }
 
 // Append a float literal to the linked list of float literals
@@ -458,7 +450,9 @@ bool get_expr_address(HC_FILE fptr, reg_t* tmp,  node_expr* expr){
             return true;
         }else if(obj_type.data == DATA_UNION){
             union_t* unio = get_union_tk(obj_type.repr);
-            if(!get_expr_address(fptr, tmp, expr->access.obj))
+            if(obj_type.ptr_depth)
+                generate_expr(fptr, expr->access.obj, obj_type, free_reg(tmp));
+            else if(!get_expr_address(fptr, tmp, expr->access.obj))
                 return false;
             if(expr->access.member->strlen == 4 && strncmp(expr->access.member->str, "type", 4) == 0)
                 gen_load_offset_ptr(fptr, tmp, tmp, unio->size - unio->align);
@@ -1101,7 +1095,7 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
         size_t arg_size = SIZEOF_T(arg_type), arg_align = ALIGNOF_T(arg_type);
 
         // If the argument isn't compatible
-        if(!types_compatible(arg_type, expr_type)){
+        if(DATAOF_T(arg_type) == DATA_UNION && (arg_expr->type != tk_type_cast && arg_expr->type != tk_struct) && !types_compatible(arg_type, expr_type)){
             print_context_expr("Incompatible argument type", arg_expr);
             print_context("Expected argument type", arg->var_type);
             print_type("Type ", expr_type, " is not compatible!");
@@ -2013,6 +2007,24 @@ freg_t* generate_fexpr(HC_FILE fptr, node_expr* expr, bool dp){
         freg = alloc_freg(GET_FREG(dp));
         gen_move_freg(fptr, freg, tmp);
         break;
+    }case tk_ternary:{
+        size_t other_label = label_count++, end_label = label_count++;
+        freg_t* tmp = GET_FREG(dp);
+        reg_t* cond = generate_expr(fptr, expr->ternary.cond, (type_t){1, GET_DUMMY_TYPE(bool), false, DATA_INT, 1, 0}, NULL);
+        gen_cmpz_reg(fptr, cond);
+        gen_cond_jump(fptr, tk_cmp_eq, other_label, false);
+        (void) free_reg(cond);
+        freg_t* tmp2 = generate_fexpr(fptr, expr->ternary.lhs, dp);
+        if(tmp2 != tmp)
+            gen_move_freg(fptr, tmp, tmp2), (void) free_freg(tmp2);;
+        (void) free_freg(tmp);
+        gen_jump(fptr, end_label);
+        gen_label(fptr, other_label);
+        tmp2 = generate_fexpr(fptr, expr->ternary.rhs, dp);
+        if(tmp2 != tmp)
+            gen_move_freg(fptr, tmp, tmp2), (void) free_freg(tmp2);;
+        gen_label(fptr, end_label);
+        return alloc_freg(tmp);
     }case tk_func_call:{
         func_t* func = NULL;
         size_t func_call_sz = generate_func_call(fptr, expr, &func, NULL);
@@ -2923,8 +2935,20 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
         bool first_member_def = new_struct->members->size == 0;
         for(size_t i = 0; i < vector_size(new_struct->funcs); i++){
             func_t* func = vector_at(new_struct->funcs, i);
-            if(func->flags & FLAG_CFUNC)
+            if(func->flags & FLAG_FDEF)
                 first_member_def = false;
+        }
+
+        // Update all types referenced in the struct / class
+        if(!first_member_def){
+            for(size_t i = 0; i < vector_size(new_struct->members); i++){
+                var_t* member = vector_at(new_struct->members, i);
+                member->type = update_type(member->type);
+            }
+            for(size_t i = 0; i < vector_size(new_struct->funcs); i++){
+                func_t* method = vector_at(new_struct->funcs, i);
+                method->type = update_type(method->type);
+            }
         }
 
         if(stmt->type == tk_class){
@@ -3258,6 +3282,15 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             mod->external = true;
         else if(stmt->struct_decl.identifier->next->type == tk_assign)
             mod->external = false;
+
+        for(size_t i = 0; i < vector_size(mod->vars); i++){
+            var_t* var = vector_at(mod->vars, i);
+            var->type = update_type(var->type);
+        }
+        for(size_t i = 0; i < vector_size(mod->funcs); i++){
+            func_t* func = vector_at(mod->funcs, i);
+            func->type = update_type(func->type);
+        }
 
         current_module = mod;
         current_class = get_struct(mod->str, mod->strlen);
@@ -3847,11 +3880,11 @@ bool generate(const char* output_file, node_stmt* AST, bool library){
 
     // Generate the read only data section for string literals
     HC_FPRINTF(fptr, "\n\n%s", target_rodata_section);
-    size_t i = 0;
-    for(node_term* str_lit = str_literals; str_lit; str_lit = &str_lit->next->term, i++)
+    for(size_t i = 0; i < vector_size(str_literals); i++){
+        node_term* str_lit = vector_at(str_literals, i);
         gen_declare_str_lit(fptr, i, str_lit->str, str_lit->strlen);
-    i = 0;
-    for(; i < vector_size(float_literals); i++)
+    }
+    for(size_t i = 0; i < vector_size(float_literals); i++)
         gen_declare_float_lit(fptr, i, *((double*)vector_at(float_literals, i)));
 
     gen_free(fptr);

@@ -204,8 +204,8 @@ void compiler_quit(){
 }
 
 int main(int argc, char* argv[]){
-    // Create an arena allocator with 8 MB of memory
-    if(!arena_init(arena, 8 * MB))
+    // Create an arena allocator with 4 MB of memory
+    if(!arena_init(arena, 4 * MB))
         return EXIT_FAILURE;
 
     // Set up vectors so that they use the arena allocatro

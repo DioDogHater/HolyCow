@@ -1584,6 +1584,7 @@ main:
 
 
 extern log:function
+extern get_allocated_heap:function
 extern nanosleep:function
 extern sin:function
 extern print_char:function
@@ -1593,6 +1594,8 @@ extern set_rounding:function
 extern pow:function
 extern memmove:function
 extern sleep:function
+extern is_printable:function
+extern get_free_heap:function
 extern random:function
 extern is_num:function
 extern memset:function
@@ -1613,6 +1616,7 @@ extern print_fixed:function
 extern tcsetattr:function
 extern absi:function
 extern floor:function
+extern open:function
 extern uint_to_string:function
 extern clock_gettime:function
 extern strdfind:function
@@ -1641,6 +1645,7 @@ extern syscall1:function
 extern syscall2:function
 extern syscall3:function
 extern println:function
+extern is_whitespace:function
 extern round:function
 extern sqrt:function
 extern error:function
@@ -1664,7 +1669,7 @@ extern string.find:function
 extern string.dfind:function
 extern string.compare:function
 extern string.is_equal:function
-extern string.str_equals:function
+extern string.str_equal:function
 extern string.is_heap:function
 extern string.is_shared:function
 extern string.free:function

@@ -3,6 +3,7 @@
 
 #include "../generator/target_requirements.h"
 #include "../generator/regs.h"
+#include "../generator/evaluator.h"
 
 // Names of different sizes
 static const char* x64_sz_names[9] = {"Unkown", "BYTE", "WORD", "Unknown", "DWORD", "Unknown", "Unknown", "Unknown", "QWORD"};
@@ -432,24 +433,21 @@ size_t gen_declare_str(HC_FILE fptr, const char* str, size_t strlen){
     size_t len = 1;
     HC_FPRINTF(fptr, "db ");
     for(; strlen; str++, strlen--){
-        if((*str == '\\' && *(str+1) == 'n') || *str == '\n'){
+        if(*str == '\n'){
             HC_FPRINTF(fptr, "\",10,\"");
             if(*str == '\\') str++, strlen--;
-        }else if(*str == '\\' && *(str+1) == 't'){
-            HC_FPRINTF(fptr, "\t");
-            str++, strlen--;
-        }else if(*str == '\\' && *(str+1) == '0'){
-            HC_FPRINTF(fptr, "\",0,\"");
-            str++, strlen--;
-        }else if(*str == '\\' && *(str+1) == 'x'){
+        }else if(*str == '\\' && str[1] == 'x'){
             str++, strlen--;
             HC_FPRINTF(fptr, "\",0x%.*s,\"",2,str+1);
             str += 2, strlen -= 2;
-        }else if(*str == '\\' && *(str+1) == '\n'){
+        }else if(*str == '\\' && (str[1] == '\n' || str[1] == '\t' || str[1] == ' ')){
             str++, strlen--;
+            while(*str == '\n' || *str == '\t' || *str == ' ')
+                str++, strlen--;
             continue;
         }else if(*str == '\\'){
-            HC_FPRINTF(fptr, "\",%d,\"", (int)*(str+1));
+            uint64_t x = eval_special_char(str[1]);
+            HC_FPRINTF(fptr, "\",%lu,\"", x);
             str++, strlen--;
         }else
             HC_FPRINTF(fptr,"%c",*str);

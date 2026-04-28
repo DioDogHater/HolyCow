@@ -1,0 +1,311 @@
+#include "../std/stdlib.hcw"
+
+union JSON_Data;
+
+class JSON_Array {
+    JSON_Data* elems = NULL;
+    uint size = 0;
+}
+
+class JSON_Object {
+    char** keys = NULL;         // All delimited by ""
+    JSON_Data* values = NULL;
+    uint size = 0;
+}
+
+variant JSON_Data {
+    int64 integer;
+    double decimal; // Not implemented yet
+    bool boolean;
+    char* str;      // Delimited by ""
+    JSON_Array arr;
+    JSON_Object obj;
+    uint8 null = 0;
+}
+
+class JSON_Array {
+    void append(JSON_Data value);
+
+    void print(int spacing = 0, File* f = stdout);
+    void free();
+}
+
+class JSON_Object {
+    void append(char* key, JSON_Data value);
+    JSON_Data* get(char* key);
+
+    void print(int spacing = 0, File* f = stdout);
+    void free();
+}
+
+module JSON {
+    private char* start = NULL;
+    private char* str = NULL;
+    public bool success = true;
+
+    constexpr int spaced = -1;
+    constexpr int compact = 0;
+
+    private void skip_whitespace(){
+        for(; is_whitespace(*JSON.str); JSON.str++);
+    }
+
+    private uint get_line(){
+        @return = 0;
+        for(char* str = JSON.str; str >= JSON.start; str--){
+            if(*str == '\n')
+                @return++;
+        }
+    }
+
+    private void print_debug(){
+        println("%*s\n", strfind(JSON.str, '\n', strlen(JSON.str)), JSON.str);
+    }
+
+    private JSON_Data parse_term(){
+        JSON.skip_whitespace();
+        char c = *JSON.str;
+        if(c == '\0')
+            return JSON_Data.null{};
+        if(c == '-' || c == '+' || is_num(c)){
+            bool sign = (c == '-');
+            if(c == '-' || c == '+') JSON.str++;
+            int x = 0;
+            for(; is_num(*JSON.str); JSON.str++){
+                x = x * 10 + (*JSON.str - '0');
+            }
+            if(*JSON.str == '.'){
+                double y = 0.0;
+                double d = 0.1;
+                JSON.str++;
+                for(; is_num(*JSON.str); JSON.str++){
+                    y += (uint)(*JSON.str - '0') * d;
+                    d *= 0.1;
+                }
+                double decimal = x + y;
+                return (double) (sign ? -decimal : decimal);
+            }
+            return (int) (sign ? -x : x);
+        }else if(c == '"'){
+            char* str = ++JSON.str;
+            for(; *JSON.str && *JSON.str != '"'; JSON.str++);
+            JSON.str++;
+            return (char*) str;
+        }else if(c == '['){
+            JSON_Array arr = JSON_Array{};
+            forever{
+                JSON.str++;     // Eat the [ or ,
+
+                JSON.skip_whitespace();
+                if(*JSON.str == ']')
+                    break;
+
+                JSON_Data d = JSON.parse_term();
+                arr.append(d);
+
+                JSON.skip_whitespace();
+                if(*JSON.str != ',')
+                    break;
+            }
+
+            JSON.skip_whitespace();
+            if(*(JSON.str++) != ']'){
+                arr.free();
+                println("Expected ] at the end of array term at line %u, got %c instead", JSON.get_line(), *JSON.str);
+                JSON.success = false;
+                return JSON_Data.null{};
+            }
+
+            return JSON_Data.arr{ arr };
+        }else if(c == '{'){
+            JSON_Object obj = JSON_Object{};
+
+            forever{
+                JSON.str++;     // Eat the { or ,
+
+                JSON.skip_whitespace();
+                if(*JSON.str == '}')
+                    break;
+
+                JSON_Data key = JSON.parse_term();
+                if(key.type != JSON_Data.str){
+                    obj.free();
+                    println("Expected string for key at line %u", JSON.get_line());
+                    JSON.success = false;
+                    return JSON_Data.null{};
+                }
+
+                JSON.skip_whitespace();
+                if(*(JSON.str++) != ':'){
+                    obj.free();
+                    println("Expected : after key at line %u, got %c instead", JSON.get_line(), *JSON.str);
+                    JSON.success = false;
+                    return JSON_Data.null{};
+                }
+
+                JSON_Data value = JSON.parse_term();
+                obj.append(key.str, value);
+
+                if(*JSON.str != ',')
+                    break;
+            }
+
+            JSON.skip_whitespace();
+            if(*(JSON.str++) != '}'){
+                obj.free();
+                println("Expected } at the end of object term at line %u, got %c instead", JSON.get_line(), *JSON.str);
+                JSON.success = false;
+                return JSON_Data.null{};
+            }
+
+            return JSON_Data.obj{ obj };
+        }else if(strcmp(JSON.str, "true", 4) == 0 || strcmp(JSON.str, "false", 5) == 0){
+            bool truth = (c == 't');
+            if(truth) JSON.str += 4;
+            else JSON.str += 5;
+            return (bool) truth;
+        }else if(strcmp(JSON.str, "null", 4) == 0){
+            JSON.str += 4;
+            return JSON_Data.null{};
+        }else{
+            println("Unsupported JSON term at line %u: %*s", JSON.get_line(), strfind(JSON.str, '\n', strlen(JSON.str)), JSON.str);
+            JSON.success = false;
+            return JSON_Data.null{};
+        }
+    }
+
+    JSON_Data parse(char* str){
+        JSON.start = str;
+        JSON.str = str;
+        JSON.success = true;
+        return JSON.parse_term();
+    }
+
+    void print_data(JSON_Data* d, uint spacing, File* f){
+        if(d.type == JSON_Data.integer)
+            f.print("%i", d.integer);
+        else if(d.type == JSON_Data.decimal)
+            f.print("%f", d.decimal);
+        else if(d.type == JSON_Data.boolean)
+            f.print("%b", d.boolean);
+        else if(d.type == JSON_Data.str)
+            f.print("\"%*s\"", strfind(d.str, '"'), d.str);
+        else if(d.type == JSON_Data.arr)
+            d.arr.print(spacing, f);
+        else if(d.type == JSON_Data.obj)
+            d.obj.print(spacing, f);
+        else if(d.type == JSON_Data.null)
+            f.print("null");
+        else
+            f.print("<INVALID %u>", d.type);
+    }
+
+    void print(JSON_Data* d, int spacing = JSON.compact, File* f = stdout){
+        JSON.print_data(d, spacing, f);
+        println();
+    }
+
+    void free(JSON_Data* d){
+        if(d.type == JSON_Data.arr)
+            d.arr.free();
+        else if(d.type == JSON_Data.obj)
+            d.obj.free();
+    }
+}
+
+class JSON_Array {
+    void append(JSON_Data value){
+        this.elems = realloc(this.elems, (++this.size) * sizeof(JSON_Data));
+        if(!this.elems)
+            error("JSON_Array.append(%u) : no more memory", value.type);
+        this.elems[this.size - 1] = value;
+    }
+
+    void print(int spacing, File* f){
+        if(spacing < 0)
+            spacing = 3;
+        else if(spacing){
+            f.print("%A", spacing);
+            spacing += 3;
+        }
+        f.print("[");
+        for(uint i = 0; i < this.size; i++){
+            if(spacing)
+                f.print("\n%A", spacing);
+            JSON.print_data(&this.elems[i], spacing, f);
+            if(i < this.size - 1) f.print("%*s", spacing ? 2 : 1, ", ");
+        }
+        if(spacing)
+            f.print("\n%A", spacing - 3);
+        f.print("]");
+    }
+
+    void free(){
+        for(uint i = 0; i < this.size; i++){
+            JSON.free(&this.elems[i]);
+        }
+        if(this.elems)
+            free(this.elems);
+        *this = JSON_Array{};
+    }
+}
+
+class JSON_Object {
+    void append(char* str, JSON_Data value){
+        this.size++;
+
+        this.keys = (char**) realloc((void*) this.keys, this.size * sizeof(char*));
+        this.values = realloc(this.values, this.size * sizeof(JSON_Data));
+
+        if(!this.keys || !this.values)
+            error("JSON_Object.append(%s, %u) : no more memory", str, value.type);
+
+        this.keys[this.size - 1] = str;
+        this.values[this.size - 1] = value;
+    }
+
+    JSON_Data* get(char* key){
+        uint key_len = strlen(key);
+        for(uint i = 0; i < this.size; i++){
+            char* k = this.keys[i];
+            uint k_len = strlen(k);
+            if(strfind(k, '"', k_len) >= 0)
+                k_len = strfind(k, '"', k_len);
+            if(key_len == k_len && strcmp(k, key, k_len) == 0)
+                return &this.values[i];
+        }
+        @return = NULL;
+    }
+
+    void print(int spacing, File* f){
+        if(spacing < 0)
+            spacing = 3;
+        else if(spacing){
+            f.print("%A", spacing);
+            spacing += 3;
+        }
+        f.print("{");
+        for(uint i = 0; i < this.size; i++){
+            if(spacing)
+                f.print("\n%A", spacing);
+            char* key = this.keys[i];
+            f.print("\"%*s\"%*s", strfind(key, '"'), key, spacing ? 2 : 1, ": ");
+            JSON.print_data(&this.values[i], spacing, f);
+            if(i < this.size - 1) f.print("%*s", spacing ? 2 : 1, ", ");
+        }
+        if(spacing)
+            f.print("\n%A", spacing - 3);
+        f.print("}");
+    }
+
+    void free(){
+        if(this.keys)
+            free((void*) this.keys);
+        for(uint i = 0; i < this.size; i++){
+            JSON.free(&this.values[i]);
+        }
+        if(this.values)
+            free(this.values);
+        *this = JSON_Object{};
+    }
+}

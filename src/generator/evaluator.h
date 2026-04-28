@@ -10,6 +10,7 @@
 #include "target_requirements.h"
 
 // Evaluate literals
+uint64_t eval_special_char(char c);
 uint64_t eval_char_lit(node_term* lit);
 uint64_t eval_int_lit(node_term* lit);
 double eval_float_lit(node_term* lit);

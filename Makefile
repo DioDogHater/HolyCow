@@ -17,7 +17,7 @@ endif
 HCC_FLAGS := -d --silent
 
 # Add your own projects here to compile
-stdlib_projects = helloworld test tictactoe breakout snake
+stdlib_projects = helloworld test tictactoe breakout snake json_example
 raylib_projects = test3d physics
 
 build := programs/build

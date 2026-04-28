@@ -55,20 +55,20 @@ class MemNode {
 
     void alloc(uint size){
         // If we need to give the whole node
-        //println("- Allocating %u bytes in %u bytes node", size, this.size);
         if(this.size == size || this.size - size < 32){
+            //println("+ Allocating %u bytes (%u bytes needed)", this.size, size);
             this.is_free = false;
             return;
         }
+
+        //println("+ Allocating %u bytes out of %u bytes node", size, this.size);
 
         // New node
         MemNode* n = (MemNode*)(this.mem + size);
         n.size = this.size - size - 16;
         n.is_free = true;
-        if(this.is_last){
-            n.is_last = true;
-            this.is_last = false;
-        }
+        n.is_last = this.is_last;
+        this.is_last = false;
 
         // Slice this node's size
         this.size = size;
@@ -79,13 +79,13 @@ class MemNode {
         MemNode* next = this.next();
         if(next && next.is_free){
             this.size += sizeof(MemNode) + next.size;
-            //println("- Merged memory nodes into %u bytes", this.size);
+            //println("# Merged memory nodes into %u bytes", this.size);
             this.is_last = next.is_last;
         }
     }
 
     void free(){
-        //println("- Freeing %u bytes", this.size);
+        //println("- Freed %u bytes node", this.size);
         this.is_free = true;
         this.optimize();
     }
@@ -93,12 +93,22 @@ class MemNode {
 
 module __MAlloc {
     MemNode* head = NULL;
+    uint usage = 0;
 
     private void init(){
         __MAlloc.head = (MemNode*) mmap(0, MAX_HEAP + 16, (PROT_READ | PROT_WRITE), (MAP_PRIVATE | MAP_ANONYMOUS), -1, 0);
         if(__MAlloc.head == (MemNode*) -1)
             error("mmap failed to alloc heap : errno = %u", errno);
         *(__MAlloc.head) = MemNode{MAX_HEAP, true, true};
+    }
+
+    void print_debug(){
+        for(MemNode* n = __MAlloc.head; n; n = n.next()){
+            print("(%u, %b)", n.size, n.is_free);
+            print("->");
+        }
+        println("NULL");
+        println("MEMORY USAGE: %u / %u bytes", __MAlloc.usage, MAX_HEAP);
     }
 
     void* alloc(uint sz){
@@ -112,6 +122,7 @@ module __MAlloc {
             return NULL;
         }
         n.alloc(sz);
+        __MAlloc.usage += sz;
         return (void*) n.mem;
     }
 
@@ -124,6 +135,7 @@ module __MAlloc {
             error("Could not free memory : Pointer given is invalid");
         if(m.is_free)
             error("Could not free memory : Double free");
+        __MAlloc.usage -= m.size;
         m.free();
         if(n != m && n.is_free)
             n.optimize();
@@ -154,7 +166,10 @@ void* realloc(void* ptr, uint sz){
     if(size > sz) size = sz;
     __MAlloc.free(m);
     void* new_mem = __MAlloc.alloc(sz);
-    memmove(ptr, new_mem, size);
+    if(!new_mem)
+        return NULL;
+    if(ptr != new_mem)
+        memmove(new_mem, ptr, size);
     @return = new_mem;
 }
 
@@ -162,4 +177,12 @@ void free(void* ptr){
     if(!ptr)
         return;
     __MAlloc.free(ptr - sizeof(MemNode));
+}
+
+uint get_free_heap(){
+    @return = MAX_HEAP - __MAlloc.usage;
+}
+
+uint get_allocated_heap(){
+    @return = __MAlloc.usage;
 }

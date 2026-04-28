@@ -19,12 +19,8 @@ extern size_t stack_sz;
 // Number of labels created in current func
 extern size_t label_count;
 
-// A linked list of all string literals
-extern node_term* str_literals;
-extern size_t str_literal_count;
-
-// A linked list of all float literals
 extern vector_t float_literals[1];
+extern vector_t str_literals[1];
 
 #include "user_defined.h"
 

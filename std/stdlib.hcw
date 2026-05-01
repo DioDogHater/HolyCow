@@ -24,6 +24,7 @@ class File {
     void println(char* fmt = "", ...);
 
     void set_buffering(uint mode);
+    uint get_buffering();
     void set_buffer(uint8* buff, uint buff_size);
     void flush();
 }

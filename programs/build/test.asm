@@ -783,6 +783,7 @@ extern File.read:function
 extern File.print:function
 extern File.println:function
 extern File.set_buffering:function
+extern File.get_buffering:function
 extern File.set_buffer:function
 extern File.flush:function
 extern string.print:function

@@ -1052,22 +1052,47 @@ JSON_Array.print:
 	push rbp
 	mov rbp, rsp
 	mov rbx, [rbp+24]
+	test rbx, rbx
+	setne cl
+	je .L3
+	sub rsp, 32
+	mov [rsp+31], cl
+	mov rbx, [rbp+32]
+	mov [rsp+8], rbx
+	call File.get_buffering
+	mov cl, [rsp+31]
+	mov rbx, [rsp+0]
+	add rsp, 32
+	mov rsi, 0x2
+	cmp rbx, rsi
+	setne cl
+	.L3:
+	test cl, cl
+	je .L1
+	sub rsp, 16
+	mov rbx, STR16
+	mov [rsp+0], rbx
+	call error
+	add rsp, 16
+	.L1:
+	.L2:
+	mov rbx, [rbp+24]
 	xor rcx, rcx
 	cmp rbx, rcx
 	setl bl
 	test bl, bl
-	je .L1
+	je .L4
 	mov rbx, 0x3
 	mov [rbp+24], rbx
-	jmp .L2
-	.L1:
+	jmp .L5
+	.L4:
 	mov rbx, [rbp+24]
 	test rbx, rbx
-	je .L3
+	je .L6
 	sub rsp, 32
 	mov rbx, [rbp+32]
 	mov [rsp+0], rbx
-	mov rbx, STR16
+	mov rbx, STR17
 	mov [rsp+8], rbx
 	mov rbx, [rbp+24]
 	mov [rsp+16], rbx
@@ -1076,41 +1101,41 @@ JSON_Array.print:
 	mov rbx, [rbp+24]
 	add rbx, 0x3
 	mov [rbp+24], rbx
-	jmp .L2
-	.L3:
-	.L2:
+	jmp .L5
+	.L6:
+	.L5:
 	sub rsp, 16
 	mov rbx, [rbp+32]
 	mov [rsp+0], rbx
-	mov rbx, STR17
+	mov rbx, STR18
 	mov [rsp+8], rbx
 	call File.print
 	add rsp, 16
 	sub rsp, 16
 	xor rbx, rbx
 	mov [rsp+8], rbx
-	.L4:
+	.L7:
 	mov rbx, [rsp+8]
 	mov rsi, [rbp+16]
 	mov rcx, [rsi+8]
 	cmp rbx, rcx
 	setb bl
 	test bl, bl
-	je .L6
+	je .L9
 	mov rbx, [rbp+24]
 	test rbx, rbx
-	je .L7
+	je .L10
 	sub rsp, 32
 	mov rbx, [rbp+32]
 	mov [rsp+0], rbx
-	mov rbx, STR18
+	mov rbx, STR19
 	mov [rsp+8], rbx
 	mov rbx, [rbp+24]
 	mov [rsp+16], rbx
 	call File.print
 	add rsp, 32
-	.L7:
-	.L8:
+	.L10:
+	.L11:
 	sub rsp, 32
 	mov rsi, [rbp+16]
 	mov rcx, [rsi+0]
@@ -1131,52 +1156,52 @@ JSON_Array.print:
 	cmp rbx, rcx
 	setl bl
 	test bl, bl
-	je .L9
+	je .L12
+	sub rsp, 32
+	mov rbx, [rbp+32]
+	mov [rsp+0], rbx
+	mov rbx, STR20
+	mov [rsp+8], rbx
+	mov cl, [rbp+24]
+	test cl, cl
+	je .L14
+	mov rbx, 0x2
+	jmp .L15
+	.L14:
+	mov rbx, 0x1
+	.L15:
+	mov [rsp+16], rbx
+	mov rbx, STR21
+	mov [rsp+24], rbx
+	call File.print
+	add rsp, 32
+	.L12:
+	.L13:
+	.L8:
+	mov rbx, [rsp+8]
+	inc QWORD [rsp+8]
+	jmp .L7
+	.L9:
+	add rsp, 16
+	mov rbx, [rbp+24]
+	test rbx, rbx
+	je .L16
 	sub rsp, 32
 	mov rbx, [rbp+32]
 	mov [rsp+0], rbx
 	mov rbx, STR19
-	mov [rsp+8], rbx
-	mov cl, [rbp+24]
-	test cl, cl
-	je .L11
-	mov rbx, 0x2
-	jmp .L12
-	.L11:
-	mov rbx, 0x1
-	.L12:
-	mov [rsp+16], rbx
-	mov rbx, STR20
-	mov [rsp+24], rbx
-	call File.print
-	add rsp, 32
-	.L9:
-	.L10:
-	.L5:
-	mov rbx, [rsp+8]
-	inc QWORD [rsp+8]
-	jmp .L4
-	.L6:
-	add rsp, 16
-	mov rbx, [rbp+24]
-	test rbx, rbx
-	je .L13
-	sub rsp, 32
-	mov rbx, [rbp+32]
-	mov [rsp+0], rbx
-	mov rbx, STR18
 	mov [rsp+8], rbx
 	mov rbx, [rbp+24]
 	sub rbx, 0x3
 	mov [rsp+16], rbx
 	call File.print
 	add rsp, 32
-	.L13:
-	.L14:
+	.L16:
+	.L17:
 	sub rsp, 16
 	mov rbx, [rbp+32]
 	mov [rsp+0], rbx
-	mov rbx, STR21
+	mov rbx, STR22
 	mov [rsp+8], rbx
 	call File.print
 	add rsp, 16
@@ -1287,7 +1312,7 @@ JSON_Object.append:
 	test bl, bl
 	je .L1
 	sub rsp, 32
-	mov rbx, STR22
+	mov rbx, STR23
 	mov [rsp+0], rbx
 	mov rbx, [rbp+24]
 	mov [rsp+8], rbx
@@ -1440,22 +1465,47 @@ JSON_Object.print:
 	push rbp
 	mov rbp, rsp
 	mov rbx, [rbp+24]
+	test rbx, rbx
+	setne cl
+	je .L3
+	sub rsp, 32
+	mov [rsp+31], cl
+	mov rbx, [rbp+32]
+	mov [rsp+8], rbx
+	call File.get_buffering
+	mov cl, [rsp+31]
+	mov rbx, [rsp+0]
+	add rsp, 32
+	mov rsi, 0x2
+	cmp rbx, rsi
+	setne cl
+	.L3:
+	test cl, cl
+	je .L1
+	sub rsp, 16
+	mov rbx, STR16
+	mov [rsp+0], rbx
+	call error
+	add rsp, 16
+	.L1:
+	.L2:
+	mov rbx, [rbp+24]
 	xor rcx, rcx
 	cmp rbx, rcx
 	setl bl
 	test bl, bl
-	je .L1
+	je .L4
 	mov rbx, 0x3
 	mov [rbp+24], rbx
-	jmp .L2
-	.L1:
+	jmp .L5
+	.L4:
 	mov rbx, [rbp+24]
 	test rbx, rbx
-	je .L3
+	je .L6
 	sub rsp, 32
 	mov rbx, [rbp+32]
 	mov [rsp+0], rbx
-	mov rbx, STR16
+	mov rbx, STR17
 	mov [rsp+8], rbx
 	mov rbx, [rbp+24]
 	mov [rsp+16], rbx
@@ -1464,42 +1514,42 @@ JSON_Object.print:
 	mov rbx, [rbp+24]
 	add rbx, 0x3
 	mov [rbp+24], rbx
-	jmp .L2
-	.L3:
-	.L2:
+	jmp .L5
+	.L6:
+	.L5:
 	sub rsp, 16
 	mov rbx, [rbp+32]
 	mov [rsp+0], rbx
-	mov rbx, STR23
+	mov rbx, STR24
 	mov [rsp+8], rbx
 	call File.print
 	add rsp, 16
 	sub rsp, 16
 	xor rbx, rbx
 	mov [rsp+8], rbx
-	.L4:
+	.L7:
 	mov rbx, [rsp+8]
 	mov rsi, [rbp+16]
 	mov rcx, [rsi+16]
 	cmp rbx, rcx
 	setb bl
 	test bl, bl
-	je .L6
+	je .L9
 	sub rsp, 16
 	mov rbx, [rbp+24]
 	test rbx, rbx
-	je .L7
+	je .L10
 	sub rsp, 32
 	mov rbx, [rbp+32]
 	mov [rsp+0], rbx
-	mov rbx, STR18
+	mov rbx, STR19
 	mov [rsp+8], rbx
 	mov rbx, [rbp+24]
 	mov [rsp+16], rbx
 	call File.print
 	add rsp, 32
-	.L7:
-	.L8:
+	.L10:
+	.L11:
 	mov rcx, [rbp+16]
 	mov rbx, [rcx+0]
 	mov rcx, [rsp+24]
@@ -1508,7 +1558,7 @@ JSON_Object.print:
 	sub rsp, 48
 	mov rbx, [rbp+32]
 	mov [rsp+0], rbx
-	mov rbx, STR24
+	mov rbx, STR25
 	mov [rsp+8], rbx
 	sub rsp, 48
 	mov rbx, [rsp+104]
@@ -1527,14 +1577,14 @@ JSON_Object.print:
 	mov [rsp+24], rbx
 	mov cl, [rbp+24]
 	test cl, cl
-	je .L9
+	je .L12
 	mov rbx, 0x2
-	jmp .L10
-	.L9:
+	jmp .L13
+	.L12:
 	mov rbx, 0x1
-	.L10:
+	.L13:
 	mov [rsp+32], rbx
-	mov rbx, STR25
+	mov rbx, STR26
 	mov [rsp+40], rbx
 	call File.print
 	add rsp, 48
@@ -1558,53 +1608,53 @@ JSON_Object.print:
 	cmp rbx, rcx
 	setl bl
 	test bl, bl
-	je .L11
+	je .L14
+	sub rsp, 32
+	mov rbx, [rbp+32]
+	mov [rsp+0], rbx
+	mov rbx, STR20
+	mov [rsp+8], rbx
+	mov cl, [rbp+24]
+	test cl, cl
+	je .L16
+	mov rbx, 0x2
+	jmp .L17
+	.L16:
+	mov rbx, 0x1
+	.L17:
+	mov [rsp+16], rbx
+	mov rbx, STR21
+	mov [rsp+24], rbx
+	call File.print
+	add rsp, 32
+	.L14:
+	.L15:
+	add rsp, 16
+	.L8:
+	mov rbx, [rsp+8]
+	inc QWORD [rsp+8]
+	jmp .L7
+	.L9:
+	add rsp, 16
+	mov rbx, [rbp+24]
+	test rbx, rbx
+	je .L18
 	sub rsp, 32
 	mov rbx, [rbp+32]
 	mov [rsp+0], rbx
 	mov rbx, STR19
-	mov [rsp+8], rbx
-	mov cl, [rbp+24]
-	test cl, cl
-	je .L13
-	mov rbx, 0x2
-	jmp .L14
-	.L13:
-	mov rbx, 0x1
-	.L14:
-	mov [rsp+16], rbx
-	mov rbx, STR20
-	mov [rsp+24], rbx
-	call File.print
-	add rsp, 32
-	.L11:
-	.L12:
-	add rsp, 16
-	.L5:
-	mov rbx, [rsp+8]
-	inc QWORD [rsp+8]
-	jmp .L4
-	.L6:
-	add rsp, 16
-	mov rbx, [rbp+24]
-	test rbx, rbx
-	je .L15
-	sub rsp, 32
-	mov rbx, [rbp+32]
-	mov [rsp+0], rbx
-	mov rbx, STR18
 	mov [rsp+8], rbx
 	mov rbx, [rbp+24]
 	sub rbx, 0x3
 	mov [rsp+16], rbx
 	call File.print
 	add rsp, 32
-	.L15:
-	.L16:
+	.L18:
+	.L19:
 	sub rsp, 16
 	mov rbx, [rbp+32]
 	mov [rsp+0], rbx
-	mov rbx, STR26
+	mov rbx, STR27
 	mov [rsp+8], rbx
 	call File.print
 	add rsp, 16
@@ -1741,7 +1791,7 @@ main:
 	sub rsp, 48
 	lea rbx, [rsp+8296]
 	mov [rsp+0], rbx
-	mov rbx, STR27
+	mov rbx, STR28
 	mov [rsp+8], rbx
 	lea rbx, [rsp+16]
 	cld
@@ -1756,10 +1806,10 @@ main:
 	sub rsp, 48
 	lea rbx, [rsp+8296]
 	mov [rsp+0], rbx
-	mov rbx, STR28
+	mov rbx, STR29
 	mov [rsp+8], rbx
 	lea rbx, [rsp+16]
-	mov rcx, STR29
+	mov rcx, STR30
 	mov [rbx], rcx
 	mov rcx, 0x4
 	mov [rbx+24], rcx
@@ -1768,7 +1818,7 @@ main:
 	sub rsp, 32
 	lea rbx, [rsp+8280]
 	mov [rsp+0], rbx
-	xor rbx, rbx
+	mov rbx, 0xffffffffffffffff
 	mov [rsp+8], rbx
 	mov rbx, QWORD [stdout]
 	mov [rsp+16], rbx
@@ -1781,9 +1831,9 @@ main:
 	add rsp, 16
 	sub rsp, 272
 	sub rsp, 32
-	mov rbx, STR30
+	mov rbx, STR31
 	mov [rsp+8], rbx
-	mov rbx, 0x1
+	mov rbx, 0x4
 	mov [rsp+16], rbx
 	call File.open
 	mov rbx, [rsp+0]
@@ -1828,7 +1878,7 @@ main:
 	call JSON_Object.free
 	add rsp, 16
 	sub rsp, 32
-	mov rbx, STR31
+	mov rbx, STR32
 	mov [rsp+8], rbx
 	mov rbx, 0x2
 	mov [rsp+16], rbx
@@ -1868,19 +1918,163 @@ main:
 	mov [rsp+8], rbx
 	call JSON.parse
 	add rsp, 16
-	sub rsp, 32
-	lea rbx, [rsp+40]
-	mov [rsp+0], rbx
-	mov rbx, 0xffffffffffffffff
-	mov [rsp+8], rbx
-	mov rbx, QWORD [stdout]
-	mov [rsp+16], rbx
-	call JSON.print
-	add rsp, 32
+	mov cl, BYTE [JSON+16]
+	test cl, cl
+	sete bl
+	test bl, bl
+	je .L3
 	sub rsp, 16
-	mov rbx, STR14
+	mov rbx, STR33
+	mov [rsp+0], rbx
+	call error
+	add rsp, 16
+	.L3:
+	.L4:
+	lea rcx, [rsp+8]
+	mov rbx, [rcx+24]
+	mov rcx, 0x5
+	cmp rbx, rcx
+	setne bl
+	test bl, bl
+	je .L5
+	sub rsp, 16
+	mov rbx, STR34
+	mov [rsp+0], rbx
+	call error
+	add rsp, 16
+	.L5:
+	.L6:
+	sub rsp, 16
+	mov rbx, STR35
 	mov [rsp+0], rbx
 	call println
+	add rsp, 16
+	sub rsp, 16
+	xor rbx, rbx
+	mov [rsp+8], rbx
+	.L7:
+	mov rbx, [rsp+8]
+	lea rsi, [rsp+24]
+	mov rcx, [rsi+8]
+	cmp rbx, rcx
+	setl bl
+	test bl, bl
+	je .L9
+	sub rsp, 16
+	lea rsi, [rsp+40]
+	mov rcx, [rsi+0]
+	mov rsi, [rsp+24]
+	shl rsi, 2
+	lea rbx, [rcx+rsi*8]
+	mov [rsp+8], rbx
+	mov rcx, [rsp+8]
+	mov rbx, [rcx+24]
+	mov rcx, 0x6
+	cmp rbx, rcx
+	sete bl
+	test bl, bl
+	je .L10
+	sub rsp, 16
+	sub rsp, 32
+	mov rbx, [rsp+56]
+	mov [rsp+8], rbx
+	mov rbx, STR36
+	mov [rsp+16], rbx
+	call JSON_Object.get
+	mov rbx, [rsp+0]
+	add rsp, 32
+	mov [rsp+8], rbx
+	sub rsp, 32
+	mov rbx, [rsp+56]
+	mov [rsp+8], rbx
+	mov rbx, STR37
+	mov [rsp+16], rbx
+	call JSON_Object.get
+	mov rbx, [rsp+0]
+	add rsp, 32
+	mov [rsp+0], rbx
+	mov rcx, [rsp+8]
+	test rcx, rcx
+	sete bl
+	test bl, bl
+	jne .L16
+	mov rsi, [rsp+8]
+	mov rcx, [rsi+24]
+	mov rsi, 0x4
+	cmp rcx, rsi
+	setne bl
+	.L16:
+	test bl, bl
+	jne .L15
+	mov rcx, [rsp+0]
+	test rcx, rcx
+	sete bl
+	.L15:
+	test bl, bl
+	jne .L14
+	mov rsi, [rsp+0]
+	mov rcx, [rsi+24]
+	mov rsi, 0x4
+	cmp rcx, rsi
+	setne bl
+	.L14:
+	test bl, bl
+	je .L12
+	sub rsp, 16
+	mov rbx, STR38
+	mov [rsp+0], rbx
+	call error
+	add rsp, 16
+	.L12:
+	.L13:
+	sub rsp, 48
+	mov rbx, STR39
+	mov [rsp+0], rbx
+	sub rsp, 48
+	mov rcx, [rsp+104]
+	mov rbx, [rcx]
+	mov [rsp+8], rbx
+	mov bl, 0x22
+	mov [rsp+16], bl
+	mov rbx, 0xffffffffffffffff
+	mov [rsp+24], rbx
+	xor bl, bl
+	mov [rsp+32], bl
+	call strfind
+	mov rbx, [rsp+0]
+	add rsp, 48
+	mov [rsp+8], rbx
+	mov rcx, [rsp+56]
+	mov rbx, [rcx]
+	mov [rsp+16], rbx
+	sub rsp, 48
+	mov rcx, [rsp+96]
+	mov rbx, [rcx]
+	mov [rsp+8], rbx
+	mov bl, 0x22
+	mov [rsp+16], bl
+	mov rbx, 0xffffffffffffffff
+	mov [rsp+24], rbx
+	xor bl, bl
+	mov [rsp+32], bl
+	call strfind
+	mov rbx, [rsp+0]
+	add rsp, 48
+	mov [rsp+24], rbx
+	mov rcx, [rsp+48]
+	mov rbx, [rcx]
+	mov [rsp+32], rbx
+	call println
+	add rsp, 48
+	add rsp, 16
+	.L10:
+	.L11:
+	add rsp, 16
+	.L8:
+	mov rbx, [rsp+8]
+	inc QWORD [rsp+8]
+	jmp .L7
+	.L9:
 	add rsp, 16
 	sub rsp, 16
 	mov rbx, [rsp+8256]
@@ -1960,6 +2154,7 @@ extern File.read:function
 extern File.print:function
 extern File.println:function
 extern File.set_buffering:function
+extern File.get_buffering:function
 extern File.set_buffer:function
 extern File.flush:function
 extern string.print:function
@@ -2072,53 +2267,76 @@ STR15:
 db "JSON_Array.append(%u) : no more memory",0
 times 7 db 0
 STR16:
-db "%A",0
+db "JSON_Array.print(JSON.spaced, f) : f is not a line buffered file!",10,"If spacing is used, line buffering is necessary!",0
 times 3 db 0
 STR17:
+db "%A",0
+times 3 db 0
+STR18:
 db "[",0
 dd 0
-STR18:
+STR19:
 db "",10,"%A",0
 dw 0
-STR19:
+STR20:
 db "%*s",0
 dw 0
-STR20:
+STR21:
 db ", ",0
 times 3 db 0
-STR21:
+STR22:
 db "]",0
 dd 0
-STR22:
+STR23:
 db "JSON_Object.append(%s, %u) : no more memory",0
 dw 0
-STR23:
+STR24:
 db "{",0
 dd 0
-STR24:
+STR25:
 db "",34,"%*s",34,"%*s",0
 times 5 db 0
-STR25:
+STR26:
 db ": ",0
 times 3 db 0
-STR26:
+STR27:
 db "}",0
 dd 0
-STR27:
+STR28:
 db "test",0
 db 0
-STR28:
+STR29:
 db "bro",0
 dw 0
-STR29:
+STR30:
 db "Lebron james",0
 db 0
-STR30:
+STR31:
 db "programs/assets/output.json",0
 dw 0
-STR31:
+STR32:
 db "programs/assets/test.json",0
 dd 0
+STR33:
+db "Failed to parse JSON!",0
+STR34:
+db "Expected array of items",0
+times 6 db 0
+STR35:
+db "Analysing test.json ...",0
+times 6 db 0
+STR36:
+db "id",0
+times 3 db 0
+STR37:
+db "name",0
+db 0
+STR38:
+db "Expected id and name in item",0
+db 0
+STR39:
+db "Found %*s : %*s",0
+times 6 db 0
 FP0:
 dq 0.0000000000
 FP1:

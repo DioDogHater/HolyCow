@@ -28,7 +28,8 @@ extern vector_t str_literals[1];
 // A snapshot of the moment before the scope starts
 typedef struct{
     size_t stack_sz, stack_ptr;
-    size_t var_sz, size;
+    size_t var_sz, const_sz;
+    size_t size;
 } scope_t;
 
 // Get the size of a scope (the size of all variables inside)

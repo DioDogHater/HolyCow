@@ -1,21 +1,24 @@
 #include "../std/stdlib.hcw"
 
+// Forward declaration
 union JSON_Data;
 
+// Array
 class JSON_Array {
     JSON_Data* elems = NULL;
     uint size = 0;
 }
 
+// Object (dictionary)
 class JSON_Object {
-    char** keys = NULL;         // All delimited by ""
+    char** keys = NULL;
     JSON_Data* values = NULL;
     uint size = 0;
 }
 
 variant JSON_Data {
     int64 integer;
-    double decimal; // Not implemented yet
+    double decimal;
     bool boolean;
     char* str;      // Delimited by ""
     JSON_Array arr;
@@ -24,16 +27,23 @@ variant JSON_Data {
 }
 
 class JSON_Array {
+    // Add a value to the array
     void append(JSON_Data value);
 
+    // spacing can be JSON.spaced or JSON.compact
     void print(int spacing = 0, File* f = stdout);
     void free();
 }
 
 class JSON_Object {
+    // Add a key / value pair to the object
     void append(char* key, JSON_Data value);
+
+    // Get a value with a key
+    // Returns NULL if key is not found
     JSON_Data* get(char* key);
 
+    // spacing can be JSON.spaced or JSON.compact
     void print(int spacing = 0, File* f = stdout);
     void free();
 }
@@ -41,9 +51,15 @@ class JSON_Object {
 module JSON {
     private char* start = NULL;
     private char* str = NULL;
+
+    // Check this variable after parsing to ensure
+    // the result is valid.
     public bool success = true;
 
+    // Indentation, spaces and newlines added
+    // When printing to file with spacing, output file must be line buffered
     constexpr int spaced = -1;
+    // No space added
     constexpr int compact = 0;
 
     private void skip_whitespace(){
@@ -174,6 +190,7 @@ module JSON {
         }
     }
 
+    // Parse a string containing a JSON expression
     JSON_Data parse(char* str){
         JSON.start = str;
         JSON.str = str;
@@ -181,6 +198,7 @@ module JSON {
         return JSON.parse_term();
     }
 
+    // Print a JSON_Data
     void print_data(JSON_Data* d, uint spacing, File* f){
         if(d.type == JSON_Data.integer)
             f.print("%i", d.integer);
@@ -200,11 +218,13 @@ module JSON {
             f.print("<INVALID %u>", d.type);
     }
 
+    // Print a JSON_Data with an added newline
     void print(JSON_Data* d, int spacing = JSON.compact, File* f = stdout){
         JSON.print_data(d, spacing, f);
         println();
     }
 
+    // Print a free
     void free(JSON_Data* d){
         if(d.type == JSON_Data.arr)
             d.arr.free();
@@ -222,6 +242,9 @@ class JSON_Array {
     }
 
     void print(int spacing, File* f){
+        if(spacing && f.get_buffering() != Buffering.line)
+            error("JSON_Array.print(JSON.spaced, f) : f is not a line buffered file!\nIf spacing is used, line buffering is necessary!");
+
         if(spacing < 0)
             spacing = 3;
         else if(spacing){
@@ -278,6 +301,9 @@ class JSON_Object {
     }
 
     void print(int spacing, File* f){
+        if(spacing && f.get_buffering() != Buffering.line)
+            error("JSON_Array.print(JSON.spaced, f) : f is not a line buffered file!\nIf spacing is used, line buffering is necessary!");
+
         if(spacing < 0)
             spacing = 3;
         else if(spacing){

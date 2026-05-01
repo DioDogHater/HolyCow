@@ -1,4 +1,5 @@
 #include "../stdlib.hcw"
+#include "fcntl.hcw"
 #include "linux.cow"
 #include "memalloc.cow"
 
@@ -51,6 +52,10 @@ class File {
         this.buff_mode = mode;
     }
 
+    uint get_buffering(){
+        @return = this.buff_mode;
+    }
+
     void set_buffer(uint8* buff, uint buff_sz){
         if(!buff)
             this.set_buffering(Buffering.none);
@@ -86,7 +91,7 @@ module File = {
         }
 
         flags = flags | O_CREAT;
-        int fd = open(filepath, flags, 0o640);
+        int fd = open(filepath, flags);
         if(fd < 0){
             println("\nFailed to open file : %u", errno);
             return NULL;

@@ -1597,6 +1597,17 @@ File.set_buffering:
 	leave
 	ret
 
+global File.get_buffering:function
+File.get_buffering:
+	push rbp
+	mov rbp, rsp
+	mov rcx, [rbp+24]
+	mov ebx, DWORD [rcx+32]
+	mov [rbp+16], rbx
+	.L0:
+	leave
+	ret
+
 global File.set_buffer:function
 File.set_buffer:
 	push rbp

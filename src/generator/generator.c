@@ -41,6 +41,9 @@ size_t get_scope_size(node_stmt* scope){
                 return 0;
             total = ALIGN(total, elem_align);
             total += elem_sz * elem_count;
+        }else if(scope->type == tk_constexpr){
+            if(!generate_stmt(NULL, scope, INVALID_TYPE, (scope_info){0}))
+                return false;
         }
     }
     return ALIGN(total, 16);
@@ -48,7 +51,7 @@ size_t get_scope_size(node_stmt* scope){
 
 // Initialise the scope and save the state before it starts
 scope_t gen_init_scope(HC_FILE fptr, node_stmt* scope){
-    scope_t snapshot = (scope_t){stack_sz, stack_ptr, vector_size(vars), 0};
+    scope_t snapshot = (scope_t){stack_sz, stack_ptr, vector_size(vars), vector_size(consts), 0};
     if(!scope)
         return snapshot;
     size_t sz = get_scope_size(scope);
@@ -68,6 +71,8 @@ void gen_quit_scope(HC_FILE fptr, scope_t snapshot){
     stack_sz = snapshot.stack_sz;
     for(size_t i = vector_size(vars); i > snapshot.var_sz; i--)
         vector_popback(vars);
+    for(size_t i = vector_size(consts); i > snapshot.var_sz; i--)
+        vector_popback(consts);
 }
 
 static void gen_free(HC_FILE fptr){
@@ -921,6 +926,10 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
     type_t method = INVALID_TYPE;
     module_t* module = NULL;
     func_t* func = NULL;
+
+    // If we needed to allocate a temporary space
+    size_t temp_struct_space = 0;
+
     if(expr->func.func->type == tk_identifier)
         func = get_func(expr->func.func->term.str, expr->func.func->term.strlen);
     else if(expr->func.func->type == tk_dot){
@@ -941,7 +950,8 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
         }
 
         if(!func){
-            type_t t = typeof_expr(expr->func.func->access.obj);
+            node_expr* obj = expr->func.func->access.obj;
+            type_t t = typeof_expr(obj);
             if(t.data != DATA_STRUCT || t.ptr_depth > 1){
                 print_context("Expected class to call method", expr->func.func->access.member);
                 fail_gen_expr(fptr);
@@ -951,6 +961,17 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
             func = get_method(stru, expr->func.func->access.member->str, expr->func.func->access.member->strlen);
             if(!check_private(func->flags, stru, expr->func.func, false))
                 fail_gen_expr(fptr);
+            if(t.ptr_depth == 0 && (obj->type == tk_func_call || obj->type == tk_struct)){
+                temp_struct_space = ALIGN(t.size, 16);
+                gen_alloc_stack(fptr, temp_struct_space);
+                stack_sz += temp_struct_space;
+
+                reg_t* tmp = alloc_reg(GET_FREE_REG(target_address_size), false);
+                gen_load_stack_ptr(fptr, tmp, 0);
+                if(!save_struct(fptr, stru, tmp, obj))
+                    fail_gen_expr(fptr);
+                (void) free_reg(tmp);
+            }
         }
     }
     if(!func){
@@ -1034,7 +1055,9 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
     if(method.data){
         arg_ptr = ALIGN(arg_ptr, target_address_size);
         reg_t* tmp = GET_FREE_REG(target_address_size);
-        if(method.ptr_depth)
+        if(temp_struct_space)
+            gen_load_stack_ptr(fptr, tmp, func_call_sz);
+        else if(method.ptr_depth)
             tmp = generate_expr(fptr, expr->func.func->access.obj, method, NULL);
         else if(!get_expr_address(fptr, alloc_reg(tmp, false), expr->func.func->access.obj))
             return false;
@@ -1095,7 +1118,7 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
         size_t arg_size = SIZEOF_T(arg_type), arg_align = ALIGNOF_T(arg_type);
 
         // If the argument isn't compatible
-        if(DATAOF_T(arg_type) == DATA_UNION && (arg_expr->type != tk_type_cast && arg_expr->type != tk_struct) && !types_compatible(arg_type, expr_type)){
+        if(!types_compatible(arg_type, expr_type) && (DATAOF_T(arg_type) != DATA_UNION || (arg_expr->type != tk_type_cast && arg_expr->type != tk_struct))){
             print_context_expr("Incompatible argument type", arg_expr);
             print_context("Expected argument type", arg->var_type);
             print_type("Type ", expr_type, " is not compatible!");
@@ -1160,7 +1183,7 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
         gen_loadf_stack(fptr, alloc_freg(used_fregs[i]), func_call_sz - arg_ptr, sz == 8);
     }
 
-    return func_call_sz;
+    return func_call_sz + temp_struct_space;
 }
 
 #define SIGNED_OP1(sign, n) ((sign) ? GET_ALLOWED_REGS1(s##n) : GET_ALLOWED_REGS1(n))
@@ -1724,6 +1747,30 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
                     else if(var->location == VAR_ARG)
                         gen_load_arg(fptr, tmp, var->stack_ptr + member->stack_ptr);
                 }
+                return tmp;
+            }else if(expr->access.obj->type == tk_func_call || expr->access.obj->type == tk_struct){
+                // Get tmp stack space
+                size_t tmp_size = ALIGN(stru->size, 16);
+                gen_alloc_stack(fptr, tmp_size);
+                stack_sz += tmp_size;
+
+                // Get struct
+                reg_t* ptr = alloc_reg(GET_FREE_REG(target_address_size), false);
+                gen_load_stack_ptr(fptr, ptr, 0);
+                if(!save_struct(fptr, stru, ptr, expr->access.obj))
+                    fail_gen_expr(fptr);
+                (void) free_reg(ptr);
+
+                if(SIZEOF_T(member->type) < sz)
+                    gen_loadx_stack(fptr, tmp, member->stack_ptr, SIZEOF_T(member->type), sign);
+                else if(member->location == VAR_ARRAY)
+                    gen_load_stack_ptr(fptr, tmp, member->stack_ptr);
+                else
+                    gen_load_stack(fptr, tmp, member->stack_ptr);
+
+                // Free tmp stack space
+                gen_dealloc_stack(fptr, tmp_size);
+                stack_sz -= tmp_size;
                 return tmp;
             }else{
                 print_context_expr("Not implemented yet", expr);
@@ -2315,6 +2362,10 @@ bool generate_func(HC_FILE fptr, func_t* target, node_stmt* stmt, token_t* paren
     for(size_t i = vector_size(vars); i > func_scope.var_sz; i--)
         vector_popback(vars);
 
+    // Remove the constexprs in the scope
+    for(size_t i = vector_size(consts); i > func_scope.const_sz; i--)
+        vector_popback(consts);
+
     // First label is dedicated to returns
     gen_label(fptr, 0);
     gen_return_func(fptr);
@@ -2384,6 +2435,12 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
     case tk_func_decl:{
         if(fn_type.data){
             print_context("Cannot declare function in another", stmt->func_decl.func_type);
+            return false;
+        }
+        module_t* mod = get_module(stmt->func_decl.identifier->str, stmt->func_decl.identifier->strlen);
+        if(mod){
+            print_context("Module already declared with the same name", stmt->func_decl.identifier);
+            print_context_ex("Module defined here", mod->str, mod->strlen);
             return false;
         }
         func_t* target = get_func(stmt->func_decl.identifier->str, stmt->func_decl.identifier->strlen);
@@ -2869,7 +2926,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
         return true;
     }case tk_constexpr:{
         if(fn_type.data)
-            print_context(YELLOW_FG "WARNING" RESET_ATTR " : Constant expression will be exposed in global namespace", stmt->const_decl.identifier);
+            return true;
 
         // If variable already has the same name
         var_t* var = get_var(stmt->const_decl.identifier->str, stmt->const_decl.identifier->strlen);
@@ -2896,6 +2953,13 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
 
         constexpr_t cons = (constexpr_t){stmt->const_decl.identifier->str, stmt->const_decl.identifier->strlen,
                                         stmt->const_decl.is_integer ? CONST_INT : CONST_FLOAT};
+
+        constexpr_t* last_const = get_constexpr(cons.str, cons.strlen);
+        if(last_const){
+            print_context_ex("Constant already defined with the same name", cons.str, cons.strlen);
+            print_context_ex("First constant defined here", last_const->str, last_const->strlen);
+            return false;
+        }
 
         if((cons.type == CONST_INT && !eval_int_expr(stmt->const_decl.expr, &cons.i)) ||
             (cons.type == CONST_FLOAT && !eval_float_expr(stmt->const_decl.expr, &cons.f))){
@@ -3269,6 +3333,15 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
         if(var){
             print_context("Variable already declared with the same name", stmt->struct_decl.identifier);
             print_context_ex("Variable declared here", var->str, var->strlen);
+            return false;
+        }
+
+        // If a function already has the same name
+        func_t* func = get_func(stmt->struct_decl.identifier->str, stmt->struct_decl.identifier->strlen);
+        if(func){
+            print_context("Function already declared with the same name", stmt->struct_decl.identifier);
+            print_context_ex("Function declared here", func->str, func->strlen);
+            return false;
         }
 
         module_t* mod = get_module(stmt->struct_decl.identifier->str, stmt->struct_decl.identifier->strlen);

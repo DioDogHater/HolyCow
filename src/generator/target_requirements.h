@@ -86,6 +86,9 @@ void gen_dec_reg(HC_FILE, reg_t*);
 // String literal IO
 void gen_load_str_lit(HC_FILE, reg_t*, size_t);
 
+// VTABLE loading
+void gen_load_vtable(HC_FILE, reg_t* ptr, const char*, size_t);
+
 // Global IO
 void gen_load_global(HC_FILE, reg_t*, const char*, size_t);
 void gen_loadx_global(HC_FILE, reg_t*, const char*, size_t, size_t, bool sign);
@@ -181,6 +184,7 @@ void gen_label(HC_FILE, size_t);
 void gen_jump(HC_FILE, size_t);
 void gen_call_func(HC_FILE, const char*, size_t);
 void gen_call_method(HC_FILE, const char*, size_t, const char*, size_t);
+void gen_call_virtual_method(HC_FILE, size_t ptr, size_t index);
 void gen_call_extern_func(HC_FILE, const char*, size_t);
 void gen_cmpz_reg(HC_FILE, reg_t*);
 void gen_compare(HC_FILE, reg_t*, reg_t*);
@@ -205,10 +209,12 @@ extern freg_t fregs[];
 void gen_declare_extern(HC_FILE, const char*, size_t, const char* category);
 void gen_declare_extern_method(HC_FILE, const char*, size_t, const char*, size_t);
 void gen_start_global_decl(HC_FILE, const char*, size_t, bool);
+void gen_start_vtable_decl(HC_FILE, const char*, size_t);
 void gen_declare_int(HC_FILE, int64_t, size_t);
 size_t gen_declare_str(HC_FILE, const char*, size_t);
 void gen_declare_str_lit_ptr(HC_FILE, size_t);
 void gen_declare_global_ptr(HC_FILE, const char*, size_t);
+void gen_declare_method_ptr(HC_FILE, const char* cstr, size_t cstrlen, const char* mstr, size_t mstrlen);
 void gen_declare_float(HC_FILE, double, bool);
 void gen_declare_mem(HC_FILE, size_t);
 void gen_declare_align(HC_FILE, const char*, size_t, size_t);

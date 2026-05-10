@@ -22,7 +22,7 @@ void gen_inherit_method(HC_FILE fptr,
         const char* cstr, size_t cstrlen,
         const char* pstr, size_t pstrlen,
         const char* mstr, size_t mstrlen){
-    HC_FPRINTF(fptr, "\n%.*s.%.*s equ %.*s.%.*s\n", (int)cstrlen, cstr, (int)mstrlen, mstr, (int)pstrlen, pstr, (int)mstrlen, mstr);
+    HC_FPRINTF(fptr, "%.*s.%.*s equ %.*s.%.*s\n", (int)cstrlen, cstr, (int)mstrlen, mstr, (int)pstrlen, pstr, (int)mstrlen, mstr);
 }
 void gen_return_func(HC_FILE fptr){ HC_FPRINTF(fptr, "\tleave\n\tret\n"); }
 void gen_push_stack(HC_FILE fptr, reg_t* op){
@@ -102,7 +102,13 @@ x64_LOCATION_INC(name, args, fmt,##__VA_ARGS__)
 // Str
 void gen_load_str_lit(HC_FILE fptr, reg_t* op, size_t id){ x64_LOAD("STR%lu", id); }
 
-// Global)
+
+// vtable
+void gen_load_vtable(HC_FILE fptr, reg_t* ptr, const char* str, size_t strlen){
+    HC_FPRINTF(fptr, "\tmov QWORD [%s], %.*s__VTABLE\n", ptr->name, (int)strlen, str);
+}
+
+// Global
 #define x64_GLOBAL_ARGS x64_ARGS(const char* str, size_t strlen)
 #define x64_GLOBAL_OFFSET_ARGS x64_ARGS(const char* str, size_t strlen, size_t offset)
 x64_LOCATION_L(global, x64_GLOBAL_ARGS, "%s [%.*s]", x64_sz_names[op->size], (int)strlen, str);
@@ -351,6 +357,12 @@ void gen_call_func(HC_FILE fptr, const char* str, size_t strlen){ HC_FPRINTF(fpt
 void gen_call_method(HC_FILE fptr, const char* pstr, size_t pstrlen, const char* str, size_t strlen){
     HC_FPRINTF(fptr, "\tcall %.*s.%.*s\n", (int)pstrlen, pstr, (int)strlen, str);
 }
+void gen_call_virtual_method(HC_FILE fptr, size_t ptr, size_t index){
+    reg_t* tmp = GET_FREE_REG(8);
+    gen_load_stack(fptr, tmp, ptr);
+    gen_load_ptr(fptr, tmp, tmp);
+    HC_FPRINTF(fptr, "\tcall [%s+%lu*8]\n", tmp->name, index);
+}
 void gen_call_extern_func(HC_FILE fptr, const char* str, size_t strlen){ HC_FPRINTF(fptr, "\tcall %.*s wrt ..plt\n", (int)strlen, str); }
 void gen_cmpz_reg(HC_FILE fptr, reg_t* reg){ HC_FPRINTF(fptr, "\ttest %s, %s\n", reg->name, reg->name); }
 void gen_compare(HC_FILE fptr, reg_t* lhs, reg_t* rhs){ HC_FPRINTF(fptr, "\tcmp %s, %s\n", lhs->name, rhs->name); }
@@ -426,6 +438,9 @@ static const char* x64_decl[9] = {"Unknown","db","dw","Unknown","dd","Unknown","
 void gen_start_global_decl(HC_FILE fptr, const char* str, size_t strlen, bool priv){
     HC_FPRINTF(fptr, "%s %.*s:data\n%.*s:\n", priv?"static":"global", (int)strlen, str, (int)strlen, str);
 }
+void gen_start_vtable_decl(HC_FILE fptr, const char* str, size_t strlen){
+    HC_FPRINTF(fptr, "static %.*s__VTABLE:data\n%.*s__VTABLE:\n", (int)strlen, str, (int)strlen, str);
+}
 void gen_declare_int(HC_FILE fptr, int64_t val, size_t sz){
     HC_FPRINTF(fptr, "%s %lu\n", x64_decl[sz], val);
 }
@@ -461,6 +476,9 @@ void gen_declare_str_lit_ptr(HC_FILE fptr, size_t id){
 }
 void gen_declare_global_ptr(HC_FILE fptr, const char* str, size_t strlen){
     HC_FPRINTF(fptr, "dq %.*s\n", (int)strlen, str);
+}
+void gen_declare_method_ptr(HC_FILE fptr, const char* cstr, size_t cstrlen, const char* mstr, size_t mstrlen){
+    HC_FPRINTF(fptr, "dq %.*s.%.*s\n", (int)cstrlen, cstr, (int)mstrlen, mstr);
 }
 void gen_declare_float(HC_FILE fptr, double val, bool dp){
     HC_FPRINTF(fptr, "d%c %.10F\n", dp?'q':'d', val);

@@ -41,6 +41,7 @@ extern File* stdout;
 extern File* stdin;
 
 // ================ Macros ====================
+
 // Invalid pointer, null pointer
 #define NULL (void*) 0
 // Array to variable arguments
@@ -83,6 +84,7 @@ char to_lower(char c);
 char to_upper(char c);
 
 // ======= Floating point arithmetic ===========
+
 enum Rounding {
     round = 0x00,   // round (closest)
     floor = 0x04,   // floor (round down)
@@ -116,6 +118,7 @@ double ceil(double x);
 double trunc(double x);
 
 // ========= Fixed point arithmetic ============
+
 #define fixed_t int32
 module fixed extern {
     constexpr int precision = 15;
@@ -136,6 +139,7 @@ module fixed extern {
 }
 
 // ============ String operations ============
+
 // Set bytes in memory to a value
 void memset(void* mem, uint8 data, uint mem_size);
 // Copy memory from src to dest
@@ -220,97 +224,98 @@ void print_double(double x, uint digits = 4, File* f = stdout);
 // Print formatted text
 // fmt is the string to format
 
-/* ### FORMAT SPECIFIERS ###
+/* # FORMAT SPECIFIERS
  * %u, %i:
- *  Print uint / int x
- *      print("%u", x);
- *      print("%i", x);
- *
+   Print uint / int x
+    print("%u", x);
+    print("%i", x);
+
  * %0n:
- *  Print uint x, with '0' to fill space to be n characters long
- *  n must be between 1 and 9, inclusive
- *      print("%0n", x);
- *  EX: print("%04", 15); -> "0015"
- *
+   Print uint x, with '0' to fill space to be n characters long
+   n must be between 1 and 9, inclusive
+    print("%0n", x);
+   EX: print("%04", 15); -> "0015"
+
  * %x:
- *  Print uint x as hexadecimal
- *      print("%x", x);
- *
+   Print uint x as hexadecimal
+    print("%x", x);
+
  * %c, %*c:
- *  Print character c once, or n times if %*c is used
- *      print("%c", c);
- *      print("%*c", c, n);
- *
+   Print character c once, or n times if %*c is used
+    print("%c", c);
+    print("%*c", c, n);
+
  * %s, %*s:
- *  Print string s entirely or the n first characters of s if %*s is used
- *      print("%s", s);
- *      print("%*s", n, s);
+   Print string s entirely or the n first characters of s if %*s is used
+    print("%s", s);
+    print("%*s", n, s);
+
  * %S:
- *  print string class instance (give instance as pointer)
- *      print("%S", &s);
- *
+   print string class instance (give instance as pointer)
+    print("%S", &s);
+
  * %f, %*f:
- *  Print double x up to 4 decimals or n decimals if %*f is used
- *      print("%f", x);
- *
+   Print double x up to 4 decimals or n decimals if %*f is used
+    print("%f", x);
+
  * %F:
- *  Print fixed point number x (fixed) up to 4 decimals
- *      print("%F", x);
- *
+   Print fixed point number x (fixed) up to 4 decimals
+    print("%F", x);
+
  * %b:
- *  Print bool b
- *      print("%b", b);
- *
+   Print bool b
+    print("%b", b);
+
  * %B:
- *  Print binary representation of int64 x
- *      print("%B", x);
- *
+   Print binary representation of int64 x
+    print("%B", x);
+
  * %*B:
- *  Print n bytes from address p in hexadecimal, separated by slashes
- *      print("%*B", n, p);
- *
+   Print n bytes from address p in hexadecimal, separated by slashes
+    print("%*B", n, p);
+
  * %[, %L, %*L:
- *  Align text between %[ and %L (or %*L) left to be at least n characters long
- *  When using %L, spaces will be used to fill space
- *  When using %*L, character c will be used to fill space
- *  NOTE: Printing a newline between %[ and %L (or %*L) will cause undefined behavior
- *      print("%[text to align%L", n);
- *      print("%[text to align%L", n, c);
- *
+   Align text between %[ and %L (or %*L) left to be at least n characters long
+   When using %L, spaces will be used to fill space
+   When using %*L, character c will be used to fill space
+   NOTE: Printing a newline between %[ and %L (or %*L) will cause undefined behavior
+    print("%[text to align%L", n);
+    print("%[text to align%L", n, c);
+
  * %[, %R, %*R:
- *  Align text between %[ and %R (or %*R) right to be at least n characters long
- *  When using %R, spaces will be used to fill space
- *  When using %*R, character c will be used to fill space
- *  NOTE: Printing a newline between %[ and %R (or %*R) will cause undefined behavior
- *      print("%[text to align%R", n);
- *      print("%[text to align%R", n, c);
- *
+   Align text between %[ and %R (or %*R) right to be at least n characters long
+   When using %R, spaces will be used to fill space
+   When using %*R, character c will be used to fill space
+   NOTE: Printing a newline between %[ and %R (or %*R) will cause undefined behavior
+    print("%[text to align%R", n);
+    print("%[text to align%R", n, c);
+
  * %[, %C, %*C:
- *  Align text between %[ and %C (or %*C) in the middle to be at least n characters long
- *  When using %C, spaces will be used to fill space
- *  When using %*C, character c will be used to fill space
- *  NOTE: Printing a newline between %[ and %C (or %*C) will cause undefined behavior
- *      print("%[text to center%C", n);
- *      print("%[text to center%*C", n, c);
- *
+   Align text between %[ and %C (or %*C) in the middle to be at least n characters long
+   When using %C, spaces will be used to fill space
+   When using %*C, character c will be used to fill space
+   NOTE: Printing a newline between %[ and %C (or %*C) will cause undefined behavior
+    print("%[text to center%C", n);
+    print("%[text to center%*C", n, c);
+
  * %[, %T, %*T:
- *  Truncate text between %[ and %T (or %*T) to a length n
- *  When using %T, text will be truncated at the end
- *  When using %*T, text will be truncated at the end
- *  NOTE: Printing a newline between %[ and %T (or %*T) will cause undefined behavior
- *      print("%[text to truncate%T", n);
- *      print("%[text to truncate%*T", n);
- *
+   Truncate text between %[ and %T (or %*T) to a length n
+   When using %T, text will be truncated at the end
+   When using %*T, text will be truncated at the end
+   NOTE: Printing a newline between %[ and %T (or %*T) will cause undefined behavior
+    print("%[text to truncate%T", n);
+    print("%[text to truncate%*T", n);
+
  * %A:
- *  Align cursor to be n characters away from start of line
- *  When using %A, spaces will be used to fill space
- *  When using %*A, character c will be used to fill space
- *      print("%A", n);
- *      print("%*A", n, c);
- *
+   Align cursor to be n characters away from start of line
+   When using %A, spaces will be used to fill space
+   When using %*A, character c will be used to fill space
+    print("%A", n);
+    print("%*A", n, c);
+
  * %%:
- *  Print '%'
- *      print("%%");
+   Print '%'
+    print("%%");
  */
 
 // argv should be the array of arguments given to format the string
@@ -327,9 +332,9 @@ uint input(char* buff, uint len);
 char input_char();
 
 // ===== Int <-> string conversion ======
+
 // Convert an int to a string
 // if filler != 0, filler will be used to fill to be len - 1 long
-// Ex: int_to_string(10, str, 5, '0') -> 0010
 char* int_to_string(int x, char* str, uint len, char filler = 0);
 char* uint_to_string(uint x, char* str, uint len, char filler = 0);
 int string_to_int(char* str, uint len = -1);
@@ -341,8 +346,7 @@ uint _align(uint x, uint align);
 // Manually Allocate memory block of sz bytes
 void* malloc(uint sz);
 // Reallocates memory block given by ptr to be
-// sz bytes big. If ptr is NULL, will act like
-// malloc.
+// sz bytes big. If ptr is NULL, will act like malloc
 void* realloc(void* ptr, uint sz);
 // Free a memory block given by ptr
 void free(void* ptr);
@@ -353,7 +357,7 @@ uint get_free_heap();
 // Returns bytes of allocated heap memory
 uint get_allocated_heap();
 
-// Vector class
+// Vector class.
 // CAREFUL ! Pointers to elements in vectors will eventually become invalid!
 // Therefore, pointers should only be used temporarily, and should not be kept
 // if you are adding more elements to the vector. In future implementations,

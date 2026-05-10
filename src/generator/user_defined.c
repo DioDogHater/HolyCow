@@ -1,5 +1,6 @@
 #include "user_defined.h"
 #include "evaluator.h"
+#include "hc_types.h"
 
 // http://www.cse.yorku.ca/~oz/hash.html
 // djb2 hashing function (adapted)
@@ -72,6 +73,19 @@ var_t* get_member(struct_t* struc, const char* str, size_t strlen){
 // Find a structure's method
 func_t* get_method(struct_t* struc, const char* str, size_t strlen){
     return (func_t*) find_named_thing(struc->funcs, str, strlen);
+}
+
+// Get a virtual method's index
+int64_t get_virtual_method(struct_t* stru, func_t* func){
+    int64_t j = 0;
+    for(size_t i = 0; i < vector_size(stru->funcs); i++){
+        func_t* method = vector_at(stru->funcs, i);
+        if(method == func)
+            return j;
+        if(method->flags & FLAG_VIRTUAL)
+            j++;
+    }
+    return -1;
 }
 
 // Find a union type

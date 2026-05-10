@@ -93,7 +93,7 @@ size_t sizeof_type(token_t* tk){
 
 type_t type_from_tk(token_t* tk){
     type_t t;
-    while(tk->next && tk->type >= tk_public && tk->type <= tk_cfunc)
+    while(tk->next && tk->type >= tk_public && tk->type <= tk_virtual)
         tk = tk->next;
     t.repr = tk, t.ptr_depth = 0;
     if(tk->type != tk_identifier){
@@ -128,7 +128,7 @@ type_t type_from_tk(token_t* tk){
 
 size_t flags_from_tk(token_t* tk){
     size_t a = FLAG_NONE;
-    while(tk->next && tk->type >= tk_public && tk->type <= tk_cfunc){
+    while(tk->next && tk->type >= tk_public && tk->type <= tk_virtual){
         if(tk->type != tk_public){
             if(a & (1 << (tk->type - tk_private)))
                 print_context("Modifier is repeated, only needed once", tk);

@@ -57,7 +57,7 @@ int main(uint argc, char** argv){
 
     SetTargetFPS(60);
 
-    Camera cam = Camera{
+    Camera3D cam = Camera3D{
         Vector3{0.0, 2.5, 10.0},      // position
         Vector3{0.0, 0.0, 5.0},       // target
         Vector3{0.0, 1.0, 0.0},       // up
@@ -134,8 +134,7 @@ int main(uint argc, char** argv){
             DrawFPS(0, 0);
 
             // Test text
-            DrawText(
-            "WASD to move, Space and C to go up and down\nDrag right click to unlock and move camera\nLeft click to shoot red balls", 0, 20, 16, GREEN);
+            DrawText("WASD to move, Space and C to go up and down\nDrag right click to unlock and move camera\nLeft click to shoot red balls", 0, 20, 16, GREEN);
         EndDrawing();
     }
 

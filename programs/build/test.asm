@@ -58,8 +58,8 @@ frame:
 	mov [rsp+32], rcx
 	.L4:
 	.L5:
-	inc QWORD [rsp+24]
 	mov rcx, [rsp+24]
+	inc QWORD [rsp+24]
 	.L2:
 	dec rbx
 	jmp .L1
@@ -408,7 +408,8 @@ print_int_vector:
 	setl bl
 	test bl, bl
 	je .L3
-	mov rbx, [rsp+8]
+	sub rsp, 16
+	mov rbx, [rsp+24]
 	test rbx, rbx
 	je .L4
 	sub rsp, 16
@@ -418,9 +419,6 @@ print_int_vector:
 	add rsp, 16
 	.L4:
 	.L5:
-	sub rsp, 16
-	mov rbx, STR17
-	mov [rsp+0], rbx
 	sub rsp, 32
 	mov rbx, [rbp+16]
 	mov [rsp+8], rbx
@@ -429,9 +427,15 @@ print_int_vector:
 	call vector.at
 	mov rbx, [rsp+0]
 	add rsp, 32
+	mov [rsp+8], rbx
+	sub rsp, 16
+	mov rbx, STR17
+	mov [rsp+0], rbx
+	mov rbx, [rsp+24]
 	mov rcx, [rbx]
 	mov [rsp+8], rcx
 	call print
+	add rsp, 16
 	add rsp, 16
 	.L2:
 	mov rbx, [rsp+8]
@@ -448,17 +452,84 @@ print_int_vector:
 	leave
 	ret
 
+global Parent.print:function
+Parent.print:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 32
+	mov rbx, STR19
+	mov [rsp+0], rbx
+	mov rcx, [rbp+16]
+	mov rbx, [rcx+0]
+	mov [rsp+8], rbx
+	mov rcx, [rbp+16]
+	mov rbx, [rcx+8]
+	mov [rsp+16], rbx
+	mov rcx, [rbp+16]
+	mov rbx, [rcx+16]
+	mov [rsp+24], rbx
+	call println
+	add rsp, 32
+	.L0:
+	leave
+	ret
+
+global Child.print:function
+Child.print:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 16
+	mov rbx, [rbp+16]
+	add rbx, 0x8
+	mov [rsp+0], rbx
+	call Parent.print
+	add rsp, 16
+	sub rsp, 16
+	mov rbx, STR20
+	mov [rsp+0], rbx
+	call println
+	add rsp, 16
+	.L0:
+	leave
+	ret
+
+global Child.test:function
+Child.test:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 16
+	mov rbx, STR21
+	mov [rsp+0], rbx
+	call println
+	add rsp, 16
+	.L0:
+	leave
+	ret
+
+global Child2.test:function
+Child2.test:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 16
+	mov rbx, STR22
+	mov [rsp+0], rbx
+	call println
+	add rsp, 16
+	.L0:
+	leave
+	ret
+
 global main:function
 main:
 	push rbp
 	mov rbp, rsp
-	sub rsp, 176
+	sub rsp, 240
 	movsd xmm0, [FP0]
-	movsd [rsp+168], xmm0
+	movsd [rsp+232], xmm0
 	movsd xmm0, [FP1]
-	movsd [rsp+160], xmm0
-	movsd xmm0, [rsp+160]
-	movsd xmm1, [rsp+168]
+	movsd [rsp+224], xmm0
+	movsd xmm0, [rsp+224]
+	movsd xmm1, [rsp+232]
 	movsd xmm2, xmm0
 	subsd xmm2, xmm1
 	andpd xmm2, [__FABS_MASKd]
@@ -467,15 +538,15 @@ main:
 	test bl, bl
 	je .L1
 	sub rsp, 48
-	mov rbx, STR19
+	mov rbx, STR23
 	mov [rsp+0], rbx
 	mov rbx, 0xa
 	mov [rsp+8], rbx
-	movsd xmm0, [rsp+216]
+	movsd xmm0, [rsp+280]
 	movsd [rsp+16], xmm0
 	mov rbx, 0xa
 	mov [rsp+24], rbx
-	movsd xmm0, [rsp+208]
+	movsd xmm0, [rsp+272]
 	movsd [rsp+32], xmm0
 	movsd xmm0, [FP_PRECISION]
 	movsd [rsp+40], xmm0
@@ -484,19 +555,19 @@ main:
 	.L1:
 	.L2:
 	sub rsp, 48
-	mov rbx, STR20
+	mov rbx, STR24
 	mov [rsp+0], rbx
 	mov rbx, 0x3
 	mov [rsp+8], rbx
-	mov rbx, STR21
+	mov rbx, STR25
 	mov [rsp+16], rbx
-	mov rbx, STR22
+	mov rbx, STR26
 	mov [rsp+24], rbx
-	mov rbx, STR23
+	mov rbx, STR27
 	mov [rsp+32], rbx
 	call frame
 	add rsp, 48
-	lea rbx, [rsp+128]
+	lea rbx, [rsp+192]
 	mov rcx, 0x6
 	mov [rbx+0], rcx
 	xor rcx, rcx
@@ -504,13 +575,13 @@ main:
 	lea r8, [rbx+16]
 	mov rcx, STR8
 	mov [r8+0], rcx
-	mov rcx, STR24
+	mov rcx, STR28
 	mov [r8+8], rcx
 	sub rsp, 32
 	lea rbx, [rsp+0]
 	cld
 	lea rdi, [rbx]
-	lea rsi, [rsp+160]
+	lea rsi, [rsp+224]
 	mov rcx, 4
 	rep movsq
 	call test.print
@@ -523,7 +594,7 @@ main:
 	add rsp, 16
 	call test.print
 	add rsp, 32
-	lea rbx, [rsp+96]
+	lea rbx, [rsp+160]
 	sub rsp, 32
 	mov [rsp+0], rbx
 	mov rbx, STR8
@@ -533,38 +604,38 @@ main:
 	call string.from_str
 	add rsp, 32
 	sub rsp, 16
-	lea rbx, [rsp+112]
+	lea rbx, [rsp+176]
 	mov [rsp+0], rbx
 	call string.print_debug
 	add rsp, 16
 	sub rsp, 16
-	lea rbx, [rsp+112]
+	lea rbx, [rsp+176]
 	mov [rsp+0], rbx
 	call string.free
 	add rsp, 16
-	lea rbx, [rsp+96]
+	lea rbx, [rsp+160]
 	sub rsp, 32
 	mov [rsp+0], rbx
-	mov rbx, STR25
+	mov rbx, STR29
 	mov [rsp+8], rbx
-	mov rbx, STR26
+	mov rbx, STR30
 	mov [rsp+16], rbx
 	call string.format
 	add rsp, 32
 	sub rsp, 16
-	lea rbx, [rsp+112]
+	lea rbx, [rsp+176]
 	mov [rsp+0], rbx
 	call string.print_debug
 	add rsp, 16
-	lea rbx, [rsp+64]
+	lea rbx, [rsp+128]
 	sub rsp, 16
 	mov [rsp+0], rbx
-	lea rbx, [rsp+112]
+	lea rbx, [rsp+176]
 	mov [rsp+8], rbx
 	call string.from_shared
 	add rsp, 16
 	sub rsp, 32
-	lea rbx, [rsp+96]
+	lea rbx, [rsp+160]
 	mov [rsp+0], rbx
 	mov rbx, 0x6
 	mov [rsp+8], rbx
@@ -573,12 +644,12 @@ main:
 	call string.slice
 	add rsp, 32
 	sub rsp, 16
-	lea rbx, [rsp+80]
+	lea rbx, [rsp+144]
 	mov [rsp+0], rbx
 	call string.print_debug
 	add rsp, 16
 	sub rsp, 16
-	lea rbx, [rsp+80]
+	lea rbx, [rsp+144]
 	mov [rsp+0], rbx
 	mov bl, 0x21
 	mov [rsp+8], bl
@@ -587,21 +658,21 @@ main:
 	call string.replace
 	add rsp, 16
 	sub rsp, 16
-	lea rbx, [rsp+80]
+	lea rbx, [rsp+144]
 	mov [rsp+0], rbx
 	call string.print_debug
 	add rsp, 16
 	sub rsp, 16
-	lea rbx, [rsp+80]
+	lea rbx, [rsp+144]
 	mov [rsp+0], rbx
 	call string.free
 	add rsp, 16
 	sub rsp, 16
-	lea rbx, [rsp+112]
+	lea rbx, [rsp+176]
 	mov [rsp+0], rbx
 	call string.free
 	add rsp, 16
-	lea rbx, [rsp+24]
+	lea rbx, [rsp+88]
 	sub rsp, 32
 	mov [rsp+0], rbx
 	mov rbx, 0x8
@@ -611,107 +682,151 @@ main:
 	call vector.new
 	add rsp, 32
 	mov rbx, 0x5
-	mov [rsp+56], rbx
+	mov [rsp+120], rbx
 	sub rsp, 32
-	lea rbx, [rsp+56]
+	lea rbx, [rsp+120]
 	mov [rsp+8], rbx
-	lea rbx, [rsp+88]
+	lea rbx, [rsp+152]
 	mov [rsp+16], rbx
 	call vector.pushback
 	add rsp, 32
 	mov rbx, 0xa
-	mov [rsp+56], rbx
+	mov [rsp+120], rbx
 	sub rsp, 32
-	lea rbx, [rsp+56]
+	lea rbx, [rsp+120]
 	mov [rsp+8], rbx
-	lea rbx, [rsp+88]
+	lea rbx, [rsp+152]
 	mov [rsp+16], rbx
 	call vector.pushback
 	add rsp, 32
 	sub rsp, 16
-	lea rbx, [rsp+40]
+	lea rbx, [rsp+104]
 	mov [rsp+0], rbx
 	call print_int_vector
 	add rsp, 16
 	mov rbx, 0xfffffffffffffffb
-	mov [rsp+56], rbx
+	mov [rsp+120], rbx
 	sub rsp, 32
-	lea rbx, [rsp+56]
+	lea rbx, [rsp+120]
 	mov [rsp+8], rbx
 	mov rbx, 0x1
 	mov [rsp+16], rbx
-	lea rbx, [rsp+88]
+	lea rbx, [rsp+152]
 	mov [rsp+24], rbx
 	call vector.insert
 	add rsp, 32
 	sub rsp, 16
-	lea rbx, [rsp+40]
+	lea rbx, [rsp+104]
 	mov [rsp+0], rbx
 	call print_int_vector
 	add rsp, 16
 	sub rsp, 16
-	lea rbx, [rsp+40]
+	lea rbx, [rsp+104]
 	mov [rsp+0], rbx
 	xor rbx, rbx
 	mov [rsp+8], rbx
 	call vector.remove
 	add rsp, 16
 	sub rsp, 16
-	lea rbx, [rsp+40]
+	lea rbx, [rsp+104]
 	mov [rsp+0], rbx
 	call print_int_vector
 	add rsp, 16
 	sub rsp, 16
-	lea rbx, [rsp+40]
+	lea rbx, [rsp+104]
 	mov [rsp+0], rbx
 	call vector.free
 	add rsp, 16
-	lea rbx, [rsp+8]
+	lea rbx, [rsp+72]
 	lea r8, [rbx+0]
 	xor rcx, rcx
 	mov [r8], rcx
 	mov rcx, 0x2
 	mov [r8+8], rcx
 	sub rsp, 16
-	lea rbx, [rsp+24]
+	lea rbx, [rsp+88]
 	mov [rsp+0], rbx
 	call msg.print
 	add rsp, 16
 	sub rsp, 16
-	lea rbx, [rsp+24]
+	lea rbx, [rsp+88]
 	mov [rsp+0], rbx
 	mov rbx, STR8
 	mov [rsp+8], rbx
 	call msg.set_text
 	add rsp, 16
 	sub rsp, 16
-	lea rbx, [rsp+24]
+	lea rbx, [rsp+88]
 	mov [rsp+0], rbx
 	call msg.print
 	add rsp, 16
 	sub rsp, 16
-	lea rbx, [rsp+24]
+	lea rbx, [rsp+88]
 	mov [rsp+0], rbx
 	cvtsd2ss xmm0, [FP2]
 	movss [rsp+8], xmm0
 	call msg.set_number
 	add rsp, 16
 	sub rsp, 16
-	lea rbx, [rsp+24]
+	lea rbx, [rsp+88]
 	mov [rsp+0], rbx
 	call msg.print
 	add rsp, 16
 	sub rsp, 16
-	lea rbx, [rsp+24]
+	lea rbx, [rsp+88]
 	mov [rsp+0], rbx
 	xor bl, bl
 	mov [rsp+8], bl
 	call msg.set_confirm
 	add rsp, 16
 	sub rsp, 16
-	lea rbx, [rsp+24]
+	lea rbx, [rsp+88]
 	mov [rsp+0], rbx
 	call msg.print
+	add rsp, 16
+	lea rbx, [rsp+40]
+	mov rcx, 0x5
+	mov [rbx+8], rcx
+	mov rcx, 0x7
+	mov [rbx+16], rcx
+	mov rcx, 0x1
+	mov [rbx+24], rcx
+	mov QWORD [rbx], Child__VTABLE
+	sub rsp, 16
+	lea rbx, [rsp+56]
+	mov [rsp+0], rbx
+	call Child.print
+	add rsp, 16
+	sub rsp, 16
+	lea rbx, [rsp+56]
+	mov [rsp+0], rbx
+	mov rbx, [rsp+0]
+	mov rbx, [rbx]
+	call [rbx+0*8]
+	add rsp, 16
+	lea rbx, [rsp+8]
+	xor rcx, rcx
+	mov [rbx+8], rcx
+	xor rcx, rcx
+	mov [rbx+16], rcx
+	xor rcx, rcx
+	mov [rbx+24], rcx
+	mov QWORD [rbx], Child2__VTABLE
+	sub rsp, 16
+	lea rbx, [rsp+24]
+	mov [rsp+0], rbx
+	mov rbx, [rsp+0]
+	mov rbx, [rbx]
+	call [rbx+0*8]
+	add rsp, 16
+	lea rbx, [rsp+8]
+	mov [rsp+0], rbx
+	sub rsp, 16
+	mov rbx, [rsp+16]
+	mov [rsp+0], rbx
+	mov rbx, [rsp+0]
+	mov rbx, [rbx]
+	call [rbx+0*8]
 	add rsp, 16
 	.L0:
 	leave
@@ -826,6 +941,7 @@ extern string.format:function
 extern vector.empty:function
 extern vector.new:function
 extern vector.from_arr:function
+Child2.print equ Child.print
 
 
 section .data align=16
@@ -836,6 +952,12 @@ extern stdin:data
 global FP_PRECISION:data
 FP_PRECISION:
 dq 0.0001000000
+static Child__VTABLE:data
+Child__VTABLE:
+dq Child.test
+static Child2__VTABLE:data
+Child2__VTABLE:
+dq Child2.test
 extern File:data
 extern fixed:data
 extern string:data
@@ -904,27 +1026,39 @@ STR18:
 db "]",0
 dd 0
 STR19:
+db "%i, %i, %i",0
+times 3 db 0
+STR20:
+db "Hello from Child!",0
+dd 0
+STR21:
+db "Test from Child",0
+times 6 db 0
+STR22:
+db "Test from Child2",0
+times 5 db 0
+STR23:
 db "%*f ~= %*f ± %f",0
 times 5 db 0
-STR20:
+STR24:
 db "Foo tierlist",0
 db 0
-STR21:
+STR25:
 db "1. Foo",0
 times 7 db 0
-STR22:
+STR26:
 db "2. Bar",0
 times 7 db 0
-STR23:
+STR27:
 db "3. Foo-bar",0
 times 3 db 0
-STR24:
+STR28:
 db "Foo bar",0
 times 6 db 0
-STR25:
+STR29:
 db "Hello %s!",0
 dd 0
-STR26:
+STR30:
 db "friend",0
 times 7 db 0
 FP0:

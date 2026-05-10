@@ -63,14 +63,16 @@ func_t* get_func(const char* str, size_t strlen);
 
 
 // Structs / classes
-typedef struct{
+typedef struct struct_t {
     const char* str;
     size_t strlen;
     size_t size;
-    size_t align;
+    unsigned int align;
+    bool is_virtual;
     vector_t members[1];
     vector_t funcs[1];
-    node_expr* default_values;
+    vector_t default_values[1];
+    struct struct_t* parent;
 } struct_t;
 extern vector_t structs[1];
 
@@ -82,6 +84,9 @@ struct_t* get_struct_tk(token_t* name);
 var_t* get_member(struct_t* stru, const char* str, size_t strlen);
 // Find a class' method
 func_t* get_method(struct_t* stru, const char* str, size_t strlen);
+// Get a virtual method's index
+// Returns -1 if method is not found
+int64_t get_virtual_method(struct_t* stru, func_t* func);
 
 
 // Unions / variants

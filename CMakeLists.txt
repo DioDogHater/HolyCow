@@ -32,9 +32,18 @@ src/generator/generator.c
 
 # Currently available targets
 # - TARGET_x64_Linux -> x64 Linux
+# - TARGET_WIN64     -> x64 Windows
 
 # Change the target here
-target_compile_definitions(HolyCow PRIVATE TARGET_x64_Linux)
+# set(target "TARGET_x64_Linux")
+
+if(DEFINED target)
+    target_compile_definitions(HolyCow PRIVATE ${target})
+elseif(WIN32)
+    target_compile_definitions(HolyCow PRIVATE TARGET_WIN64)
+elseif(UNIX)
+    target_compile_definitions(HolyCow PRIVATE TARGET_x64_Linux)
+endif()
 
 # Create the executable
 add_executable(hcc src/compiler.c)

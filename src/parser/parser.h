@@ -195,6 +195,7 @@ typedef struct{
     NODE_STMT_BASE;
     token_t* identifier;
     union node_stmt* members;
+    token_t* parent;
 } node_struct_decl;
 
 // tk_enum

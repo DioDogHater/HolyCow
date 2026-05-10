@@ -25,6 +25,7 @@ enum{
     tk_extern,
     tk_peek,
     tk_cfunc,
+    tk_virtual,     // Virtual methods (polymorphism)
     tk_constexpr,
 
     // Values

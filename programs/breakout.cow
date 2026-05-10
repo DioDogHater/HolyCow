@@ -14,7 +14,7 @@ module Game {
     uint frames = 0;
 }
 
-// 2D integer vector
+// 2D integer vector.
 // Use this in your projects if you want, dont reinvent the wheel yo
 class vec2 {
     int32 x;
@@ -198,8 +198,7 @@ module Blocks {
     }
 }
 
-// The ball we have to keep in the game as the player
-// Bouncy ball goes like boing boing boing boing
+// The ball we have to keep in the game as the player.
 class Ball {
     vec2 pos;
     vec2 vel = vec2{0, 0};

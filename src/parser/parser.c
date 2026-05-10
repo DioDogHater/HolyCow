@@ -426,7 +426,7 @@ node_stmt* parse_stmt(token_t** tokens, bool sc_necessary){
     // Starts with a type and an identifier must follow
     if((token->type >= tk_int8 && token->type < tk_constexpr) ||
        (token->type == tk_identifier && (peek_tk_type(&token, tk_identifier) || peek_tk_type(&token, tk_mult)))){
-        while(peek_token(tokens)->type >= tk_public && peek_token(tokens)->type <= tk_cfunc)
+        while(peek_token(tokens)->type >= tk_public && peek_token(tokens)->type <= tk_virtual)
             (void) consume_token(tokens);
 
         (void) consume_token(tokens); // Consume the first token
@@ -537,11 +537,20 @@ node_stmt* parse_stmt(token_t** tokens, bool sc_necessary){
     else if(token->type == tk_struct || token->type == tk_class || token->type == tk_union || token->type == tk_variant){
         (void) consume_token(tokens);
         stmt = (node_stmt*) ARENA_ALLOC(arena, node_struct_decl);
-        stmt->struct_decl = (node_struct_decl){token->type, NULL, peek_token(tokens), NULL};
+        stmt->struct_decl = (node_struct_decl){token->type, NULL, peek_token(tokens), NULL, NULL};
         if(!consume_tk_type(tokens, tk_identifier)){
             print_context("Expected identifier to name structure", *tokens);
             return NULL;
         }
+        if(consume_tk_type(tokens, tk_colon)){
+            token_t* parent = consume_token(tokens);
+            if(!parent || parent->type != tk_identifier){
+                print_context("Expected parent class to inherit", *tokens);
+                return NULL;
+            }
+            stmt->struct_decl.parent = parent;
+        }
+        (void) consume_tk_type(tokens, tk_virtual);
         if(consume_tk_type(tokens, tk_semicolon))
             return stmt;
         stmt->struct_decl.members = parse_scope(tokens);
@@ -554,15 +563,21 @@ node_stmt* parse_stmt(token_t** tokens, bool sc_necessary){
     else if(token->type == tk_module){
         (void) consume_token(tokens);
         stmt = (node_stmt*) ARENA_ALLOC(arena, node_struct_decl);
-        stmt->struct_decl = (node_struct_decl){token->type, NULL, peek_token(tokens), NULL};
+        stmt->struct_decl = (node_struct_decl){token->type, NULL, peek_token(tokens), NULL, NULL};
         if(!consume_tk_type(tokens, tk_identifier)){
             print_context("Expected identifier to name structure", *tokens);
             return NULL;
         }
-        if(peek_tk_type(tokens, tk_extern))
-            (void) consume_token(tokens);
-        else
-            (void) consume_tk_type(tokens, tk_assign);
+        if(consume_tk_type(tokens, tk_extern));
+        else (void) consume_tk_type(tokens, tk_assign);
+        if(consume_tk_type(tokens, tk_colon)){
+            token_t* parent = consume_token(tokens);
+            if(!parent || parent->type != tk_identifier){
+                print_context("Expected parent class to inherit", *tokens);
+                return NULL;
+            }
+            stmt->struct_decl.parent = parent;
+        }
         stmt->struct_decl.members = parse_scope(tokens);
         if(stmt->struct_decl.members == (node_stmt*)(~0))
             stmt->struct_decl.members = NULL;

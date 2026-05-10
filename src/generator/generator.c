@@ -3,8 +3,11 @@
 #include "hc_types.h"
 #include "regs.h"
 #include "target_requirements.h"
-#include "../targets/target_x64_Linux.h"
 #include "user_defined.h"
+
+// Targets
+#include "../targets/target_x64_Linux.h"
+#include "../targets/target_win64.h"
 
 // Global variables
 size_t stack_ptr = 0;
@@ -174,21 +177,21 @@ bool save_struct(HC_FILE fptr, struct_t* stru, reg_t* ptr, node_expr* value){
 
     if(value->type == tk_struct){
         node_expr* args = value->construct.elems;
-        node_expr* default_args = stru->default_values;
-        size_t i = 0;
-        for(; default_args; i++){
+        vector_t* default_args = stru->default_values;
+        size_t i = 0, darg_i = 0;
+        for(; darg_i < vector_size(default_args); i++){
             var_t* member = vector_at(stru->members, i);
             node_expr* arg_expr = args;
 
             if(member->location == VAR_ARRAY)
                 continue;
 
+            node_expr** darg = vector_at(default_args, darg_i++);
+
             if(!args || args->type == tk_nothing){
-                if(default_args->type == tk_nothing){
-                    default_args = default_args->next;
+                if(!(*darg))
                     continue;
-                }
-                arg_expr = default_args;
+                arg_expr = *darg;
             }
 
             if(args)
@@ -215,12 +218,13 @@ bool save_struct(HC_FILE fptr, struct_t* stru, reg_t* ptr, node_expr* value){
                 (void) free_reg(member_ptr);
             }
 
-            default_args = default_args->next;
-            if(args && !default_args){
+            if(args && darg_i >= vector_size(default_args)){
                 print_context_expr("Too many initialisation values provided", args);
                 return false;
             }
         }
+        if(stru->is_virtual)
+            gen_load_vtable(fptr, ptr, stru->str, stru->strlen);
         return true;
     }
 
@@ -959,7 +963,7 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
             method = t;
             struct_t* stru = get_struct_tk(t.repr);
             func = get_method(stru, expr->func.func->access.member->str, expr->func.func->access.member->strlen);
-            if(!check_private(func->flags, stru, expr->func.func, false))
+            if(!func || !check_private(func->flags, stru, expr->func.func, false))
                 fail_gen_expr(fptr);
             if(t.ptr_depth == 0 && (obj->type == tk_func_call || obj->type == tk_struct)){
                 temp_struct_space = ALIGN(t.size, 16);
@@ -1162,6 +1166,11 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
     // Call the function
     if(func->flags & FLAG_EXTERN)
         gen_call_extern_func(fptr, func->str, func->strlen);
+    else if(method.data && func->flags & FLAG_VIRTUAL)
+        gen_call_virtual_method(fptr,
+            (func->type.ptr_depth || func->type.data == DATA_STRUCT || func->type.data == DATA_UNION) ? target_address_size : func->type.size,
+            get_virtual_method(get_struct_tk(method.repr), func)
+        );
     else if(method.data)
         gen_call_method(fptr, method.repr->str, method.repr->strlen, func->str, func->strlen);
     else if(module)
@@ -1283,7 +1292,10 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
                 gen_load_stack(fptr, tmp, stack_sz - var->stack_ptr);
             else if(var->location == VAR_GLOBAL)
                 gen_load_global(fptr, tmp, var->str, var->strlen);
-            else if(var->location == VAR_ARG)
+            else if(var->location == VAR_ARG && (var->flags & FLAG_VIRTUAL)){
+                gen_load_arg(fptr, tmp, var->stack_ptr);
+                gen_add_reg(fptr, tmp, target_address_size);
+            }else if(var->location == VAR_ARG)
                 gen_load_arg(fptr, tmp, var->stack_ptr);
             else if((var->location == VAR_ARRAY || var->location == VAR_GLOBAL_ARR) && sz != target_address_size){
                 print_context_expr("Cannot fit address into type of different size", expr);
@@ -2217,16 +2229,19 @@ bool generate_func(HC_FILE fptr, func_t* target, node_stmt* stmt, token_t* paren
         func.flags |= FLAG_FDEF;
 
     if(target->type.data != DATA_INVALID){
-        if(stmt->func_decl.stmts && (target->flags & FLAG_FDEF)){
-            print_context_ex("Redefining function here", func.str, func.strlen);
+        if(target->flags & FLAG_INHERITED)
+            target->flags &= ~FLAG_INHERITED;
+
+        if(stmt->func_decl.stmts && !(target->flags & FLAG_VIRTUAL) && (target->flags & FLAG_FDEF)){
+            print_context_ex("Redefining function", func.str, func.strlen);
             print_context_ex("First defined here", target->str, target->strlen);
             return false;
         }
         bool same = ((func.flags & ~FLAG_FDEF) == (target->flags & ~FLAG_FDEF) &&
-        func.type.size == target->type.size &&
-        func.type.sign == target->type.sign &&
-        func.type.ptr_depth == target->type.ptr_depth &&
-        func.type.data == target->type.data);
+                    func.type.size == target->type.size &&
+                    func.type.sign == target->type.sign &&
+                    func.type.ptr_depth == target->type.ptr_depth &&
+                    func.type.data == target->type.data);
         node_var_decl* last_arg = &target->args->var_decl;
         if((last_arg == NULL) != (func.args == NULL))
             same = false;
@@ -2308,10 +2323,31 @@ bool generate_func(HC_FILE fptr, func_t* target, node_stmt* stmt, token_t* paren
     if(this){
         type_t this_type = type_from_tk(this);
         this_type.ptr_depth = 1;
+
         arg_ptr = ALIGN(arg_ptr, target_address_size);
-        var_t this_var = (var_t){"this", 4, arg_ptr, VAR_ARG, FLAG_INHERITED, this_type};
-        arg_ptr += target_address_size;
+
+        // this pointer
+        var_t this_var = (var_t){"this", 4, arg_ptr, VAR_ARG, FLAG_NONE, this_type};
         vector_append(vars, &this_var);
+
+        arg_ptr += target_address_size;
+
+        // super pointer
+        struct_t* stru = get_struct_tk(this);
+        struct_t* parent = stru->parent;
+        if(parent){
+            static token_t super_repr;
+            super_repr = (token_t){DATA_STRUCT, parent->str, parent->strlen, NULL};
+            var_t super_var = (var_t){
+                "super", 5,
+                this_var.stack_ptr, VAR_ARG, FLAG_NONE,
+                (type_t){target_address_size, &super_repr, false, DATA_STRUCT, target_address_size, 1}
+            };
+            // Custom behavior in case parent is not virtual but child is
+            if(stru->is_virtual && !parent->is_virtual)
+                super_var.flags = FLAG_VIRTUAL;
+            vector_append(vars, &super_var);
+        }
     }
 
     // Add arguments as variables
@@ -2321,7 +2357,7 @@ bool generate_func(HC_FILE fptr, func_t* target, node_stmt* stmt, token_t* paren
             arg_ptr = ALIGN(arg_ptr, 8);
             if(((node_expr_stmt*)arg)->expr){
                 node_term vargc = ((node_expr_stmt*)arg)->expr->term;
-                var_t argc = (var_t){vargc.str, vargc.strlen, arg_ptr, VAR_ARG, 0, (type_t){8, GET_DUMMY_TYPE(uint64), false, DATA_INT, 8, 0}};
+                var_t argc = (var_t){vargc.str, vargc.strlen, arg_ptr, VAR_ARG, FLAG_NONE, (type_t){8, GET_DUMMY_TYPE(uint64), false, DATA_INT, 8, 0}};
                 if(get_var(vargc.str, vargc.strlen)){
                     print_context_ex("Another argument has the same name", vargc.str, vargc.strlen);
                     return false;
@@ -2987,21 +3023,88 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
         }
 
         struct_t* new_struct = get_struct(str, strlen);
+
+        if(new_struct && stmt->struct_decl.parent){
+            print_context_ex("Parent must be provided only at the first declaration", str, strlen);
+            print_context_ex("Consider moving inheritance here:", new_struct->str, new_struct->strlen);
+            return false;
+        }
+
+        bool add_vtable = false;
+        if(stmt->struct_decl.parent && stmt->struct_decl.parent->next->type == tk_virtual ||
+            stmt->struct_decl.identifier->next->type == tk_virtual){
+            if(new_struct){
+                print_context_ex("Declaration of virtual (polymorphic) class must be made at the first declaration", str, strlen);
+                print_context_ex("Consider moving virtual declaration here:", new_struct->str, new_struct->strlen);
+                return false;
+            }
+            add_vtable = true;
+        }
+
         if(stmt->type == tk_struct && new_struct && new_struct->size){
             print_context_ex("Already defined", str, strlen);
             print_context_ex("Last definition here", new_struct->str, new_struct->strlen);
             return false;
         }else if(!new_struct){
-            struct_t stru = {str, strlen, 0, 0, {NEW_VECTOR(var_t)}, {NEW_VECTOR(func_t)}, NULL};
+            struct_t stru = {str, strlen, 0, 0, add_vtable, {NEW_VECTOR(var_t)}, {NEW_VECTOR(func_t)}, {NEW_VECTOR(node_expr*)}, NULL};
             new_struct = vector_append(structs, &stru);
         }
 
-        bool first_member_def = new_struct->members->size == 0;
-        for(size_t i = 0; i < vector_size(new_struct->funcs); i++){
-            func_t* func = vector_at(new_struct->funcs, i);
-            if(func->flags & FLAG_FDEF)
+        bool first_member_def = true;
+        for(size_t i = 0; first_member_def && i < vector_size(new_struct->members); i++){
+            var_t* member = vector_at(new_struct->members, i);
+            if(!(member->flags & FLAG_INHERITED))
                 first_member_def = false;
         }
+        for(size_t i = 0; first_member_def && i < vector_size(new_struct->funcs); i++){
+            func_t* func = vector_at(new_struct->funcs, i);
+            if(!(func->flags & FLAG_INHERITED) && (func->flags & FLAG_FDEF))
+                first_member_def = false;
+        }
+
+        bool check_children = false;
+        if(stmt->struct_decl.parent){
+            struct_t* parent = get_struct_tk(stmt->struct_decl.parent);
+            if(!parent){
+                print_context("Parent class does not exist!", stmt->struct_decl.parent);
+                return false;
+            }
+            new_struct->parent = parent;
+            new_struct->size = parent->size;
+            new_struct->align = parent->align;
+            if(parent->is_virtual){
+                if(!add_vtable){
+                    print_context_ex("Expected child class to be virtual", str, strlen);
+                    print_context_ex("Parent is virtual and all children must also be virtual", parent->str, parent->strlen);
+                    print_context("Consider adding 'virtual' after", stmt->struct_decl.parent);
+                    return false;
+                }
+                add_vtable = false;
+            }
+            if(add_vtable){
+                new_struct->size += target_address_size;
+                new_struct->align = MAX(new_struct->align, target_address_size);
+            }
+            for(size_t i = 0; i < vector_size(parent->default_values); i++){
+                node_expr** dval = vector_at(parent->default_values, i);
+                vector_append(new_struct->default_values, dval);
+            }
+            for(size_t i = 0; i < vector_size(parent->members); i++){
+                var_t* member = vector_at(parent->members, i);
+                var_t tmp = *member;
+                if(add_vtable)
+                    tmp.stack_ptr += target_address_size;
+                var_t* inherited = vector_append(new_struct->members, &tmp);
+                inherited->flags |= FLAG_INHERITED;
+            }
+            new_struct->size = ALIGN(new_struct->size, new_struct->align);
+            for(size_t i = 0; stmt->type == tk_class && i < vector_size(parent->funcs); i++){
+                func_t* func = vector_at(parent->funcs, i);
+                func_t* inherited = vector_append(new_struct->funcs, func);
+                inherited->flags |= FLAG_INHERITED;
+            }
+        }else if(add_vtable)
+            new_struct->size = new_struct->align = target_address_size;
 
         // Update all types referenced in the struct / class
         if(!first_member_def){
@@ -3028,6 +3131,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
                     print_context("In class declaration", stmt->struct_decl.identifier);
                     return false;
                 }
+                check_children = true;
 
                 if(get_member(new_struct, ptr->var_decl.identifier->str, ptr->var_decl.identifier->strlen)){
                     print_context("Another member has the same name in struct / class", ptr->var_decl.identifier);
@@ -3073,21 +3177,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
 
                 // Add default value to linked list
                 // If there is none, we add a nothing expression
-                if(new_struct->default_values){
-                    node_expr* val = new_struct->default_values;
-                    for(; val->next; val = val->next);
-                    if(ptr->var_decl.expr)
-                        val->next = ptr->var_decl.expr;
-                    else{
-                        val->next = (node_expr*) ARENA_ALLOC(arena, node_nothing_expr);
-                        val->next->none = (node_nothing_expr){tk_nothing, NULL};
-                    }
-                }else if(ptr->var_decl.expr)
-                    new_struct->default_values = ptr->var_decl.expr;
-                else{
-                    new_struct->default_values = (node_expr*) ARENA_ALLOC(arena, node_nothing_expr);
-                    new_struct->default_values->none = (node_nothing_expr){tk_nothing, NULL};
-                }
+                vector_append(new_struct->default_values, &ptr->var_decl.expr);
             }// Array members
             else if(ptr->type == tk_arr_decl){
                 if(!first_member_def){
@@ -3095,6 +3185,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
                     print_context("In class declaration", stmt->struct_decl.identifier);
                     return false;
                 }
+                check_children = true;
 
                 if(get_member(new_struct, ptr->arr_decl.identifier->str, ptr->arr_decl.identifier->strlen)){
                     print_context("Another member has the same name in struct / class", ptr->arr_decl.identifier);
@@ -3153,17 +3244,31 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
                     func_t func = (func_t){stmt->func_decl.identifier->str, stmt->func_decl.identifier->strlen};
                     func.type.data = DATA_INVALID;
                     method = vector_append(new_struct->funcs, &func);
-                }
+                    check_children = true;
+                }else if((method->flags & FLAG_INHERITED) && !(method->flags & FLAG_VIRTUAL))
+                    *method = (func_t){stmt->func_decl.identifier->str, stmt->func_decl.identifier->strlen};
+
                 if(!generate_func(fptr, method, ptr, stmt->struct_decl.identifier, stmt->struct_decl.identifier))
                     return false;
+
                 if((method->flags & FLAG_CFUNC) || (method->flags & FLAG_PEEK) || (method->flags & FLAG_EXTERN)){
                     print_context_ex("Modifiers extern, @cfunc and @peek are prohibited on methods", method->str, method->strlen);
                     return false;
                 }
+
                 if(method->flags & FLAG_FDEF)
                     first_member_def = false;
+
+                if((method->flags & FLAG_VIRTUAL) && !new_struct->is_virtual){
+                    print_context_ex("Cannot declare virtual method in a non-virtual class", method->str, method->strlen);
+                    print_context_ex("Consider making class virtual", str, strlen);
+                    return false;
+                }
             }else{
-                print_context_ex("Expected only member declarations, got another statement instead here", str, strlen);
+                if(stmt->type == tk_struct)
+                    print_context_ex("Expected only member declarations, got another statement instead", str, strlen);
+                else if(stmt->type == tk_class)
+                    print_context_ex("Expected only member and method declarations, got another statement instead", str, strlen);
                 return false;
             }
         }
@@ -3176,6 +3281,15 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             current_module = NULL;
         }
 
+        if(check_children) for(size_t i = 0; i < vector_size(structs); i++){
+            struct_t* stru = vector_at(structs, i);
+            if(stru->parent == new_struct){
+                print_context_ex("Cannot inherit from struct / class until it is fully defined", stru->str, stru->strlen);
+                print_context_ex("Inherits from:", str, strlen);
+                return false;
+            }
+        }
+
         return true;
     }case tk_union:
     case tk_variant:{
@@ -3186,6 +3300,11 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
 
         const char* str = stmt->struct_decl.identifier->str;
         size_t strlen = stmt->struct_decl.identifier->strlen;
+
+        if(stmt->struct_decl.parent){
+            print_context("Cannot inherit as a union", stmt->struct_decl.identifier);
+            return false;
+        }
 
         if(get_struct(str, strlen)){
             print_context_ex("Structure / class type already declared with the same name", str, strlen);
@@ -3747,9 +3866,9 @@ static bool generate_constant(HC_FILE fptr, type_t target_type, node_expr* expr)
             return false;
         }
         node_expr* args = expr->construct.elems;
-        node_expr* default_args = stru->default_values;
-        size_t i = 0, last = 0;
-        for(; default_args; i++){
+        vector_t* default_args = stru->default_values;
+        size_t i = 0, last = 0, darg_i = 0;
+        for(; darg_i < vector_size(default_args); i++){
             var_t* member = vector_at(stru->members, i);
             node_expr* arg_expr = args;
 
@@ -3767,14 +3886,15 @@ static bool generate_constant(HC_FILE fptr, type_t target_type, node_expr* expr)
                 continue;
             }
 
+            node_expr** darg = vector_at(stru->default_values, darg_i++);
+
             if(!args || args->type == tk_nothing){
-                if(default_args->type == tk_nothing){
+                if(!(*darg)){
                     gen_declare_mem(fptr, SIZEOF_T(member->type));
                     last += SIZEOF_T(member->type);
-                    default_args = default_args->next;
                     continue;
                 }
-                arg_expr = default_args;
+                arg_expr = *darg;
             }
 
             if(args)
@@ -3785,8 +3905,7 @@ static bool generate_constant(HC_FILE fptr, type_t target_type, node_expr* expr)
 
             last += SIZEOF_T(member->type);
 
-            default_args = default_args->next;
-            if(args && !default_args){
+            if(args && darg_i >= vector_size(default_args)){
                 print_context_expr("Too many initialisation values provided", args);
                 return false;
             }
@@ -3874,6 +3993,16 @@ bool generate(const char* output_file, node_stmt* AST, bool library){
         }
     }
 
+    // Go through all classes and make them inherit a method
+    for(size_t i = 0; i < vector_size(structs); i++){
+        struct_t* stru = vector_at(structs, i);
+        for(size_t j = 0; j < vector_size(stru->funcs); j++){
+            func_t* method = vector_at(stru->funcs, j);
+            if(method->flags & FLAG_INHERITED)
+                gen_inherit_method(fptr, stru->str, stru->strlen, stru->parent->str, stru->parent->strlen, method->str, method->strlen);
+        }
+    }
+
     // Data section
     HC_FPRINTF(fptr, "\n\n%s", target_data_section);
 
@@ -3908,6 +4037,19 @@ bool generate(const char* output_file, node_stmt* AST, bool library){
         }else{
             size_t var_sz = SIZEOF_T(var->type);
             gen_declare_mem(fptr, ALIGN(var_sz, 8));
+        }
+    }
+
+    // Go through all classes that are virtual and build their vtables
+    for(size_t i = 0; i < vector_size(structs); i++){
+        struct_t* stru = vector_at(structs, i);
+        if(stru->is_virtual){
+            gen_start_vtable_decl(fptr, stru->str, stru->strlen);
+            for(size_t j = 0; j < vector_size(stru->funcs); j++){
+                func_t* method = vector_at(stru->funcs, j);
+                if(method->flags & FLAG_VIRTUAL)
+                    gen_declare_method_ptr(fptr, stru->str, stru->strlen, method->str, method->strlen);
+            }
         }
     }
 

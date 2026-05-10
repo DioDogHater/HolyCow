@@ -26,9 +26,12 @@ stdlib_execs = $(addsuffix $(EXT), $(addprefix $(build)/, $(stdlib_projects)))
 raylib_execs = $(addsuffix $(EXT), $(addprefix $(build)/, $(raylib_projects)))
 all_projects = $(stdlib_projects) $(raylib_projects)
 
-.PHONY: all $(all_projects)
+.PHONY: all list $(all_projects)
 
 all: $(stdlib_execs) $(raylib_execs)
+
+list:
+	@echo $(all_projects)
 
 $(all_projects): %: $(build)/%$(EXT)
 	$<

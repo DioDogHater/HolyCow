@@ -51,7 +51,7 @@ bool get_expr_address(HC_FILE, reg_t* dest, node_expr* expr);
 size_t generate_func_call(HC_FILE, node_expr* expr, func_t** func, reg_t* struct_ptr);
 
 // Provided by target (C calling convention of the target architecture)
-extern size_t generate_cfunc_call(HC_FILE, node_expr* expr, func_t* func, reg_t* struct_ptr);
+size_t generate_cfunc_call(HC_FILE, node_expr* expr, func_t* func, reg_t* struct_ptr);
 
 // Generate a function
 bool generate_func(HC_FILE, func_t* func, node_stmt* func_stmts, token_t* parent, token_t* _this);

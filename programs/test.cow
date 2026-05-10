@@ -15,8 +15,9 @@ void frame(char* title = "", ...count){
     uint i = 0;
     repeat(count){
         uint len = strlen(vargs[i]);
-        if(len > max_len){ max_len = len; }
-        ++i;
+        if(len > max_len)
+            max_len = len;
+        i++;
     }
 
     // Add 4 characters of padding (2 on both sides)
@@ -47,7 +48,7 @@ variant msg_data {
 class msg {
     // Can only be changed inside msg's methods
     // but can be read / pointed to from anywhere. (@peek)
-    msg_data data = msg_data.integer{ 0 };
+    private @peek msg_data data = msg_data.integer{ 0 };
 
     // Setters
     void set_text(char* txt){
@@ -63,11 +64,8 @@ class msg {
         this.data = msg_data.confirm{ b };
     }
 
+    // Test
     void print(){
-        // Members of a class can be accessed with the "this"
-        // variable in its methods. "this" is a pointer to the
-        // object calling the method.
-
         if(this.data.type == msg_data.text)
             println("msg{\"%s\"}", this.data.text);
         else if(this.data.type == msg_data.integer)
@@ -83,12 +81,12 @@ class msg {
 
 struct test;
 
-struct test2{
+struct test2 {
     char* msg1;
     char* msg2;
 }
 
-struct test{
+struct test {
     int x = 0;
     int y = 0;
     test2 z;
@@ -126,6 +124,7 @@ module test {
 // Nothing stops you from adding stuff in classes already defined
 // So hell yeah add whatever extension your want
 class string {
+    // Prints debug info of the string object
     void print_debug(){
         println("(\"%S\", is_heap=%b, is_shared=%b)", this, this.is_heap(), this.is_shared());
     }
@@ -136,9 +135,37 @@ void print_int_vector(vector* v){
     for(int i = 0; i < v.size; i++){
         if(i)
             print(", ");
-        print("%i", *(int*)v.at(i));
+        int* elem = v.at(i);
+        print("%i", *elem);
     }
     println("]");
+}
+
+class Parent {
+    private int priv = 0;
+    protected int prot = 0;
+    public int pub = 0;
+
+    void print(){
+        println("%i, %i, %i", this.priv, this.prot, this.pub);
+    }
+}
+
+class Child : Parent virtual {
+    void print(){
+        super.print();
+        println("Hello from Child!");
+    }
+
+    virtual void test(){
+        println("Test from Child");
+    }
+}
+
+class Child2 : Child virtual {
+    virtual void test(){
+        println("Test from Child2");
+    }
 }
 
 int main(uint argc, char** argv){
@@ -212,4 +239,15 @@ int main(uint argc, char** argv){
 
     m.set_confirm(false);
     m.print();
+
+    // Inheritance / polymorphism testing
+    Child c = Child{5, 7, 1};
+    c.print();
+    c.test();
+
+    Child2 c2 = Child2{};
+    c2.test();
+
+    Child* c2_c = &c2;
+    c2_c.test();        // Now the method Child.test should be overriden by Child2.test
 }

@@ -259,6 +259,10 @@ void print_double(double x, uint digits = 4, File* f = stdout);
    Print double x up to 4 decimals or n decimals if %*f is used
     print("%f", x);
 
+ * %g:
+   Print double x with only necessary decimals
+    print("%g", x);
+
  * %F:
    Print fixed point number x (fixed) up to 4 decimals
     print("%F", x);

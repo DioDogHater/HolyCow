@@ -113,4 +113,5 @@ int main(uint argc, char** argv){
     // Use %*f to choose how many digits to print
     println("float:              %f", -16.2126);
     println("float (n digits):   %*f", 6, -16.212635);
+    println("float (auto):       %g", -16.212635);
 }

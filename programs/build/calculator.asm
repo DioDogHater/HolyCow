@@ -672,6 +672,14 @@ parse_expression:
 	cmp rbx, rcx
 	sete bl
 	test bl, bl
+	je .L9
+	mov rsi, [rsp+24]
+	mov cl, [rsi]
+	mov sil, 0x29
+	cmp cl, sil
+	setne bl
+	.L9:
+	test bl, bl
 	je .L7
 	sub rsp, 16
 	mov rbx, STR5
@@ -688,10 +696,10 @@ parse_expression:
 	cmp rbx, rcx
 	setl bl
 	test bl, bl
-	je .L9
+	je .L10
 	jmp .L2
-	.L9:
 	.L10:
+	.L11:
 	mov rcx, [rbp+32]
 	mov rbx, [rcx]
 	inc QWORD [rcx]
@@ -713,7 +721,7 @@ parse_expression:
 	cmp bl, cl
 	sete bl
 	test bl, bl
-	je .L11
+	je .L12
 	sub rsp, 16
 	sub rsp, 16
 	mov rbx, 0x18
@@ -731,37 +739,11 @@ parse_expression:
 	mov rbx, [rsp+8]
 	mov [rbp+16], rbx
 	add rsp, 16
-	jmp .L12
-	.L11:
+	jmp .L13
+	.L12:
 	mov rcx, [rsp+24]
 	mov bl, [rcx]
 	mov cl, 0x2d
-	cmp bl, cl
-	sete bl
-	test bl, bl
-	je .L13
-	sub rsp, 16
-	sub rsp, 16
-	mov rbx, 0x18
-	mov [rsp+8], rbx
-	call malloc
-	mov rbx, [rsp+0]
-	add rsp, 16
-	mov [rsp+8], rbx
-	mov rbx, [rsp+8]
-	mov rcx, [rbp+16]
-	mov [rbx+8], rcx
-	mov rcx, [rsp+24]
-	mov [rbx+16], rcx
-	mov QWORD [rbx], Sub__VTABLE
-	mov rbx, [rsp+8]
-	mov [rbp+16], rbx
-	add rsp, 16
-	jmp .L12
-	.L13:
-	mov rcx, [rsp+24]
-	mov bl, [rcx]
-	mov cl, 0x2a
 	cmp bl, cl
 	sete bl
 	test bl, bl
@@ -779,17 +761,25 @@ parse_expression:
 	mov [rbx+8], rcx
 	mov rcx, [rsp+24]
 	mov [rbx+16], rcx
-	mov QWORD [rbx], Mul__VTABLE
+	mov QWORD [rbx], Sub__VTABLE
 	mov rbx, [rsp+8]
 	mov [rbp+16], rbx
 	add rsp, 16
-	jmp .L12
+	jmp .L13
 	.L14:
 	mov rcx, [rsp+24]
 	mov bl, [rcx]
-	mov cl, 0x2f
+	mov cl, 0x2a
 	cmp bl, cl
 	sete bl
+	test bl, bl
+	jne .L16
+	mov rsi, [rsp+24]
+	mov cl, [rsi]
+	mov sil, 0x28
+	cmp cl, sil
+	sete bl
+	.L16:
 	test bl, bl
 	je .L15
 	sub rsp, 16
@@ -805,41 +795,15 @@ parse_expression:
 	mov [rbx+8], rcx
 	mov rcx, [rsp+24]
 	mov [rbx+16], rcx
-	mov QWORD [rbx], Div__VTABLE
+	mov QWORD [rbx], Mul__VTABLE
 	mov rbx, [rsp+8]
 	mov [rbp+16], rbx
 	add rsp, 16
-	jmp .L12
+	jmp .L13
 	.L15:
 	mov rcx, [rsp+24]
 	mov bl, [rcx]
-	mov cl, 0x25
-	cmp bl, cl
-	sete bl
-	test bl, bl
-	je .L16
-	sub rsp, 16
-	sub rsp, 16
-	mov rbx, 0x18
-	mov [rsp+8], rbx
-	call malloc
-	mov rbx, [rsp+0]
-	add rsp, 16
-	mov [rsp+8], rbx
-	mov rbx, [rsp+8]
-	mov rcx, [rbp+16]
-	mov [rbx+8], rcx
-	mov rcx, [rsp+24]
-	mov [rbx+16], rcx
-	mov QWORD [rbx], Mod__VTABLE
-	mov rbx, [rsp+8]
-	mov [rbp+16], rbx
-	add rsp, 16
-	jmp .L12
-	.L16:
-	mov rcx, [rsp+24]
-	mov bl, [rcx]
-	mov cl, 0x5e
+	mov cl, 0x2f
 	cmp bl, cl
 	sete bl
 	test bl, bl
@@ -857,13 +821,65 @@ parse_expression:
 	mov [rbx+8], rcx
 	mov rcx, [rsp+24]
 	mov [rbx+16], rcx
+	mov QWORD [rbx], Div__VTABLE
+	mov rbx, [rsp+8]
+	mov [rbp+16], rbx
+	add rsp, 16
+	jmp .L13
+	.L17:
+	mov rcx, [rsp+24]
+	mov bl, [rcx]
+	mov cl, 0x25
+	cmp bl, cl
+	sete bl
+	test bl, bl
+	je .L18
+	sub rsp, 16
+	sub rsp, 16
+	mov rbx, 0x18
+	mov [rsp+8], rbx
+	call malloc
+	mov rbx, [rsp+0]
+	add rsp, 16
+	mov [rsp+8], rbx
+	mov rbx, [rsp+8]
+	mov rcx, [rbp+16]
+	mov [rbx+8], rcx
+	mov rcx, [rsp+24]
+	mov [rbx+16], rcx
+	mov QWORD [rbx], Mod__VTABLE
+	mov rbx, [rsp+8]
+	mov [rbp+16], rbx
+	add rsp, 16
+	jmp .L13
+	.L18:
+	mov rcx, [rsp+24]
+	mov bl, [rcx]
+	mov cl, 0x5e
+	cmp bl, cl
+	sete bl
+	test bl, bl
+	je .L19
+	sub rsp, 16
+	sub rsp, 16
+	mov rbx, 0x18
+	mov [rsp+8], rbx
+	call malloc
+	mov rbx, [rsp+0]
+	add rsp, 16
+	mov [rsp+8], rbx
+	mov rbx, [rsp+8]
+	mov rcx, [rbp+16]
+	mov [rbx+8], rcx
+	mov rcx, [rsp+24]
+	mov [rbx+16], rcx
 	mov QWORD [rbx], Pow__VTABLE
 	mov rbx, [rsp+8]
 	mov [rbp+16], rbx
 	add rsp, 16
-	jmp .L12
-	.L17:
-	.L12:
+	jmp .L13
+	.L19:
+	.L13:
 	jmp .L1
 	.L2:
 	add rsp, 32
@@ -946,22 +962,20 @@ main:
 	mov rbx, [rsp+0]
 	add rsp, 16
 	mov [rsp+8], rbx
-	sub rsp, 32
+	sub rsp, 16
 	mov rbx, STR8
 	mov [rsp+0], rbx
-	mov rbx, 0x8
-	mov [rsp+8], rbx
 	sub rsp, 16
-	mov rbx, [rsp+56]
+	mov rbx, [rsp+40]
 	mov [rsp+8], rbx
 	mov rbx, [rsp+8]
 	mov rbx, [rbx]
 	call [rbx+0*8]
 	movsd xmm0, [rsp+0]
 	add rsp, 16
-	movsd [rsp+16], xmm0
+	movsd [rsp+8], xmm0
 	call println
-	add rsp, 32
+	add rsp, 16
 	sub rsp, 16
 	mov rbx, [rsp+24]
 	mov [rsp+0], rbx
@@ -1185,4 +1199,5 @@ STR7:
 db "",0
 times 5 db 0
 STR8:
-db "= %*f",0
+db "= %g",0
+db 0

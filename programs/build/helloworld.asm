@@ -274,6 +274,13 @@ main:
 	movsd [rsp+16], xmm0
 	call println
 	add rsp, 32
+	sub rsp, 16
+	mov rbx, STR28
+	mov [rsp+0], rbx
+	movsd xmm0, [FP1]
+	movsd [rsp+8], xmm0
+	call println
+	add rsp, 16
 	.L0:
 	leave
 	ret
@@ -484,6 +491,9 @@ times 7 db 0
 STR27:
 db "float (n digits):   %*f",0
 times 6 db 0
+STR28:
+db "float (auto):       %g",0
+times 7 db 0
 FP0:
 dq -16.2126000000
 FP1:

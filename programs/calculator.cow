@@ -138,7 +138,7 @@ Expr* parse_expression(vector* tks, uint* index, int min_precedence){
             break;
 
         int prec = get_precedence(tk.op);
-        if(prec == -1)
+        if(prec == -1 and tk.op != ')')
             error("Invalid operator %c", tk.op);
         if(prec < min_precedence)
             break;
@@ -154,7 +154,7 @@ Expr* parse_expression(vector* tks, uint* index, int min_precedence){
             Sub* sub = malloc(sizeof(Sub));
             *sub = Sub{@return, rhs};
             @return = sub;
-        }else if(tk.op == '*'){
+        }else if(tk.op == '*' or tk.op == '('){
             Mul* mul = malloc(sizeof(Mul));
             *mul = Mul{@return, rhs};
             @return = mul;
@@ -206,7 +206,7 @@ int main(uint argc, char** argv){
             break;
 
         Expr* expr = parse(buffer);
-        println("= %*f", 8, expr.eval());
+        println("= %g", expr.eval());
 
         expr.free();
     }

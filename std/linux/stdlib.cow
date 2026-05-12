@@ -180,6 +180,8 @@ double sqrt(double x){
     fstp QWORD [rbp+16]");
 }
 double pow(double x, double p){
+    if(x == 0.0)
+        return 0.0;
     @asm("fld QWORD [rbp+32]
     fld QWORD [rbp+24]
     fyl2x
@@ -633,6 +635,8 @@ void print_fixed(fixed_t x, File* f){
 
 // Print a double precision float
 void print_double(double x, uint digits, File* f){
+    if(digits == 0)
+        digits = 1;
     char buffer[128];
     bool sign = (x < 0.0);
     if(sign){
@@ -727,10 +731,19 @@ void print_format(char* fmt, uint* argv, File* f){
         }else if(*(fmt+1) == 'B'){
             print_binary(argv[argc++], f);
         }else if(*(fmt+1) == 'F')
-            print_fixed( (fixed_t) argv[argc++], f );
+            print_fixed( (fixed_t) argv[argc++], f);
         else if(*(fmt+1) == 'f')
-            print_double( ((double*)argv)[argc++], , f );
-        else if(*(fmt+1) == '0'){
+            print_double( ((double*)argv)[argc++], , f);
+        else if(*(fmt+1) == 'g'){
+            double x = ((double*)argv)[argc++];
+            double x_frac = absf(x % 1.0);
+            uint decimals = 0;
+            for(; x_frac % 1.0 >= 0.01; x_frac *= 10.0, decimals++){
+                if(decimals > 4 and ceil(x_frac) == round(x_frac))
+                    break;
+            }
+            print_double(x, decimals, f);
+        }else if(*(fmt+1) == '0'){
             char buffer[64];
             ++fmt;
             if(*(fmt+1) < '1' || *(fmt+1) > '9')

@@ -2145,6 +2145,17 @@ global pow:function
 pow:
 	push rbp
 	mov rbp, rsp
+	movsd xmm0, [FP2]
+	movsd xmm1, [rbp+24]
+	comisd xmm1, xmm0
+	sete bl
+	test bl, bl
+	je .L1
+	movsd xmm0, [FP2]
+	movsd [rbp+16], xmm0
+	jmp .L0
+	.L1:
+	.L2:
 	fld QWORD [rbp+32]
     fld QWORD [rbp+24]
     fyl2x
@@ -2182,7 +2193,7 @@ sin:
 	push rbp
 	mov rbp, rsp
 	movsd xmm0, [rbp+24]
-	movsd xmm1, [FP2]
+	movsd xmm1, [FP3]
 	movsd xmm2, xmm0
 	divsd xmm2, xmm1
 	roundsd xmm2, xmm2, 3
@@ -2201,7 +2212,7 @@ cos:
 	push rbp
 	mov rbp, rsp
 	movsd xmm0, [rbp+24]
-	movsd xmm1, [FP2]
+	movsd xmm1, [FP3]
 	movsd xmm2, xmm0
 	divsd xmm2, xmm1
 	roundsd xmm2, xmm2, 3
@@ -2220,7 +2231,7 @@ tan:
 	push rbp
 	mov rbp, rsp
 	movsd xmm0, [rbp+24]
-	movsd xmm1, [FP2]
+	movsd xmm1, [FP3]
 	movsd xmm2, xmm0
 	divsd xmm2, xmm1
 	roundsd xmm2, xmm2, 3
@@ -2309,7 +2320,7 @@ fixed.from_float:
 	sub rsp, 32
 	mov [rsp+28], ebx
 	movsd xmm0, [rbp+24]
-	movsd xmm1, [FP3]
+	movsd xmm1, [FP4]
 	mulsd xmm0, xmm1
 	movsd [rsp+8], xmm0
 	call round
@@ -2474,7 +2485,7 @@ fixed.to_float:
 	movsxd rbx, DWORD [rbp+24]
 	cvtsi2ss xmm0, rbx
 	cvtss2sd xmm0, xmm0
-	movsd xmm1, [FP3]
+	movsd xmm1, [FP4]
 	divsd xmm0, xmm1
 	movsd [rbp+16], xmm0
 	.L0:
@@ -3764,14 +3775,24 @@ print_double:
 	push rbp
 	mov rbp, rsp
 	sub rsp, 160
-	movsd xmm0, [FP4]
+	mov rbx, [rbp+24]
+	xor rcx, rcx
+	cmp rbx, rcx
+	sete bl
+	test bl, bl
+	je .L1
+	mov rbx, 0x1
+	mov [rbp+24], rbx
+	.L1:
+	.L2:
+	movsd xmm0, [FP2]
 	movsd xmm1, [rbp+16]
 	comisd xmm1, xmm0
 	setb bl
 	mov [rsp+31], bl
 	mov bl, [rsp+31]
 	test bl, bl
-	je .L1
+	je .L3
 	sub rsp, 16
 	mov bl, 0x2d
 	mov [rsp+0], bl
@@ -3782,8 +3803,8 @@ print_double:
 	movsd xmm0, [rbp+16]
 	xorpd xmm0, [__FNEG_MASKd]
 	movsd [rbp+16], xmm0
-	.L1:
-	.L2:
+	.L3:
+	.L4:
 	movsd xmm0, [rbp+16]
 	cvttsd2si rbx, xmm0
 	mov [rsp+16], rbx
@@ -4553,11 +4574,106 @@ print_format:
 	mov rbx, [rbp+16]
 	inc rbx
 	mov cl, [rbx]
-	mov bl, 0x30
+	mov bl, 0x67
 	cmp cl, bl
 	sete bl
 	test bl, bl
 	je .L29
+	sub rsp, 32
+	mov rbx, [rbp+24]
+	mov rcx, [rsp+72]
+	inc QWORD [rsp+72]
+	movsd xmm0, [rbx+rcx*8]
+	movsd [rsp+24], xmm0
+	sub rsp, 16
+	movsd xmm0, [rsp+40]
+	movsd xmm1, [FP0]
+	movsd xmm2, xmm0
+	divsd xmm2, xmm1
+	roundsd xmm2, xmm2, 3
+	mulsd xmm2, xmm1
+	subsd xmm0, xmm2
+	movsd [rsp+8], xmm0
+	call absf
+	movsd xmm0, [rsp+0]
+	add rsp, 16
+	movsd [rsp+16], xmm0
+	xor rbx, rbx
+	mov [rsp+8], rbx
+	.L30:
+	movsd xmm0, [FP6]
+	movsd xmm1, [rsp+16]
+	movsd xmm2, [FP0]
+	movsd xmm3, xmm1
+	divsd xmm3, xmm2
+	roundsd xmm3, xmm3, 3
+	mulsd xmm3, xmm2
+	subsd xmm1, xmm3
+	comisd xmm1, xmm0
+	setae bl
+	test bl, bl
+	je .L32
+	mov rbx, [rsp+8]
+	mov rcx, 0x4
+	cmp rbx, rcx
+	setg bl
+	test bl, bl
+	je .L35
+	sub rsp, 32
+	mov [rsp+31], bl
+	movsd xmm0, [rsp+48]
+	movsd [rsp+8], xmm0
+	call round
+	mov bl, [rsp+31]
+	movsd xmm0, [rsp+0]
+	add rsp, 32
+	sub rsp, 32
+	mov [rsp+31], bl
+	movsd [rsp+16], xmm0
+	movsd xmm0, [rsp+48]
+	movsd [rsp+8], xmm0
+	call ceil
+	mov bl, [rsp+31]
+	movsd xmm0, [rsp+16]
+	movsd xmm1, [rsp+0]
+	add rsp, 32
+	comisd xmm1, xmm0
+	sete bl
+	.L35:
+	test bl, bl
+	je .L33
+	jmp .L32
+	.L33:
+	.L34:
+	.L31:
+	movsd xmm0, [rsp+16]
+	movsd xmm1, [FP5]
+	mulsd xmm0, xmm1
+	movsd [rsp+16], xmm0
+	mov rbx, [rsp+8]
+	inc QWORD [rsp+8]
+	jmp .L30
+	.L32:
+	sub rsp, 32
+	movsd xmm0, [rsp+56]
+	movsd [rsp+0], xmm0
+	mov rbx, [rsp+40]
+	mov [rsp+8], rbx
+	mov rbx, [rbp+32]
+	mov [rsp+16], rbx
+	call print_double
+	add rsp, 32
+	add rsp, 32
+	jmp .L6
+	.L29:
+	mov rbx, [rbp+16]
+	inc rbx
+	mov cl, [rbx]
+	mov bl, 0x30
+	cmp cl, bl
+	sete bl
+	test bl, bl
+	je .L36
 	sub rsp, 80
 	inc QWORD [rbp+16]
 	mov rbx, [rbp+16]
@@ -4568,23 +4684,23 @@ print_format:
 	cmp cl, bl
 	setb bl
 	test bl, bl
-	jne .L32
+	jne .L39
 	mov rcx, [rbp+16]
 	inc rcx
 	mov sil, [rcx]
 	mov cl, 0x39
 	cmp sil, cl
 	seta bl
-	.L32:
+	.L39:
 	test bl, bl
-	je .L30
+	je .L37
 	sub rsp, 16
 	mov rbx, STR21
 	mov [rsp+0], rbx
 	call error
 	add rsp, 16
-	.L30:
-	.L31:
+	.L37:
+	.L38:
 	mov rbx, [rbp+16]
 	inc rbx
 	movzx rcx, BYTE [rbx]
@@ -4616,7 +4732,7 @@ print_format:
 	add rsp, 32
 	add rsp, 80
 	jmp .L6
-	.L29:
+	.L36:
 	mov rbx, [rbp+16]
 	inc rbx
 	mov cl, [rbx]
@@ -4624,7 +4740,7 @@ print_format:
 	cmp cl, bl
 	sete bl
 	test bl, bl
-	je .L33
+	je .L40
 	sub rsp, 16
 	mov bl, 0x25
 	mov [rsp+0], bl
@@ -4633,7 +4749,7 @@ print_format:
 	call print_char
 	add rsp, 16
 	jmp .L6
-	.L33:
+	.L40:
 	mov rbx, [rbp+16]
 	inc rbx
 	mov cl, [rbx]
@@ -4641,7 +4757,7 @@ print_format:
 	cmp cl, bl
 	sete bl
 	test bl, bl
-	je .L34
+	je .L41
 	sub rsp, 16
 	inc QWORD [rbp+16]
 	mov rbx, [rbp+16]
@@ -4659,7 +4775,7 @@ print_format:
 	cmp cl, bl
 	sete bl
 	test bl, bl
-	je .L35
+	je .L42
 	sub rsp, 16
 	mov rbx, [rbp+24]
 	mov rcx, [rsp+72]
@@ -4681,20 +4797,20 @@ print_format:
 	cmp rcx, rsi
 	setae cl
 	test cl, cl
-	je .L37
+	je .L44
 	mov rbx, [rsp+56]
-	jmp .L38
-	.L37:
+	jmp .L45
+	.L44:
 	mov rbx, [rsp+32]
-	.L38:
+	.L45:
 	mov [rsp+8], rbx
 	mov rbx, [rbp+32]
 	mov [rsp+16], rbx
 	call print_str
 	add rsp, 32
 	add rsp, 16
-	jmp .L36
-	.L35:
+	jmp .L43
+	.L42:
 	mov rbx, [rbp+16]
 	inc rbx
 	mov cl, [rbx]
@@ -4702,7 +4818,7 @@ print_format:
 	cmp cl, bl
 	sete bl
 	test bl, bl
-	je .L39
+	je .L46
 	sub rsp, 16
 	mov rbx, [rbp+24]
 	mov rcx, [rsp+72]
@@ -4710,9 +4826,9 @@ print_format:
 	mov sil, [rbx+rcx*8]
 	mov [rsp+15], sil
 	mov rbx, [rsp+24]
-	.L40:
+	.L47:
 	test rbx, rbx
-	je .L42
+	je .L49
 	sub rsp, 32
 	mov [rsp+24], rbx
 	mov bl, [rsp+47]
@@ -4722,13 +4838,13 @@ print_format:
 	call print_char
 	mov rbx, [rsp+24]
 	add rsp, 32
-	.L41:
+	.L48:
 	dec rbx
-	jmp .L40
-	.L42:
+	jmp .L47
+	.L49:
 	add rsp, 16
-	jmp .L36
-	.L39:
+	jmp .L43
+	.L46:
 	mov rbx, [rbp+16]
 	inc rbx
 	mov cl, [rbx]
@@ -4736,7 +4852,7 @@ print_format:
 	cmp cl, bl
 	sete bl
 	test bl, bl
-	je .L43
+	je .L50
 	sub rsp, 16
 	mov rbx, [rbp+24]
 	mov rcx, [rsp+72]
@@ -4744,9 +4860,9 @@ print_format:
 	mov rsi, [rbx+rcx*8]
 	mov [rsp+8], rsi
 	mov rbx, [rsp+24]
-	.L44:
+	.L51:
 	test rbx, rbx
-	je .L46
+	je .L53
 	sub rsp, 32
 	mov [rsp+24], rbx
 	mov rbx, [rsp+40]
@@ -4767,13 +4883,13 @@ print_format:
 	call print_char
 	mov rbx, [rsp+24]
 	add rsp, 32
-	.L45:
+	.L52:
 	dec rbx
-	jmp .L44
-	.L46:
+	jmp .L51
+	.L53:
 	add rsp, 16
-	jmp .L36
-	.L43:
+	jmp .L43
+	.L50:
 	mov rbx, [rbp+16]
 	inc rbx
 	mov cl, [rbx]
@@ -4781,7 +4897,7 @@ print_format:
 	cmp cl, bl
 	sete bl
 	test bl, bl
-	je .L47
+	je .L54
 	sub rsp, 16
 	mov rbx, [rbp+24]
 	mov rcx, [rsp+72]
@@ -4800,8 +4916,8 @@ print_format:
 	call left_align
 	add rsp, 32
 	add rsp, 16
-	jmp .L36
-	.L47:
+	jmp .L43
+	.L54:
 	mov rbx, [rbp+16]
 	inc rbx
 	mov cl, [rbx]
@@ -4809,7 +4925,7 @@ print_format:
 	cmp cl, bl
 	sete bl
 	test bl, bl
-	je .L48
+	je .L55
 	sub rsp, 16
 	mov rbx, [rbp+24]
 	mov rcx, [rsp+72]
@@ -4828,8 +4944,8 @@ print_format:
 	call right_align
 	add rsp, 32
 	add rsp, 16
-	jmp .L36
-	.L48:
+	jmp .L43
+	.L55:
 	mov rbx, [rbp+16]
 	inc rbx
 	mov cl, [rbx]
@@ -4837,7 +4953,7 @@ print_format:
 	cmp cl, bl
 	sete bl
 	test bl, bl
-	je .L49
+	je .L56
 	sub rsp, 16
 	mov rbx, [rbp+24]
 	mov rcx, [rsp+72]
@@ -4856,8 +4972,8 @@ print_format:
 	call center
 	add rsp, 32
 	add rsp, 16
-	jmp .L36
-	.L49:
+	jmp .L43
+	.L56:
 	mov rbx, [rbp+16]
 	inc rbx
 	mov cl, [rbx]
@@ -4865,7 +4981,7 @@ print_format:
 	cmp cl, bl
 	sete bl
 	test bl, bl
-	je .L50
+	je .L57
 	sub rsp, 16
 	mov rbx, [rbp+24]
 	mov rcx, [rsp+72]
@@ -4884,8 +5000,8 @@ print_format:
 	call left_align
 	add rsp, 32
 	add rsp, 16
-	jmp .L36
-	.L50:
+	jmp .L43
+	.L57:
 	mov rbx, [rbp+16]
 	inc rbx
 	mov cl, [rbx]
@@ -4893,20 +5009,20 @@ print_format:
 	cmp cl, bl
 	sete bl
 	test bl, bl
-	je .L51
+	je .L58
 	mov rbx, [rsp+40]
 	mov rcx, 0xffffffffffffffff
 	cmp rbx, rcx
 	sete bl
 	test bl, bl
-	je .L52
+	je .L59
 	sub rsp, 16
 	mov rbx, STR22
 	mov [rsp+0], rbx
 	call error
 	add rsp, 16
-	.L52:
-	.L53:
+	.L59:
+	.L60:
 	mov rcx, [rbp+32]
 	mov rbx, [rcx+24]
 	mov rcx, [rsp+40]
@@ -4915,7 +5031,7 @@ print_format:
 	cmp rbx, rcx
 	seta bl
 	test bl, bl
-	je .L54
+	je .L61
 	sub rsp, 32
 	mov rcx, [rbp+32]
 	mov rbx, [rcx+8]
@@ -4958,10 +5074,10 @@ print_format:
 	mov rsi, [rsp+8]
 	add rcx, rsi
 	mov [rbx+24], rcx
-	.L54:
-	.L55:
-	jmp .L36
-	.L51:
+	.L61:
+	.L62:
+	jmp .L43
+	.L58:
 	mov rbx, [rbp+16]
 	inc rbx
 	mov cl, [rbx]
@@ -4969,7 +5085,7 @@ print_format:
 	cmp cl, bl
 	sete bl
 	test bl, bl
-	je .L56
+	je .L63
 	sub rsp, 32
 	mov rbx, [rbp+24]
 	mov rcx, [rsp+88]
@@ -4982,8 +5098,8 @@ print_format:
 	mov [rsp+16], rbx
 	call print_double
 	add rsp, 32
-	jmp .L36
-	.L56:
+	jmp .L43
+	.L63:
 	sub rsp, 32
 	mov rbx, STR23
 	mov [rsp+0], rbx
@@ -4994,10 +5110,10 @@ print_format:
 	mov [rsp+16], rbx
 	call error
 	add rsp, 32
-	.L36:
+	.L43:
 	add rsp, 16
 	jmp .L6
-	.L34:
+	.L41:
 	sub rsp, 16
 	mov rbx, STR24
 	mov [rsp+0], rbx
@@ -5010,7 +5126,7 @@ print_format:
 	.L6:
 	mov rbx, [rsp+8]
 	test rbx, rbx
-	je .L57
+	je .L64
 	mov rbx, [rbp+16]
 	mov rcx, [rsp+8]
 	add rbx, rcx
@@ -5019,15 +5135,15 @@ print_format:
 	mov rcx, [rsp+8]
 	sub rbx, rcx
 	mov [rsp+32], rbx
-	jmp .L58
-	.L57:
+	jmp .L65
+	.L64:
 	mov rbx, [rbp+16]
 	add rbx, 0x2
 	mov [rbp+16], rbx
 	mov rbx, [rsp+32]
 	sub rbx, 0x2
 	mov [rsp+32], rbx
-	.L58:
+	.L65:
 	jmp .L1
 	.L2:
 	add rsp, 16
@@ -5495,9 +5611,9 @@ string_to_double:
 	mov [rbp+32], rbx
 	.L1:
 	.L2:
-	movsd xmm0, [FP4]
+	movsd xmm0, [FP2]
 	movsd [rsp+24], xmm0
-	movsd xmm0, [FP4]
+	movsd xmm0, [FP2]
 	movsd [rsp+16], xmm0
 	movsd xmm0, [FP0]
 	movsd [rsp+8], xmm0
@@ -5643,7 +5759,7 @@ vector.reserve:
 	mov rdi, [rbp+24]
 	mov rsi, [rdi+16]
 	cvtsi2sd xmm0, rsi
-	movsd xmm1, [FP6]
+	movsd xmm1, [FP7]
 	mulsd xmm0, xmm1
 	cvttsd2si rcx, xmm0
 	jmp .L4
@@ -6359,12 +6475,14 @@ dq 1.0000000000
 FP1:
 dq 1000000000.0000000000
 FP2:
-dq 6.2831853072
-FP3:
-dq 32768.0000000000
-FP4:
 dq 0.0000000000
+FP3:
+dq 6.2831853072
+FP4:
+dq 32768.0000000000
 FP5:
 dq 10.0000000000
 FP6:
+dq 0.0100000000
+FP7:
 dq 2.0000000000

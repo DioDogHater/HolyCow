@@ -562,7 +562,8 @@ void gen_modf(HC_FILE fptr, freg_t* op1, freg_t* op2){
     freg_t* tmp = GET_FREG(op1->dp);
     gen_move_freg(fptr, tmp, op1);
     gen_divf(fptr, tmp, op2);
-    HC_FPRINTF(fptr, "\trounds%c %s, %s, 0\n", (tmp->dp)?'d':'s', tmp->name, tmp->name);
+    HC_FPRINTF(fptr, "\trounds%c %s, %s, 3\n", (tmp->dp)?'d':'s', tmp->name, tmp->name);
+    gen_mulf(fptr, tmp, op2);
     gen_subf(fptr, op1, tmp);
 }
 void gen_float_to_int(HC_FILE fptr, freg_t* op, reg_t* reg){

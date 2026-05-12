@@ -101,6 +101,7 @@ double pow(double x, double p);
 double log(double x);
 
 #define PI 3.14159265359
+#define E  2.71828182845
 // Sine function
 double sin(double x);
 // Cosine function
@@ -331,58 +332,84 @@ uint input(char* buff, uint len);
 // Get a single character from stdin
 char input_char();
 
-// ===== Int <-> string conversion ======
+// ===== Int <-> number conversion ======
 
 // Convert an int to a string
 // if filler != 0, filler will be used to fill to be len - 1 long
 char* int_to_string(int x, char* str, uint len, char filler = 0);
+
+// Convert a uint to a string
+// if filler != 0, filler will be used to fill to be len - 1 long
 char* uint_to_string(uint x, char* str, uint len, char filler = 0);
+
+// Reads a string and tries to parse an integer value (sign included)
+// Parses string and stops if it finds a non-numeric character
 int string_to_int(char* str, uint len = -1);
+
+// Reads a string and tries to parse a double value
+// Parses string and stops if it finds a non-numeric character
+double string_to_double(char* str, uint len = -1);
+
+
+// ======== Memory management =========
 
 constexpr int MAX_ALLOC = 1024 * 4096;      // 4 MB
 constexpr int MAX_HEAP = 64 * 1024 * 4096;  // 256 MB
+
 // Align an integer or address to align (bytes)
 uint _align(uint x, uint align);
+
 // Manually Allocate memory block of sz bytes
 void* malloc(uint sz);
+
 // Reallocates memory block given by ptr to be
 // sz bytes big. If ptr is NULL, will act like malloc
 void* realloc(void* ptr, uint sz);
+
 // Free a memory block given by ptr
 void free(void* ptr);
 
 // MEMORY MONITORING
 // Returns bytes of free heap memory left
 uint get_free_heap();
+
 // Returns bytes of allocated heap memory
 uint get_allocated_heap();
 
 // Vector class.
 // CAREFUL ! Pointers to elements in vectors will eventually become invalid!
-// Therefore, pointers should only be used temporarily, and should not be kept
-// if you are adding more elements to the vector. In future implementations,
-// vectors will be more memory safe.
 class vector {
     private void* mem = NULL;
+    // Number of elements contained in vector
     private @peek uint size = 0;
     private uint capacity = 0;
     private uint data_size;
 
     // Returns reserved memory block
     void* reserve(uint count);
+    // Also copies the vector's contents
     vector copy();
 
+    // Check if an index is in range [0, size]
     bool in_range(int index);
+    // Get an element with its index
     void* at(int index);
+    // Add an element at the end of the vector
     void* pushback(void* elem);
+    // Remove the element at the end of the vector
     void popback();
 
+    // Append the contents of an array to the vector
     void append_arr(void* arr, uint count);
+    // Append the contents of another vector into this vector
     void append(vector* v);
 
+    // Inserts an element anywhere in the vector
     void* insert(uint index, void* elem);
+    // Removes an element at any index in the vector
     void remove(uint index);
 
+    // Frees the vector's memory
     void free();
 }
 

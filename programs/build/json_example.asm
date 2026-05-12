@@ -1358,36 +1358,35 @@ JSON_Object.get:
 	mov rbx, [rsp+0]
 	add rsp, 16
 	mov [rsp+8], rbx
-	sub rsp, 16
+	sub rsp, 32
 	xor rbx, rbx
-	mov [rsp+8], rbx
+	mov [rsp+24], rbx
 	.L1:
-	mov rbx, [rsp+8]
+	mov rbx, [rsp+24]
 	mov rsi, [rbp+24]
 	mov rcx, [rsi+16]
 	cmp rbx, rcx
 	setb bl
 	test bl, bl
 	je .L3
-	sub rsp, 16
 	mov rcx, [rbp+24]
 	mov rbx, [rcx+0]
 	mov rcx, [rsp+24]
 	mov rsi, [rbx+rcx*8]
-	mov [rsp+8], rsi
+	mov [rsp+16], rsi
 	sub rsp, 16
-	mov rbx, [rsp+24]
+	mov rbx, [rsp+32]
 	mov [rsp+8], rbx
 	call strlen
 	mov rbx, [rsp+0]
 	add rsp, 16
-	mov [rsp+0], rbx
+	mov [rsp+8], rbx
 	sub rsp, 48
-	mov rbx, [rsp+56]
+	mov rbx, [rsp+64]
 	mov [rsp+8], rbx
 	mov bl, 0x22
 	mov [rsp+16], bl
-	mov rbx, [rsp+48]
+	mov rbx, [rsp+56]
 	mov [rsp+24], rbx
 	xor bl, bl
 	mov [rsp+32], bl
@@ -1400,33 +1399,33 @@ JSON_Object.get:
 	test bl, bl
 	je .L4
 	sub rsp, 48
-	mov rbx, [rsp+56]
+	mov rbx, [rsp+64]
 	mov [rsp+8], rbx
 	mov bl, 0x22
 	mov [rsp+16], bl
-	mov rbx, [rsp+48]
+	mov rbx, [rsp+56]
 	mov [rsp+24], rbx
 	xor bl, bl
 	mov [rsp+32], bl
 	call strfind
 	mov rbx, [rsp+0]
 	add rsp, 48
-	mov [rsp+0], rbx
+	mov [rsp+8], rbx
 	.L4:
 	.L5:
 	mov rbx, [rsp+40]
-	mov rcx, [rsp+0]
+	mov rcx, [rsp+8]
 	cmp rbx, rcx
 	sete bl
 	test bl, bl
 	je .L8
 	sub rsp, 32
 	mov [rsp+31], bl
-	mov rbx, [rsp+40]
+	mov rbx, [rsp+48]
 	mov [rsp+8], rbx
 	mov rbx, [rbp+32]
 	mov [rsp+16], rbx
-	mov rbx, [rsp+32]
+	mov rbx, [rsp+40]
 	mov [rsp+24], rbx
 	call strcmp
 	mov bl, [rsp+31]
@@ -1447,13 +1446,12 @@ JSON_Object.get:
 	jmp .L0
 	.L6:
 	.L7:
-	add rsp, 16
 	.L2:
-	mov rbx, [rsp+8]
-	inc QWORD [rsp+8]
+	mov rbx, [rsp+24]
+	inc QWORD [rsp+24]
 	jmp .L1
 	.L3:
-	add rsp, 16
+	add rsp, 32
 	xor rbx, rbx
 	mov [rbp+16], rbx
 	.L0:
@@ -1535,7 +1533,6 @@ JSON_Object.print:
 	setb bl
 	test bl, bl
 	je .L9
-	sub rsp, 16
 	mov rbx, [rbp+24]
 	test rbx, rbx
 	je .L10
@@ -1552,16 +1549,16 @@ JSON_Object.print:
 	.L11:
 	mov rcx, [rbp+16]
 	mov rbx, [rcx+0]
-	mov rcx, [rsp+24]
+	mov rcx, [rsp+8]
 	mov rsi, [rbx+rcx*8]
-	mov [rsp+8], rsi
+	mov [rsp+0], rsi
 	sub rsp, 48
 	mov rbx, [rbp+32]
 	mov [rsp+0], rbx
 	mov rbx, STR25
 	mov [rsp+8], rbx
 	sub rsp, 48
-	mov rbx, [rsp+104]
+	mov rbx, [rsp+96]
 	mov [rsp+8], rbx
 	mov bl, 0x22
 	mov [rsp+16], bl
@@ -1573,7 +1570,7 @@ JSON_Object.print:
 	mov rbx, [rsp+0]
 	add rsp, 48
 	mov [rsp+16], rbx
-	mov rbx, [rsp+56]
+	mov rbx, [rsp+48]
 	mov [rsp+24], rbx
 	mov cl, [rbp+24]
 	test cl, cl
@@ -1591,7 +1588,7 @@ JSON_Object.print:
 	sub rsp, 32
 	mov rsi, [rbp+16]
 	mov rcx, [rsi+8]
-	mov rsi, [rsp+56]
+	mov rsi, [rsp+40]
 	shl rsi, 2
 	lea rbx, [rcx+rsi*8]
 	mov [rsp+0], rbx
@@ -1601,7 +1598,7 @@ JSON_Object.print:
 	mov [rsp+16], rbx
 	call JSON.print_data
 	add rsp, 32
-	mov rbx, [rsp+24]
+	mov rbx, [rsp+8]
 	mov rsi, [rbp+16]
 	mov rcx, [rsi+16]
 	dec rcx
@@ -1629,7 +1626,6 @@ JSON_Object.print:
 	add rsp, 32
 	.L14:
 	.L15:
-	add rsp, 16
 	.L8:
 	mov rbx, [rsp+8]
 	inc QWORD [rsp+8]
@@ -1960,14 +1956,13 @@ main:
 	setl bl
 	test bl, bl
 	je .L9
-	sub rsp, 16
-	lea rsi, [rsp+40]
+	lea rsi, [rsp+24]
 	mov rcx, [rsi+0]
-	mov rsi, [rsp+24]
+	mov rsi, [rsp+8]
 	shl rsi, 2
 	lea rbx, [rcx+rsi*8]
-	mov [rsp+8], rbx
-	mov rcx, [rsp+8]
+	mov [rsp+0], rbx
+	mov rcx, [rsp+0]
 	mov rbx, [rcx+24]
 	mov rcx, 0x6
 	cmp rbx, rcx
@@ -1976,7 +1971,7 @@ main:
 	je .L10
 	sub rsp, 16
 	sub rsp, 32
-	mov rbx, [rsp+56]
+	mov rbx, [rsp+48]
 	mov [rsp+8], rbx
 	mov rbx, STR36
 	mov [rsp+16], rbx
@@ -1985,7 +1980,7 @@ main:
 	add rsp, 32
 	mov [rsp+8], rbx
 	sub rsp, 32
-	mov rbx, [rsp+56]
+	mov rbx, [rsp+48]
 	mov [rsp+8], rbx
 	mov rbx, STR37
 	mov [rsp+16], rbx
@@ -2069,7 +2064,6 @@ main:
 	add rsp, 16
 	.L10:
 	.L11:
-	add rsp, 16
 	.L8:
 	mov rbx, [rsp+8]
 	inc QWORD [rsp+8]
@@ -2107,6 +2101,7 @@ extern get_free_heap:function
 extern random:function
 extern is_num:function
 extern memset:function
+extern string_to_double:function
 extern malloc:function
 extern exit:function
 extern tan:function

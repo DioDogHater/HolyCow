@@ -29,9 +29,9 @@ size_t get_scope_size(node_stmt* scope){
             type_t var_type = type_from_tk(scope->var_decl.var_type);
             size_t var_sz = SIZEOF_T(var_type), var_align = ALIGNOF_T(var_type);
             if(!var_type.data || !var_sz)
-                return 0;
+                return -1;
             total = ALIGN(total, var_align);
-            total += SIZEOF_T(var_type);
+            total += var_sz;
         }else if(scope->type == tk_arr_decl){
             uint64_t elem_count;
             if(!eval_uint_expr(scope->arr_decl.elem_count, &elem_count)){
@@ -41,12 +41,12 @@ size_t get_scope_size(node_stmt* scope){
             type_t elem_type = type_from_tk(scope->arr_decl.elem_type);
             size_t elem_sz = SIZEOF_T(elem_type), elem_align = ALIGNOF_T(elem_type);
             if(!elem_type.data || !elem_sz)
-                return 0;
+                return -1;
             total = ALIGN(total, elem_align);
             total += elem_sz * elem_count;
         }else if(scope->type == tk_constexpr){
             if(!generate_stmt(NULL, scope, INVALID_TYPE, (scope_info){0}))
-                return false;
+                return -1;
         }
     }
     return ALIGN(total, 16);
@@ -58,6 +58,10 @@ scope_t gen_init_scope(HC_FILE fptr, node_stmt* scope){
     if(!scope)
         return snapshot;
     size_t sz = get_scope_size(scope);
+    if(sz == -1){
+        HC_ERR("Scope initialisation failed!");
+        fail_gen_expr(fptr);
+    }
     snapshot.size = sz;
     if(sz)
         gen_alloc_stack(fptr, sz);

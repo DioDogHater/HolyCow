@@ -771,7 +771,7 @@ node_stmt* parse_stmt(token_t** tokens, bool sc_necessary){
 
         if(consume_tk_type(tokens, tk_semicolon));
         else{
-            stmt->for_stmt.stmts = parse_stmt(tokens, true);
+            stmt->for_stmt.stmts = parse_scope(tokens);
             if(!stmt->for_stmt.stmts)
                 return NULL;
         }

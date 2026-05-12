@@ -144,31 +144,30 @@ global Balls.update:function
 Balls.update:
 	push rbp
 	mov rbp, rsp
-	sub rsp, 16
+	sub rsp, 32
 	xor rbx, rbx
-	mov [rsp+8], rbx
+	mov [rsp+24], rbx
 	.L1:
-	mov rbx, [rsp+8]
+	mov rbx, [rsp+24]
 	mov rcx, QWORD [Balls+392]
 	cmp rbx, rcx
 	setb bl
 	test bl, bl
 	je .L3
-	sub rsp, 16
 	mov rbx, [rsp+24]
 	mov rcx, QWORD [Balls+384]
 	add rbx, rcx
 	and rbx, 0xf
-	mov [rsp+8], rbx
+	mov [rsp+16], rbx
 	lea rcx, [Balls+0]
-	mov rsi, [rsp+8]
+	mov rsi, [rsp+16]
 	lea rsi, [rsi+rsi*2]
 	lea rbx, [rcx+rsi*8]
-	mov [rsp+0], rbx
+	mov [rsp+8], rbx
 	sub rsp, 32
 	movsd [rsp+24], xmm0
 	movss [rsp+20], xmm1
-	mov rbx, [rsp+32]
+	mov rbx, [rsp+40]
 	mov [rsp+0], rbx
 	movss xmm0, [rbp+16]
 	movss [rsp+8], xmm0
@@ -192,7 +191,7 @@ Balls.update:
 	cvtsd2ss xmm0, [FP2]
 	movss xmm2, xmm0
 	lea rbx, [__GP_TMP]
-	mov r8, [rsp+16]
+	mov r8, [rsp+24]
 	lea r8, [r8+0]
 	mov r9, rdi
 	cld
@@ -207,13 +206,12 @@ Balls.update:
 	movsd xmm0, [rsp+8]
 	movss xmm1, [rsp+4]
 	add rsp, 16
-	add rsp, 16
 	.L2:
-	mov rbx, [rsp+8]
-	inc QWORD [rsp+8]
+	mov rbx, [rsp+24]
+	inc QWORD [rsp+24]
 	jmp .L1
 	.L3:
-	add rsp, 16
+	add rsp, 32
 	.L0:
 	leave
 	ret

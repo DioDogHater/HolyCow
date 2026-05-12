@@ -516,7 +516,8 @@ sleep:
 	movsd xmm1, [FP0]
 	movsd xmm2, xmm0
 	divsd xmm2, xmm1
-	roundsd xmm2, xmm2, 0
+	roundsd xmm2, xmm2, 3
+	mulsd xmm2, xmm1
 	subsd xmm0, xmm2
 	movsd xmm1, [FP1]
 	mulsd xmm0, xmm1
@@ -2184,7 +2185,8 @@ sin:
 	movsd xmm1, [FP2]
 	movsd xmm2, xmm0
 	divsd xmm2, xmm1
-	roundsd xmm2, xmm2, 0
+	roundsd xmm2, xmm2, 3
+	mulsd xmm2, xmm1
 	subsd xmm0, xmm2
 	movsd [rbp+24], xmm0
 	fld QWORD [rbp+24]
@@ -2202,7 +2204,8 @@ cos:
 	movsd xmm1, [FP2]
 	movsd xmm2, xmm0
 	divsd xmm2, xmm1
-	roundsd xmm2, xmm2, 0
+	roundsd xmm2, xmm2, 3
+	mulsd xmm2, xmm1
 	subsd xmm0, xmm2
 	movsd [rbp+24], xmm0
 	fld QWORD [rbp+24]
@@ -2220,7 +2223,8 @@ tan:
 	movsd xmm1, [FP2]
 	movsd xmm2, xmm0
 	divsd xmm2, xmm1
-	roundsd xmm2, xmm2, 0
+	roundsd xmm2, xmm2, 3
+	mulsd xmm2, xmm1
 	subsd xmm0, xmm2
 	movsd [rbp+24], xmm0
 	fld QWORD [rbp+24]
@@ -2421,6 +2425,7 @@ fixed.from_string:
 	mov [rsp+2], bl
 	jmp .L7
 	.L12:
+	jmp .L5
 	.L7:
 	.L4:
 	inc QWORD [rbp+24]
@@ -5466,6 +5471,138 @@ string_to_int:
 	.L11:
 	mov rbx, [rsp+8]
 	mov [rbp+16], rbx
+	.L0:
+	leave
+	ret
+
+global string_to_double:function
+string_to_double:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 32
+	mov rbx, [rbp+32]
+	mov rcx, 0xffffffffffffffff
+	cmp rbx, rcx
+	sete bl
+	test bl, bl
+	je .L1
+	sub rsp, 16
+	mov rbx, [rbp+24]
+	mov [rsp+8], rbx
+	call strlen
+	mov rbx, [rsp+0]
+	add rsp, 16
+	mov [rbp+32], rbx
+	.L1:
+	.L2:
+	movsd xmm0, [FP4]
+	movsd [rsp+24], xmm0
+	movsd xmm0, [FP4]
+	movsd [rsp+16], xmm0
+	movsd xmm0, [FP0]
+	movsd [rsp+8], xmm0
+	xor bl, bl
+	mov [rsp+7], bl
+	xor bl, bl
+	mov [rsp+6], bl
+	.L3:
+	mov rbx, [rbp+32]
+	test rbx, rbx
+	je .L5
+	mov rbx, [rbp+24]
+	mov cl, [rbx]
+	mov bl, 0x2d
+	cmp cl, bl
+	sete bl
+	test bl, bl
+	je .L6
+	mov cl, [rsp+7]
+	test cl, cl
+	sete bl
+	mov [rsp+7], bl
+	jmp .L7
+	.L6:
+	mov rbx, [rbp+24]
+	mov cl, [rbx]
+	mov bl, 0x30
+	cmp cl, bl
+	setae bl
+	test bl, bl
+	je .L9
+	mov rcx, [rbp+24]
+	mov sil, [rcx]
+	mov cl, 0x39
+	cmp sil, cl
+	setbe bl
+	.L9:
+	test bl, bl
+	je .L8
+	mov bl, [rsp+6]
+	test bl, bl
+	je .L10
+	movsd xmm0, [rsp+16]
+	movsd xmm1, [FP5]
+	mulsd xmm0, xmm1
+	mov rbx, [rbp+24]
+	movzx rcx, BYTE [rbx]
+	sub rcx, 0x30
+	cvtsi2sd xmm1, rcx
+	addsd xmm0, xmm1
+	movsd [rsp+16], xmm0
+	movsd xmm0, [rsp+8]
+	movsd xmm1, [FP5]
+	mulsd xmm0, xmm1
+	movsd [rsp+8], xmm0
+	jmp .L11
+	.L10:
+	movsd xmm0, [rsp+24]
+	movsd xmm1, [FP5]
+	mulsd xmm0, xmm1
+	mov rbx, [rbp+24]
+	movzx rcx, BYTE [rbx]
+	sub rcx, 0x30
+	cvtsi2sd xmm1, rcx
+	addsd xmm0, xmm1
+	movsd [rsp+24], xmm0
+	.L11:
+	jmp .L7
+	.L8:
+	mov rbx, [rbp+24]
+	mov cl, [rbx]
+	mov bl, 0x2e
+	cmp cl, bl
+	sete bl
+	test bl, bl
+	je .L12
+	mov bl, 0x1
+	mov [rsp+6], bl
+	jmp .L7
+	.L12:
+	jmp .L5
+	.L7:
+	.L4:
+	inc QWORD [rbp+24]
+	mov rbx, [rbp+24]
+	dec QWORD [rbp+32]
+	mov rbx, [rbp+32]
+	jmp .L3
+	.L5:
+	movsd xmm0, [rsp+24]
+	movsd xmm1, [rsp+16]
+	movsd xmm2, [rsp+8]
+	divsd xmm1, xmm2
+	addsd xmm0, xmm1
+	movsd [rsp+24], xmm0
+	mov bl, [rsp+7]
+	test bl, bl
+	je .L13
+	movsd xmm0, [rsp+24]
+	xorpd xmm0, [__FNEG_MASKd]
+	movsd [rsp+24], xmm0
+	.L13:
+	.L14:
+	movsd xmm0, [rsp+24]
+	movsd [rbp+16], xmm0
 	.L0:
 	leave
 	ret

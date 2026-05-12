@@ -293,6 +293,7 @@ extern get_free_heap:function
 extern random:function
 extern is_num:function
 extern memset:function
+extern string_to_double:function
 extern malloc:function
 extern exit:function
 extern tan:function

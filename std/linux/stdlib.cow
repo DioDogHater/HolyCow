@@ -286,6 +286,8 @@ module fixed = {
                     int_x = int_x * 10 + ((*str - '0') << fixed.precision);
             }else if(*str == '.')
                 frac = true;
+            else
+                break;
         }
         int_x += (frac_x / d) & fixed.frac_mask;
         if(sign)
@@ -596,8 +598,9 @@ void print_hex(uint x, File* f){
     char* ptr = buffer + 62;
     if(x == 0)
         *(ptr--) = '0';
-    for(; x; x = x >> 4, --ptr)
+    for(; x; x = x >> 4, --ptr){
         *ptr = lookup[x & 0xF];
+    }
     print_str(ptr+1,,f);
 }
 
@@ -608,8 +611,9 @@ void print_binary(uint x, File* f){
     char* ptr = buffer + 78;
     if(x == 0)
         *(ptr--) = '0';
-    for(; x; x = x >> 1, --ptr)
+    for(; x; x = x >> 1, --ptr){
         *ptr = '0' + (x & 1);
+    }
     print_str(ptr+1,,f);
 }
 
@@ -836,8 +840,9 @@ char* int_to_string(int x, char* str, uint len, char filler){
         *(ptr--) = '0';
         --len;
     }
-    for(; x && len; x /= 10, --len, --ptr)
+    for(; x && len; x /= 10, --len, --ptr){
         *ptr = (int)(x % 10) + '0';
+    }
     if(filler)
         repeat(len){ *(ptr--) = filler; }
     if(sign)
@@ -853,8 +858,9 @@ char* uint_to_string(uint x, char* str, uint len, char filler){
         *(ptr--) = '0';
         --len;
     }
-    for(; x && len; x /= 10, --len, --ptr)
+    for(; x && len; x /= 10, --len, --ptr){
         *ptr = (uint)(x % 10) + '0';
+    }
     if(filler)
         repeat(len){ *(ptr--) = filler; }
     @return = ptr+1;
@@ -876,6 +882,34 @@ int string_to_int(char* str, uint len){
     if(sign)
         result = -result;
     @return = result;
+}
+
+double string_to_double(char* str, uint len){
+    if(len == -1)
+        len = strlen(str);
+    double int_x = 0.0;
+    double frac_x = 0.0;
+    double d = 1.0;
+    bool sign = false;
+    bool frac = false;
+    for(; len; ++str, --len){
+        if(*str == '-')
+            sign = !sign;
+        else if(*str >= '0' && *str <= '9'){
+            if(frac){
+                frac_x = frac_x * 10.0 + (int)(*str - '0');
+                d *= 10.0;
+            }else
+                int_x = int_x * 10.0 + (int)(*str - '0');
+        }else if(*str == '.')
+            frac = true;
+        else
+            break;
+    }
+    int_x += frac_x / d;
+    if(sign)
+        int_x = -int_x;
+    @return = int_x;
 }
 
 class vector {

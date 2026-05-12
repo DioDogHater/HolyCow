@@ -1394,13 +1394,12 @@ Screen.print:
 	setl bl
 	test bl, bl
 	je .L11
-	sub rsp, 16
 	lea rcx, [Powerups+0]
-	mov rsi, [rsp+24]
+	mov rsi, [rsp+8]
 	add rsi, rsi
 	lea rbx, [rcx+rsi*8]
-	mov [rsp+8], rbx
-	mov rcx, [rsp+8]
+	mov [rsp+0], rbx
+	mov rcx, [rsp+0]
 	mov rbx, [rcx+0]
 	mov rcx, 0x1
 	cmp rbx, rcx
@@ -1408,12 +1407,12 @@ Screen.print:
 	test bl, bl
 	je .L12
 	lea rbx, [Screen+0]
-	mov rsi, [rsp+8]
+	mov rsi, [rsp+0]
 	lea rsi, [rsi+8]
 	mov ecx, DWORD [rsi+4]
 	shl rcx, 4
 	lea rcx, [rcx+rcx*2]
-	mov rdi, [rsp+8]
+	mov rdi, [rsp+0]
 	lea rdi, [rdi+8]
 	mov esi, DWORD [rdi+0]
 	add rcx, rsi
@@ -1421,7 +1420,6 @@ Screen.print:
 	mov [rbx+rcx*1], sil
 	.L12:
 	.L13:
-	add rsp, 16
 	.L10:
 	mov rbx, [rsp+8]
 	inc QWORD [rsp+8]
@@ -1438,23 +1436,22 @@ Screen.print:
 	setl bl
 	test bl, bl
 	je .L16
-	sub rsp, 16
 	lea rcx, [Balls+0]
-	mov rsi, [rsp+24]
+	mov rsi, [rsp+8]
 	lea rsi, [rsi+rsi*4]
 	lea rbx, [rcx+rsi*4]
-	mov [rsp+8], rbx
-	mov rcx, [rsp+8]
+	mov [rsp+0], rbx
+	mov rcx, [rsp+0]
 	mov bl, [rcx+16]
 	test bl, bl
 	je .L17
 	lea rbx, [Screen+0]
-	mov rsi, [rsp+8]
+	mov rsi, [rsp+0]
 	lea rsi, [rsi+0]
 	mov ecx, DWORD [rsi+4]
 	shl rcx, 4
 	lea rcx, [rcx+rcx*2]
-	mov rdi, [rsp+8]
+	mov rdi, [rsp+0]
 	lea rdi, [rdi+0]
 	mov esi, DWORD [rdi+0]
 	add rcx, rsi
@@ -1462,7 +1459,6 @@ Screen.print:
 	mov [rbx+rcx*1], sil
 	.L17:
 	.L18:
-	add rsp, 16
 	.L15:
 	mov rbx, [rsp+8]
 	inc QWORD [rsp+8]
@@ -1599,6 +1595,7 @@ extern get_free_heap:function
 extern random:function
 extern is_num:function
 extern memset:function
+extern string_to_double:function
 extern malloc:function
 extern exit:function
 extern tan:function

@@ -384,10 +384,14 @@ bool types_compatible(type_t a, type_t b){
         return false;
     if(a.ptr_depth != b.ptr_depth)
         return false;
-    else if(a.ptr_depth && (a.size != b.size || a.data != b.data) && (!a.repr || a.repr->type != tk_void) && (!b.repr || b.repr->type != tk_void))
+    else if(a.data == DATA_STRUCT && b.data == DATA_STRUCT){
+        struct_t *sa = get_struct_tk(a.repr), *sb = get_struct_tk(b.repr);
+        for(struct_t* s = sa; s; s = s->parent)
+            if(s == sb) return true;
+        for(struct_t* s = sb; s; s = s->parent)
+            if(s == sa) return true;
+    }else if(a.ptr_depth && (a.size != b.size || a.data != b.data) && (!a.repr || a.repr->type != tk_void) && (!b.repr || b.repr->type != tk_void))
         return false;
-    else if(d1 == DATA_STRUCT && d2 == DATA_STRUCT)
-        return get_struct_tk(a.repr) == get_struct_tk(b.repr);
     else if(d1 == DATA_UNION && d2 == DATA_UNION)
         return get_union_tk(a.repr) == get_union_tk(b.repr);
     else if((d1 == DATA_INT && d2 == DATA_FLOAT) || (d1 == DATA_FLOAT && d2 == DATA_INT))

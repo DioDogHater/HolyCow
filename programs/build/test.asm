@@ -408,8 +408,7 @@ print_int_vector:
 	setl bl
 	test bl, bl
 	je .L3
-	sub rsp, 16
-	mov rbx, [rsp+24]
+	mov rbx, [rsp+8]
 	test rbx, rbx
 	je .L4
 	sub rsp, 16
@@ -422,20 +421,19 @@ print_int_vector:
 	sub rsp, 32
 	mov rbx, [rbp+16]
 	mov [rsp+8], rbx
-	mov rbx, [rsp+56]
+	mov rbx, [rsp+40]
 	mov [rsp+16], rbx
 	call vector.at
 	mov rbx, [rsp+0]
 	add rsp, 32
-	mov [rsp+8], rbx
+	mov [rsp+0], rbx
 	sub rsp, 16
 	mov rbx, STR17
 	mov [rsp+0], rbx
-	mov rbx, [rsp+24]
+	mov rbx, [rsp+16]
 	mov rcx, [rbx]
 	mov [rsp+8], rcx
 	call print
-	add rsp, 16
 	add rsp, 16
 	.L2:
 	mov rbx, [rsp+8]
@@ -847,6 +845,7 @@ extern get_free_heap:function
 extern random:function
 extern is_num:function
 extern memset:function
+extern string_to_double:function
 extern malloc:function
 extern exit:function
 extern read:function

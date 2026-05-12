@@ -1,0 +1,213 @@
+#include "../std/stdlib.hcw"
+
+class Expr virtual {
+    virtual double eval(){}
+    virtual void free(){
+        free(this);
+    }
+}
+
+class Value : Expr virtual {
+    private double val;
+    virtual double eval(){
+        @return = this.val;
+    }
+}
+
+class Neg : Expr virtual {
+    private Expr* right;
+    virtual double eval(){ @return = -this.right.eval(); }
+    virtual void free(){
+        free(this.right);
+        free(this);
+    }
+}
+
+class BinOp : Expr virtual {
+    private Expr* left;
+    private Expr* right;
+    virtual double compute(double a, double b){}
+    virtual double eval(){
+        @return = this.compute(this.left.eval(), this.right.eval());
+    }
+    virtual void free(){
+        free(this.left);
+        free(this.right);
+        free(this);
+    }
+}
+
+class Add : BinOp virtual {
+    virtual double compute(double a, double b){ @return = a + b; }
+}
+
+class Sub : BinOp virtual {
+    virtual double compute(double a, double b){ @return = a - b; }
+}
+
+class Mul : BinOp virtual {
+    virtual double compute(double a, double b){ @return = a * b; }
+}
+
+class Div : BinOp virtual {
+    virtual double compute(double a, double b){ @return = a / b; }
+}
+
+class Mod : BinOp virtual {
+    virtual double compute(double a, double b){ @return = a % b; }
+}
+
+class Pow : BinOp virtual {
+    virtual double compute(double a, double b){ @return = pow(a, b); }
+}
+
+variant Token {
+    char* num;
+    char op;
+}
+
+// Returns a vector of Tokens
+vector tokenize(char* str){
+    vector tks = vector.new(sizeof(Token));
+    for(; *str; str++){
+        Token tk;
+        if(is_whitespace(*str))
+            continue;
+        else if(is_num(*str)){
+            char* start = str;
+            for(; is_num(*str); str++);
+            if(*str == '.'){
+                str++;
+                for(; is_num(*str); str++);
+            }
+            tk = Token.num{ start };
+            str--;
+        }else
+            tk = Token.op{ *str };
+        tks.pushback(&tk);
+    }
+    *@return = tks;
+}
+
+// Get the precedence of operator c
+int get_precedence(char c){
+    @return = -1;
+    if(c == '-' or c == '+')
+        @return = 1;
+    else if(c == '*' or c == '/' or c == '%')
+        @return = 2;
+    else if(c == '^')
+        @return = 3;
+}
+
+Expr* parse_expression(vector* tks, uint* index, int min_precedence = 0);
+
+// Parse a term
+Expr* parse_term(vector* tks, int* index){
+    if(*index >= tks.size)
+        error("Expression missing");
+    Token* tk = tks.at((*index)++);
+    if(tk.type == Token.num){
+        double num = string_to_double(tk.num);
+        Value* val = malloc(sizeof(Value));
+        *val = Value{num};
+        @return = val;
+    }else if(tk.op == '-'){
+        Neg* neg = malloc(sizeof(Neg));
+        *neg = Neg{parse_expression(tks, index, 3)};
+        @return = neg;
+    }else if(tk.op == '('){
+        @return = parse_expression(tks, index);
+        if(*index >= tks.size)
+            error("Missing closing ')'");
+        Token* paren = tks.at((*index)++);
+        if(paren.type != Token.op or paren.op != ')')
+            error("Expected closing ')'");
+    }else
+        error("Invalid term expression");
+}
+
+// Parse an expression
+Expr* parse_expression(vector* tks, uint* index, int min_precedence){
+    @return = parse_term(tks, index);
+    while(*index < tks.size){
+        Token* tk = tks.at(*index);
+        if(tk.type == Token.num)
+            error("No implicit multiplication");
+        if(tk.type != Token.op)
+            break;
+
+        int prec = get_precedence(tk.op);
+        if(prec == -1)
+            error("Invalid operator %c", tk.op);
+        if(prec < min_precedence)
+            break;
+        (*index)++;
+
+        Expr* rhs = parse_expression(tks, index, prec + 1);
+
+        if(tk.op == '+'){
+            Add* add = malloc(sizeof(Add));
+            *add = Add{@return, rhs};
+            @return = add;
+        }else if(tk.op == '-'){
+            Sub* sub = malloc(sizeof(Sub));
+            *sub = Sub{@return, rhs};
+            @return = sub;
+        }else if(tk.op == '*'){
+            Mul* mul = malloc(sizeof(Mul));
+            *mul = Mul{@return, rhs};
+            @return = mul;
+        }else if(tk.op == '/'){
+            Div* div = malloc(sizeof(Div));
+            *div = Div{@return, rhs};
+            @return = div;
+        }else if(tk.op == '%'){
+            Mod* mod = malloc(sizeof(Mod));
+            *mod = Mod{@return, rhs};
+            @return = mod;
+        }else if(tk.op == '^'){
+            Pow* pow = malloc(sizeof(Pow));
+            *pow = Pow{@return, rhs};
+            @return = pow;
+        }
+    }
+}
+
+Expr* parse(char* str){
+    vector tks = tokenize(str);
+
+    // DEBUG INFO
+
+    // for(uint i = 0; i < tks.size; i++){
+    //     Token* tk = tks.at(i);
+    //     if(tk.type == Token.num)
+    //         println("Token.num{%f}", string_to_double(tk.num));
+    //     else
+    //         println("Token.op{%c}", tk.op);
+    // }
+
+    uint index = 0;
+    @return = parse_expression(&tks, &index);
+
+    // Tokens are no longer necessary
+    tks.free();
+}
+
+int main(uint argc, char** argv){
+    println("[==== Press 'q' to quit calculator. ====]");
+
+    forever{
+        println();
+        char buffer[1024];
+        input(buffer, 1024);
+
+        if(buffer[0] == 'q')
+            break;
+
+        Expr* expr = parse(buffer);
+        println("= %*f", 8, expr.eval());
+
+        expr.free();
+    }
+}

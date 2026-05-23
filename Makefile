@@ -5,11 +5,13 @@ ifeq ($(OS),Windows_NT)
 	HCC := .\build\hcc.exe
 	# For now, STDLIB will be the linux standard library even in Windows
 	STDLIB := std/linux/stdlib.cow std/linux/linux.cow std/linux/memalloc.cow
+	EXCEPTION := std/linux/exception.cow
 	LIBRAYLIB := libraylib_win64.a
 	EXT := .exe
 else
 	HCC := ./build/hcc
 	STDLIB := std/linux/stdlib.cow std/linux/linux.cow std/linux/memalloc.cow
+	EXCEPTION := std/linux/exception.cow
 	LIBRAYLIB := libraylib_linux_x64.a
 	EXT :=
 endif
@@ -17,7 +19,7 @@ endif
 HCC_FLAGS := -d --silent
 
 # Add your own projects here to compile
-stdlib_projects = helloworld test tictactoe breakout snake json_example calculator
+stdlib_projects = helloworld test fibonacci tictactoe breakout snake json_example calculator
 raylib_projects = test3d
 
 build := programs/build
@@ -40,9 +42,11 @@ $(raylib_execs): $(build)/%$(EXT): $(src)/%.cow $(HCC)
 	$(HCC) -c $(HCC_FLAGS) $< -o $@
 	$(CC) -no-pie -nostdlib $@.o -o $@ -Lprograms/raylib -l:$(LIBRAYLIB) -lc -lm
 
-$(stdlib_execs): $(build)/%$(EXT): $(src)/%.cow std/stdlib.o std/stdlib.hcw $(HCC)
-	$(HCC) $(HCC_FLAGS) $< -o $@ -lstd/stdlib.o
+$(stdlib_execs): $(build)/%$(EXT): $(src)/%.cow std/stdlib.o std/exception.o std/stdlib.hcw $(HCC)
+	$(HCC) $(HCC_FLAGS) $< -o $@ -lstd/stdlib.o,std/exception.o
 
-# For now, linux by default
 std/stdlib.o: $(STDLIB) std/stdlib.hcw $(HCC)
 	$(HCC) -s $(HCC_FLAGS) $< -o std/stdlib
+
+std/exception.o: $(EXCEPTION) $(HCC)
+	$(HCC) -s $(HCC_FLAGS) $< -o std/exception

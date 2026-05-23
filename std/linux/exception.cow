@@ -1,0 +1,45 @@
+#include "../stdlib.hcw"
+
+constexpr int MAX_EXCEPTIONS = 64;
+
+struct exception {
+    void* rsp;
+    void* rbp;
+    void* jmp;
+}
+
+uint __exception_idx;
+exception __exception_buff[MAX_EXCEPTIONS];
+
+void __exception_push(){
+    if(__exception_idx == MAX_EXCEPTIONS)
+        error("Max try ... catch limit of %i reached!", MAX_EXCEPTIONS);
+    exception* except = &__exception_buff[__exception_idx++];
+    @asm(rax,
+    "mov QWORD [@0], rax
+    mov QWORD [@1], rdx
+    mov QWORD [@2], rsp
+    add QWORD [@2], 16",
+    &except.jmp, &except.rbp, &except.rsp);
+}
+
+void __exception_pop(){
+    if(__exception_idx == 0)
+        error("Cannot pop inexistant exception!");
+    __exception_idx--;
+}
+
+void __exception_throw(){
+    exception* except;
+    if(__exception_idx == 0){
+        @asm(rax, rdx, "mov [@0], rax\n\tmov [@1], rdx", &except.rsp, &except.rbp);
+        error("Exception %i : %s", except.rsp, except.rbp);
+    }
+    except = &__exception_buff[--__exception_idx];
+
+    @asm(
+    "mov rsp, @0
+    mov rbp, @1
+    jmp @2",
+    except.rsp, except.rbp, except.jmp);
+}

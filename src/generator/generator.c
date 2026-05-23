@@ -1105,6 +1105,7 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
                 }// Other data types
                 else{
                     print_context_expr("Unsupported variable argument type", arg_expr);
+                    print_type("Type ", expr_type, " is not supported.");
                     fail_gen_expr(fptr);
                 }
                 arg_ptr += 8;
@@ -1197,6 +1198,18 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
     }
 
     return func_call_sz + temp_struct_space;
+}
+
+// Calls a magic method
+size_t generate_magic_call(HC_FILE fptr, node_expr* stru, node_expr* other, func_t* magic, reg_t* struct_ptr){
+    token_t tk = (token_t){tk_identifier, magic->str, magic->strlen};
+    node_access method_access = (node_access){tk_dot, NULL, stru, &tk};
+    node_func_expr func_call = (node_func_expr){tk_func_call, (node_expr*) &method_access, other};
+    func_t* func;
+    size_t func_call_sz = generate_func_call(fptr, (node_expr*) &func_call, &func, struct_ptr);
+    if(func != magic)
+        HC_LOG("Magic method %.*s != %.*s", (int) magic->strlen, magic->str, (int) func->strlen, func->str);
+    return func_call_sz;
 }
 
 #define SIGNED_OP1(sign, n) ((sign) ? GET_ALLOWED_REGS1(s##n) : GET_ALLOWED_REGS1(n))
@@ -2450,6 +2463,22 @@ static bool append_module_var(module_t* mod, var_t* var, node_expr* expr){
     return true;
 }
 
+bool generate_condition(HC_FILE fptr, node_expr* expr){
+    // Generate condition
+    type_t cond_type = typeof_expr(expr);
+    if(cond_type.ptr_depth || cond_type.data == DATA_INT){
+        reg_t* cond = EXPR_ONCE(expr, cond_type, NULL);
+        gen_cmpz_reg(fptr, cond);
+    }else if(cond_type.data == DATA_FLOAT){
+        freg_t* freg = FEXPR_ONCE(expr, cond_type.size == 8);
+        gen_cmpzf(fptr, freg);
+    }else{
+        print_context_expr("Cannot use as a condition", expr);
+        return false;
+    }
+    return true;
+}
+
 bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info parent){
     if(!fn_type.data &&
         stmt->type != tk_func_decl &&
@@ -2505,18 +2534,8 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
         if(!parent.end_label)
             parent.end_label = end_label;
 
-        // Generate condition
-        type_t cond_type = typeof_expr(stmt->if_stmt.cond);
-        if(cond_type.ptr_depth || cond_type.data == DATA_INT){
-            reg_t* cond = EXPR_ONCE(stmt->if_stmt.cond, cond_type, NULL);
-            gen_cmpz_reg(fptr, cond);
-        }else if(cond_type.data == DATA_FLOAT){
-            freg_t* freg = FEXPR_ONCE(stmt->if_stmt.cond, cond_type.size == 8);
-            gen_cmpzf(fptr, freg);
-        }else{
-            print_context_expr("Cannot use as a condition", stmt->if_stmt.cond);
+        if(!generate_condition(fptr, stmt->if_stmt.cond))
             return false;
-        }
         gen_cond_jump(fptr, tk_cmp_eq, other_label, false);
 
         // Go through the if's scope if its condition is true
@@ -2543,17 +2562,8 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
                 parent.next_label = other_label;
 
                 // Generate the alternate condition
-                cond_type = typeof_expr(stmt->if_stmt.cond);
-                if(cond_type.ptr_depth || cond_type.data == DATA_INT){
-                    reg_t* cond = EXPR_ONCE(stmt->if_stmt.cond, cond_type, NULL);
-                    gen_cmpz_reg(fptr, cond);
-                }else if(cond_type.data == DATA_FLOAT){
-                    freg_t* freg = FEXPR_ONCE(stmt->if_stmt.cond, cond_type.size == 8);
-                    gen_cmpzf(fptr, freg);
-                }else{
-                    print_context_expr("Cannot use as a condition", stmt->if_stmt.cond);
+                if(!generate_condition(fptr, stmt->if_stmt.cond))
                     return false;
-                }
                 gen_cond_jump(fptr, tk_cmp_eq, other_label, false);
 
                 // Go through the else if's scopes
@@ -2596,6 +2606,82 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
         gen_quit_scope(fptr, scope);
         return true;
     }
+    // try ... catch ...
+    case tk_try:{
+        size_t except_label = label_count++, end_label = label_count++;
+        parent.end_label = end_label;
+
+        gen_exception_push(fptr, except_label);
+
+        for(node_stmt* ptr = stmt->try_except.tried; ptr; ptr = ptr->next){
+            if(!generate_stmt(fptr, ptr, fn_type, parent))
+                return false;
+        }
+
+        gen_exception_pop(fptr);
+        gen_jump(fptr, end_label);
+
+        gen_label(fptr, except_label);
+
+        scope_t var_scope = (scope_t){stack_sz, stack_ptr, vector_size(vars), vector_size(consts), 0};
+        if(stmt->try_except.except){
+            stack_sz += 16;
+            stack_ptr = stack_sz - 8;
+            var_scope.size = 16;
+            gen_alloc_stack(fptr, 16);
+            gen_exception_recup(fptr);
+
+            var_t val = (var_t){
+                stmt->try_except.except->str, stmt->try_except.except->strlen, stack_ptr,
+                VAR_STACK, FLAG_NONE,
+                (type_t){8, GET_DUMMY_TYPE(int64), true, DATA_INT, 8, 0}
+            };
+            if(get_var(val.str, val.strlen)){
+                print_context("Variable with the same name already defined", stmt->try_except.except);
+                var_t* other = get_var(val.str, val.strlen);
+                print_context_ex("Last definition here", other->str, other->strlen);
+                return false;
+            }
+            vector_append(vars, &val);
+
+            if(stmt->try_except.except->next && stmt->try_except.except->next->type == tk_identifier){
+                val.str = stmt->try_except.except->next->str;
+                val.strlen = stmt->try_except.except->next->strlen;
+                val.stack_ptr = (stack_ptr += 8);
+                val.type = (type_t){1, GET_DUMMY_TYPE(uint8), false, DATA_INT, 1, 1};
+                if(get_var(val.str, val.strlen)){
+                    print_context("Variable with the same name already defined", stmt->try_except.except);
+                    var_t* other = get_var(val.str, val.strlen);
+                    print_context_ex("Last definition here", other->str, other->strlen);
+                    return false;
+                }
+                vector_append(vars, &val);
+            }
+        }
+
+        for(node_stmt* ptr = stmt->try_except.caught; ptr; ptr = ptr->next){
+            if(!generate_stmt(fptr, ptr, fn_type, parent))
+                return false;
+        }
+
+        gen_quit_scope(fptr, var_scope);
+
+        gen_label(fptr, end_label);
+        return true;
+    }
+    case tk_throw:{
+        reg_t* tmp1 = NULL;
+        generate_expr(fptr, stmt->ret.expr, (type_t){8, GET_DUMMY_TYPE(int64), true, DATA_INT, 8, 0}, NULL);
+        reg_t* tmp2 = NULL;
+        if(stmt->ret.expr)
+            tmp1 = generate_expr(fptr, stmt->ret.expr, (type_t){8, GET_DUMMY_TYPE(int64), true, DATA_INT, 8, 0}, NULL);
+        if(stmt->ret.expr->next)
+            tmp2 = generate_expr(fptr, stmt->ret.expr->next, (type_t){1, GET_DUMMY_TYPE(uint8), false, DATA_INT, 1, 1}, NULL);
+        gen_exception_throw(fptr, tmp1, tmp2);
+        (void) free_reg(tmp1);
+        (void) free_reg(tmp2);
+        return true;
+    }
     case tk_while:{
         size_t start_label = label_count++, end_label = label_count++;
         parent.end_label = 0;
@@ -2608,17 +2694,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
         gen_label(fptr, start_label);
 
         // Check the condition
-        type_t cond_type = typeof_expr(stmt->while_stmt.cond);
-        if(cond_type.ptr_depth || cond_type.data == DATA_INT){
-            reg_t* cond = EXPR_ONCE(stmt->while_stmt.cond, cond_type, NULL);
-            gen_cmpz_reg(fptr, cond);
-        }else if(cond_type.data == DATA_FLOAT){
-            freg_t* freg = FEXPR_ONCE(stmt->while_stmt.cond, cond_type.size == 8);
-            gen_cmpzf(fptr, freg);
-        }else{
-            print_context_expr("Cannot use as a condition", stmt->while_stmt.cond);
-            return false;
-        }
+        generate_condition(fptr, stmt->while_stmt.cond);
         gen_cond_jump(fptr, tk_cmp_eq, end_label, false);
 
         // Generate the scope
@@ -2721,17 +2797,7 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
         parent.break_label = end_label;
 
         // Check the condition
-        type_t cond_type = typeof_expr(stmt->for_stmt.cond);
-        if(cond_type.ptr_depth || cond_type.data == DATA_INT){
-            reg_t* cond = EXPR_ONCE(stmt->for_stmt.cond, cond_type, NULL);
-            gen_cmpz_reg(fptr, cond);
-        }else if(cond_type.data == DATA_FLOAT){
-            freg_t* freg = FEXPR_ONCE(stmt->for_stmt.cond, cond_type.size);
-            gen_cmpzf(fptr, freg);
-        }else{
-            print_context_expr("Cannot use as a condition", stmt->for_stmt.cond);
-            return false;
-        }
+        generate_condition(fptr, stmt->for_stmt.cond);
         gen_cond_jump(fptr, tk_cmp_eq, end_label, false);
 
         // Generate the scope
@@ -4006,6 +4072,10 @@ bool generate(const char* output_file, node_stmt* AST, bool library){
                 gen_inherit_method(fptr, stru->str, stru->strlen, stru->parent->str, stru->parent->strlen, method->str, method->strlen);
         }
     }
+
+    gen_declare_extern(fptr, "__exception_push", 17, "function");
+    gen_declare_extern(fptr, "__exception_pop", 16, "function");
+    gen_declare_extern(fptr, "__exception_throw", 18, "function");
 
     // Data section
     HC_FPRINTF(fptr, "\n\n%s", target_data_section);

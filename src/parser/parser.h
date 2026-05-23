@@ -235,6 +235,14 @@ typedef struct{
     union node_stmt* stmts;
 } node_scope;
 
+// tk_try
+typedef struct{
+    NODE_STMT_BASE;
+    union node_stmt* tried;
+    token_t* except;
+    union node_stmt* caught;
+} node_try;
+
 // tk_for
 // for(init; cond; step){ ... }
 typedef struct{
@@ -288,6 +296,7 @@ typedef union node_stmt{
     node_if while_stmt;
     node_if repeat_stmt;
     node_scope scope;
+    node_try try_except;
     node_for for_stmt;
     node_expr_stmt expr;
     node_return ret;

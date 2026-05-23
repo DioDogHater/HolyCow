@@ -2192,6 +2192,9 @@ extern string.format:function
 extern vector.empty:function
 extern vector.new:function
 extern vector.from_arr:function
+extern __exception_push:function
+extern __exception_pop:function
+extern __exception_throw:function
 
 
 section .data align=16

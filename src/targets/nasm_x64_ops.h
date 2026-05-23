@@ -363,6 +363,31 @@ void gen_call_virtual_method(HC_FILE fptr, size_t ptr, size_t index){
     gen_load_ptr(fptr, tmp, tmp);
     HC_FPRINTF(fptr, "\tcall [%s+%lu*8]\n", tmp->name, index);
 }
+
+void gen_exception_push(HC_FILE fptr, size_t label){
+    HC_FPRINTF(fptr, "\tmov rax, .L%lu\n\tmov rdx, rbp\n\tcall __exception_push\n", label);
+}
+void gen_exception_pop(HC_FILE fptr){
+    HC_FPRINTF(fptr, "\tcall __exception_pop\n");
+}
+void gen_exception_throw(HC_FILE fptr, reg_t* val, reg_t* msg){
+    reg_t *rax = get_named_reg("rax", 3, registers),
+          *rdx = get_named_reg("rdx", 3, registers);
+    if(val)
+        gen_move_reg(fptr, rax, val);
+    else
+        gen_clear_reg(fptr, rax);
+    if(msg)
+        gen_move_reg(fptr, rdx, msg);
+    else
+        gen_clear_reg(fptr, rdx);
+    HC_FPRINTF(fptr, "\tcall __exception_throw\n");
+}
+void gen_exception_recup(HC_FILE fptr){
+    gen_save_stack(fptr, get_named_reg("rax", 3, registers), 8);
+    gen_save_stack(fptr, get_named_reg("rdx", 3, registers), 0);
+}
+
 void gen_call_extern_func(HC_FILE fptr, const char* str, size_t strlen){ HC_FPRINTF(fptr, "\tcall %.*s wrt ..plt\n", (int)strlen, str); }
 void gen_cmpz_reg(HC_FILE fptr, reg_t* reg){ HC_FPRINTF(fptr, "\ttest %s, %s\n", reg->name, reg->name); }
 void gen_compare(HC_FILE fptr, reg_t* lhs, reg_t* rhs){ HC_FPRINTF(fptr, "\tcmp %s, %s\n", lhs->name, rhs->name); }

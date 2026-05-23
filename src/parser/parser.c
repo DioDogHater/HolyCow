@@ -709,15 +709,15 @@ node_stmt* parse_stmt(token_t** tokens, bool sc_necessary){
         // init
         if(!consume_tk_type(tokens, tk_semicolon)){
             init = parse_stmt(tokens, false);
-            if(!init || init->type != tk_var_decl){
-                print_context("Expected variable declaration first", token);
+            if(!init){
+                print_context("Expected init statement", token);
                 return NULL;
             }
             node_stmt* head = init;
             while(consume_tk_type(tokens, tk_comma)){
                 node_stmt* new_head = parse_stmt(tokens, false);
-                if(!new_head || new_head->type != tk_var_decl){
-                    print_context("Expected valid variable declaration", *tokens);
+                if(!new_head){
+                    print_context("Expected init statement", *tokens);
                     return NULL;
                 }
                 head->next = new_head;
@@ -777,6 +777,54 @@ node_stmt* parse_stmt(token_t** tokens, bool sc_necessary){
         }
 
         return stmt;
+    }// try ... catch ... statements
+    else if(token->type == tk_try){
+        (void) consume_token(tokens);
+        stmt = (node_stmt*) ARENA_ALLOC(arena, node_try);
+        stmt->try_except = (node_try){tk_try, NULL, parse_stmt(tokens, true), NULL, NULL};
+        if(!stmt->try_except.tried){
+            print_context("Expected statement after 'try'", *tokens);
+            return NULL;
+        }
+        if(!consume_tk_type(tokens, tk_catch)){
+            print_context("Expected 'catch' after 'try'", *tokens);
+            return NULL;
+        }
+        if(consume_tk_type(tokens, tk_open_parent)){
+            if(!(stmt->try_except.except = consume_token(tokens)) || stmt->try_except.except->type != tk_identifier){
+                print_context("Expected identifier", *tokens);
+                return NULL;
+            }
+            if(consume_tk_type(tokens, tk_comma) && (!(stmt->try_except.except->next = consume_token(tokens)) || stmt->try_except.except->next->type != tk_identifier)){
+                print_context("Expected identifier", *tokens);
+                return NULL;
+            }
+            if(!consume_tk_type(tokens, tk_close_parent)){
+                print_context("Expected closing ')'", *tokens);
+                return NULL;
+            }
+        }
+        stmt->try_except.caught = parse_stmt(tokens, true);
+        if(!stmt->try_except.caught){
+            print_context("Expected statement after 'catch'", *tokens);
+            return NULL;
+        }
+        return stmt;
+    }// throw statement
+    else if(token->type == tk_throw){
+        (void) consume_token(tokens);
+        stmt = (node_stmt*) ARENA_ALLOC(arena, node_return);
+        stmt->ret = (node_return){tk_throw, NULL, NULL};
+        if(!peek_tk_type(tokens, tk_semicolon)){
+            if(!(stmt->ret.expr = parse_expr(tokens, 0))){
+                print_context("Expected exception value", *tokens);
+                return false;
+            }
+            if(consume_tk_type(tokens, tk_comma) && !(stmt->ret.expr->next = parse_expr(tokens, 0))){
+                print_context("Expected valid exception message", *tokens);
+                return false;
+            }
+        }
     }// return statement
     else if(token->type == tk_return){
         (void) consume_token(tokens);
@@ -888,7 +936,7 @@ node_stmt* parse_stmt(token_t** tokens, bool sc_necessary){
         print_context("Expected semicolon", *tokens);
         return NULL;
     }else if(sc_necessary){
-        // Remove any duplicate semicolon
+        // Remove any duplicate semicolons
         while(consume_tk_type(tokens, tk_semicolon));
     }
 

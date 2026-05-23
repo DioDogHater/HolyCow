@@ -2036,6 +2036,9 @@ extern perror:function
 extern GetFrameTime:function
 extern ComputeCRC32:function
 extern UnloadFont:function
+extern __exception_push:function
+extern __exception_pop:function
+extern __exception_throw:function
 
 
 section .data align=16

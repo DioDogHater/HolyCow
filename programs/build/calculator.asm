@@ -1109,6 +1109,9 @@ Mod.eval equ BinOp.eval
 Mod.free equ BinOp.free
 Pow.eval equ BinOp.eval
 Pow.free equ BinOp.free
+extern __exception_push:function
+extern __exception_pop:function
+extern __exception_throw:function
 
 
 section .data align=16

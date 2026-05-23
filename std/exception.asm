@@ -2,198 +2,55 @@ section .text
 BITS 64
 CPU ALL
 default REL
-global _start
-_start:
-	fninit
-	mov rax, [rsp+0]
-	lea rbx, [rsp+8]
-	sub rsp, 32
-	mov QWORD [rsp], 0
-	mov [rsp+8], rax
-	mov [rsp+16], rbx
-	call main
-	mov rax, 60
-	mov rdi, [rsp]
-	syscall
 
-global fibo_recursive:function
-fibo_recursive:
-	push rbp
-	mov rbp, rsp
-	mov rbx, [rbp+24]
-	mov [rbp+16], rbx
-	mov rbx, [rbp+24]
-	mov rcx, 0x1
-	cmp rbx, rcx
-	setg bl
-	test bl, bl
-	je .L1
-	sub rsp, 16
-	mov rbx, [rbp+24]
-	dec rbx
-	mov [rsp+8], rbx
-	call fibo_recursive
-	mov rbx, [rsp+0]
-	add rsp, 16
-	sub rsp, 32
-	mov [rsp+24], rbx
-	mov rbx, [rbp+24]
-	sub rbx, 0x2
-	mov [rsp+8], rbx
-	call fibo_recursive
-	mov rbx, [rsp+24]
-	mov rcx, [rsp+0]
-	add rsp, 32
-	add rbx, rcx
-	mov [rbp+16], rbx
-	.L1:
-	.L2:
-	.L0:
-	leave
-	ret
-
-global fibo_recursive_cached:function
-fibo_recursive_cached:
-	push rbp
-	mov rbp, rsp
-	mov rbx, [rbp+24]
-	mov rcx, 0x1
-	cmp rbx, rcx
-	setle bl
-	test bl, bl
-	je .L1
-	mov rbx, [rbp+24]
-	mov [rbp+16], rbx
-	jmp .L2
-	.L1:
-	mov rbx, [rbp+24]
-	sub rbx, 0x2
-	mov rcx, QWORD [fibo+0]
-	cmp rbx, rcx
-	setl bl
-	test bl, bl
-	je .L3
-	lea rbx, [fibo+8]
-	mov rcx, [rbp+24]
-	sub rcx, 0x2
-	mov rsi, [rbx+rcx*8]
-	mov [rbp+16], rsi
-	jmp .L2
-	.L3:
-	sub rsp, 16
-	mov rbx, [rbp+24]
-	dec rbx
-	mov [rsp+8], rbx
-	call fibo_recursive_cached
-	mov rbx, [rsp+0]
-	add rsp, 16
-	sub rsp, 32
-	mov [rsp+24], rbx
-	mov rbx, [rbp+24]
-	sub rbx, 0x2
-	mov [rsp+8], rbx
-	call fibo_recursive_cached
-	mov rbx, [rsp+24]
-	mov rcx, [rsp+0]
-	add rsp, 32
-	add rbx, rcx
-	mov [rbp+16], rbx
-	mov rbx, QWORD [fibo+0]
-	mov rcx, 0x100
-	cmp rbx, rcx
-	setne bl
-	test bl, bl
-	je .L4
-	lea rbx, [fibo+8]
-	lea rsi, [fibo+0]
-	mov rcx, [rsi]
-	inc QWORD [rsi]
-	mov rsi, [rbp+16]
-	mov [rbx+rcx*8], rsi
-	.L4:
-	.L5:
-	.L2:
-	.L0:
-	leave
-	ret
-
-global fibo_iterative:function
-fibo_iterative:
+global __exception_push:function
+__exception_push:
 	push rbp
 	mov rbp, rsp
 	sub rsp, 16
-	mov rbx, [rbp+24]
-	mov rcx, 0x1
+	mov rbx, QWORD [__exception_idx]
+	mov rcx, 0x40
 	cmp rbx, rcx
-	setle bl
+	sete bl
 	test bl, bl
 	je .L1
-	mov rbx, [rbp+24]
-	mov [rbp+16], rbx
-	jmp .L0
-	.L1:
-	.L2:
-	xor rbx, rbx
-	mov [rsp+8], rbx
-	mov rbx, 0x1
-	mov [rsp+0], rbx
-	mov rbx, [rbp+24]
-	dec rbx
-	.L3:
-	test rbx, rbx
-	je .L5
-	mov rcx, [rsp+8]
-	mov rsi, [rsp+0]
-	add rcx, rsi
-	mov [rbp+16], rcx
-	mov rcx, [rsp+0]
-	mov [rsp+8], rcx
-	mov rcx, [rbp+16]
-	mov [rsp+0], rcx
-	.L4:
-	dec rbx
-	jmp .L3
-	.L5:
-	.L0:
-	leave
-	ret
-
-global main:function
-main:
-	push rbp
-	mov rbp, rsp
-	sub rsp, 64
-	sub rsp, 32
+	sub rsp, 16
 	mov rbx, STR0
 	mov [rsp+0], rbx
-	mov rbx, 0xffffffffffffffff
+	mov rbx, 0x40
 	mov [rsp+8], rbx
-	mov rbx, QWORD [stdout]
-	mov [rsp+16], rbx
-	call print_str
-	add rsp, 32
-	sub rsp, 32
-	lea rbx, [rsp+64]
+	call error
+	add rsp, 16
+	.L1:
+	.L2:
+	lea rcx, [__exception_buff]
+	mov rsi, QWORD [__exception_idx]
+	inc QWORD [__exception_idx]
+	lea rsi, [rsi+rsi*2]
+	lea rbx, [rcx+rsi*8]
 	mov [rsp+8], rbx
-	mov rbx, 0x20
-	mov [rsp+16], rbx
-	call input
-	mov rbx, [rsp+0]
-	add rsp, 32
-	mov [rsp+24], rbx
-	sub rsp, 32
-	lea rbx, [rsp+64]
-	mov [rsp+8], rbx
-	mov rbx, [rsp+56]
-	mov [rsp+16], rbx
-	call string_to_int
-	mov rbx, [rsp+0]
-	add rsp, 32
-	mov [rsp+16], rbx
-	mov rbx, [rsp+16]
+	mov rbx, [rsp+8]
+	lea rbx, [rbx+16]
+	mov rcx, [rsp+8]
+	lea rcx, [rcx+8]
+	mov rsi, [rsp+8]
+	lea rsi, [rsi+0]
+	mov QWORD [rbx], rax
+    mov QWORD [rcx], rdx
+    mov QWORD [rsi], rsp
+    add QWORD [rsi], 16
+	.L0:
+	leave
+	ret
+
+global __exception_pop:function
+__exception_pop:
+	push rbp
+	mov rbp, rsp
+	mov rbx, QWORD [__exception_idx]
 	xor rcx, rcx
 	cmp rbx, rcx
-	setl bl
+	sete bl
 	test bl, bl
 	je .L1
 	sub rsp, 16
@@ -203,22 +60,57 @@ main:
 	add rsp, 16
 	.L1:
 	.L2:
+	mov rbx, QWORD [__exception_idx]
+	dec QWORD [__exception_idx]
+	.L0:
+	leave
+	ret
+
+global __exception_throw:function
+__exception_throw:
+	push rbp
+	mov rbp, rsp
 	sub rsp, 16
-	mov rbx, [rsp+32]
-	mov [rsp+8], rbx
-	call fibo_recursive_cached
-	mov rbx, [rsp+0]
-	add rsp, 16
-	mov [rsp+8], rbx
+	mov rbx, QWORD [__exception_idx]
+	xor rcx, rcx
+	cmp rbx, rcx
+	sete bl
+	test bl, bl
+	je .L1
+	mov rbx, [rsp+8]
+	lea rbx, [rbx+0]
+	mov rcx, [rsp+8]
+	lea rcx, [rcx+8]
+	mov [rbx], rax
+	mov [rcx], rdx
 	sub rsp, 32
 	mov rbx, STR2
 	mov [rsp+0], rbx
-	mov rbx, [rsp+48]
+	mov rcx, [rsp+40]
+	mov rbx, [rcx+0]
 	mov [rsp+8], rbx
-	mov rbx, [rsp+40]
+	mov rcx, [rsp+40]
+	mov rbx, [rcx+8]
 	mov [rsp+16], rbx
-	call println
+	call error
 	add rsp, 32
+	.L1:
+	.L2:
+	lea rcx, [__exception_buff]
+	dec QWORD [__exception_idx]
+	mov rsi, QWORD [__exception_idx]
+	lea rsi, [rsi+rsi*2]
+	lea rbx, [rcx+rsi*8]
+	mov [rsp+8], rbx
+	mov rcx, [rsp+8]
+	mov rbx, [rcx+0]
+	mov rsi, [rsp+8]
+	mov rcx, [rsi+8]
+	mov rdi, [rsp+8]
+	mov rsi, [rdi+16]
+	mov rsp, rbx
+    mov rbp, rcx
+    jmp rsi
 	.L0:
 	leave
 	ret
@@ -251,6 +143,7 @@ extern absf:function
 extern print_fixed:function
 extern absi:function
 extern floor:function
+extern main:function
 extern uint_to_string:function
 extern strdfind:function
 extern free:function
@@ -339,14 +232,16 @@ __FP_TMP: times 4 dq 0
 __GP_TMP: times 4 dq 0
 extern stdout:data
 extern stdin:data
+global __exception_idx:data
+__exception_idx:
+dq 0
+global __exception_buff:data
+__exception_buff:
+times 1536 db 0
 extern File:data
 extern fixed:data
 extern string:data
 extern vector:data
-global fibo:data
-fibo:
-dq 0
-times 2048 db 0
 
 
 section .rodata align=16
@@ -355,11 +250,11 @@ __FABS_MASKs: dd 0x7FFFFFFF, 0, 0, 0
 __FNEG_MASKd: dq 0x8000000000000000, 0
 __FNEG_MASKs: dd 0x80000000, 0, 0, 0
 STR0:
-db "This program calculates the nth fibonacci number.",10,"Please enter n: ",0
-times 3 db 0
+db "Max try ... catch limit of %i reached!",0
+times 7 db 0
 STR1:
-db "n must be a positive number or 0.",0
-dd 0
+db "Cannot pop inexistant exception!",0
+times 5 db 0
 STR2:
-db "The %ith fibonacci number is %u",0
-times 6 db 0
+db "Exception %i : %s",0
+dd 0

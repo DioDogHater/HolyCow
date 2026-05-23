@@ -168,6 +168,12 @@ class Child2 : Child virtual {
     }
 }
 
+class OperatorTest {
+    int __add_int(int x){
+        return x;
+    }
+}
+
 int main(uint argc, char** argv){
     double pi = PI;
     double almost_pi = 3.14153;
@@ -250,4 +256,17 @@ int main(uint argc, char** argv){
 
     Child* c2_c = &c2;
     c2_c.test();        // Now the method Child.test should be overriden by Child2.test
+
+    try{
+        try{
+            for(int i = 0; i < 100; i++){
+                if(i == 67)
+                    throw i;
+            }
+        }catch(id){
+            println("Caught exception %i inside try ... catch", id);
+            throw -1, "Shut the fuck up kid";
+        }
+    }catch(id, msg)
+        println("Exception %i caught : %s", id, msg);
 }

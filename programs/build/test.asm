@@ -517,6 +517,17 @@ Child2.test:
 	leave
 	ret
 
+global OperatorTest.__add_int:function
+OperatorTest.__add_int:
+	push rbp
+	mov rbp, rsp
+	mov rbx, [rbp+32]
+	mov [rbp+16], rbx
+	jmp .L0
+	.L0:
+	leave
+	ret
+
 global main:function
 main:
 	push rbp
@@ -826,6 +837,85 @@ main:
 	mov rbx, [rbx]
 	call [rbx+0*8]
 	add rsp, 16
+	mov rax, .L3
+	mov rdx, rbp
+	call __exception_push
+	mov rax, .L5
+	mov rdx, rbp
+	call __exception_push
+	sub rsp, 16
+	xor rbx, rbx
+	mov [rsp+8], rbx
+	.L7:
+	mov rbx, [rsp+8]
+	mov rcx, 0x64
+	cmp rbx, rcx
+	setl bl
+	test bl, bl
+	je .L9
+	mov rbx, [rsp+8]
+	mov rcx, 0x43
+	cmp rbx, rcx
+	sete bl
+	test bl, bl
+	je .L10
+	mov rbx, [rsp+8]
+	mov rcx, [rsp+8]
+	mov rax, rcx
+	xor rdx, rdx
+	call __exception_throw
+	.L10:
+	.L11:
+	.L8:
+	mov rcx, [rsp+8]
+	inc QWORD [rsp+8]
+	jmp .L7
+	.L9:
+	add rsp, 16
+	call __exception_pop
+	jmp .L6
+	.L5:
+	sub rsp, 16
+	mov [rsp+8], rax
+	mov [rsp+0], rdx
+	sub rsp, 32
+	mov [rsp+24], rbx
+	mov rbx, STR31
+	mov [rsp+0], rbx
+	mov rbx, [rsp+40]
+	mov [rsp+8], rbx
+	call println
+	mov rbx, [rsp+24]
+	add rsp, 32
+	mov rcx, 0xffffffffffffffff
+	mov rsi, 0xffffffffffffffff
+	mov rdi, STR32
+	mov rax, rsi
+	mov rdx, rdi
+	call __exception_throw
+	add rsp, 16
+	.L6:
+	call __exception_pop
+	jmp .L4
+	.L3:
+	sub rsp, 16
+	mov [rsp+8], rax
+	mov [rsp+0], rdx
+	sub rsp, 48
+	mov [rsp+40], rbx
+	mov [rsp+32], rcx
+	mov rbx, STR33
+	mov [rsp+0], rbx
+	mov rbx, [rsp+56]
+	mov [rsp+8], rbx
+	mov rbx, [rsp+48]
+	mov [rsp+16], rbx
+	call println
+	mov rbx, [rsp+40]
+	mov rcx, [rsp+32]
+	add rsp, 48
+	add rsp, 16
+	.L4:
 	.L0:
 	leave
 	ret
@@ -941,6 +1031,9 @@ extern vector.empty:function
 extern vector.new:function
 extern vector.from_arr:function
 Child2.print equ Child.print
+extern __exception_push:function
+extern __exception_pop:function
+extern __exception_throw:function
 
 
 section .data align=16
@@ -1060,6 +1153,15 @@ dd 0
 STR30:
 db "friend",0
 times 7 db 0
+STR31:
+db "Caught exception %i inside try ... catch",0
+times 5 db 0
+STR32:
+db "Shut the fuck up kid",0
+db 0
+STR33:
+db "Exception %i caught : %s",0
+times 5 db 0
 FP0:
 dq 3.1415926536
 FP1:

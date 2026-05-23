@@ -88,6 +88,64 @@ int64_t get_virtual_method(struct_t* stru, func_t* func){
     return -1;
 }
 
+// Get a "magic method"
+func_t* get_magic_method(struct_t* stru, tk_type op, type_t other){
+    char buffer[1024] = {0};
+    buffer[0] = buffer[1] = '_';
+    char* prefix = NULL;
+    switch(op){
+    case tk_add:
+        prefix = "__add_";
+        break;
+    case tk_sub:
+        prefix = "__sub_";
+        break;
+    case tk_mult:
+        prefix = "__mul_";
+        break;
+    case tk_div:
+        prefix = "__div_";
+        break;
+    case tk_mod:
+        prefix = "__mod_";
+        break;
+    case tk_cmp_approx:
+        prefix = "__approx_";
+        break;
+    case tk_bin_and:
+        prefix = "__and_";
+        break;
+    case tk_bin_or:
+        prefix = "__or_";
+        break;
+    case tk_bin_xor:
+        prefix = "__xor_";
+        break;
+    case tk_shl:
+        prefix = "__shl_";
+        break;
+    case tk_shr:
+        prefix = "__shr_";
+        break;
+    case tk_bin_flip:
+        prefix = "__not_";
+        break;
+    case tk_neg:
+        prefix = "__neg";
+        break;
+    default:
+        return NULL;
+    }
+    prefix = strcpy(buffer + 2, prefix);
+    if(other.data == DATA_FLOAT)
+        strcpy(prefix, "float");
+    else if(other.data == DATA_INT)
+        strcpy(prefix, "int");
+    else if(other.data == DATA_STRUCT || other.data == DATA_UNION)
+        memcpy(prefix, other.repr->str, other.repr->strlen);
+    return get_method(stru, buffer, strlen(buffer));
+}
+
 // Find a union type
 union_t* get_union(const char* str, size_t strlen){
     return (union_t*) find_named_thing(unions, str, strlen);

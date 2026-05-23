@@ -79,6 +79,9 @@ enum{
     tk_repeat,         // repeat(n){ ... } -> repeats n times
     tk_forever,           // forever{ ... } -> repeats infinitely
     tk_switch,
+    tk_try,
+    tk_catch,
+    tk_throw,
     tk_return,
     tk_break,
     tk_continue,

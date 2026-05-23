@@ -18,9 +18,9 @@ enum var_locations {
 typedef struct{
     const char* str;
     size_t strlen;
-    int stack_ptr;
-    short location;
-    short flags;
+    int32_t stack_ptr;
+    uint16_t location;
+    uint16_t flags;
     type_t type;
 } var_t;
 extern vector_t vars[1];
@@ -61,13 +61,12 @@ extern hashtable_t funcs[1];
 // Find a function
 func_t* get_func(const char* str, size_t strlen);
 
-
 // Structs / classes
 typedef struct struct_t {
     const char* str;
     size_t strlen;
     size_t size;
-    unsigned int align;
+    uint32_t align;
     bool is_virtual;
     vector_t members[1];
     vector_t funcs[1];
@@ -87,6 +86,8 @@ func_t* get_method(struct_t* stru, const char* str, size_t strlen);
 // Get a virtual method's index
 // Returns -1 if method is not found
 int64_t get_virtual_method(struct_t* stru, func_t* func);
+// Get a "magic method"
+func_t* get_magic_method(struct_t* stru, tk_type op, type_t other);
 
 
 // Unions / variants

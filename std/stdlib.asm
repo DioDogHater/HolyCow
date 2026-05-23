@@ -3891,6 +3891,24 @@ left_align:
 	add rsp, 16
 	.L1:
 	.L2:
+	sub rsp, 16
+	mov rbx, [rbp+16]
+	mov [rsp+8], rbx
+	call File.get_buffering
+	mov rbx, [rsp+0]
+	add rsp, 16
+	mov rcx, 0x3
+	cmp rbx, rcx
+	sete bl
+	test bl, bl
+	je .L3
+	sub rsp, 16
+	mov rbx, STR16
+	mov [rsp+0], rbx
+	call error
+	add rsp, 16
+	.L3:
+	.L4:
 	mov rcx, [rbp+16]
 	mov rbx, [rcx+24]
 	mov rcx, [rbp+24]
@@ -3899,10 +3917,10 @@ left_align:
 	cmp rbx, rcx
 	setae bl
 	test bl, bl
-	je .L3
+	je .L5
 	jmp .L0
-	.L3:
-	.L4:
+	.L5:
+	.L6:
 	sub rsp, 32
 	mov rcx, [rbp+16]
 	mov rbx, [rcx+8]
@@ -3942,12 +3960,30 @@ right_align:
 	test bl, bl
 	je .L1
 	sub rsp, 16
-	mov rbx, STR16
+	mov rbx, STR17
 	mov [rsp+0], rbx
 	call error
 	add rsp, 16
 	.L1:
 	.L2:
+	sub rsp, 16
+	mov rbx, [rbp+16]
+	mov [rsp+8], rbx
+	call File.get_buffering
+	mov rbx, [rsp+0]
+	add rsp, 16
+	mov rcx, 0x3
+	cmp rbx, rcx
+	sete bl
+	test bl, bl
+	je .L3
+	sub rsp, 16
+	mov rbx, STR16
+	mov [rsp+0], rbx
+	call error
+	add rsp, 16
+	.L3:
+	.L4:
 	mov rcx, [rbp+16]
 	mov rbx, [rcx+24]
 	mov rcx, [rbp+24]
@@ -3956,10 +3992,10 @@ right_align:
 	cmp rbx, rcx
 	setae bl
 	test bl, bl
-	je .L3
+	je .L5
 	jmp .L0
-	.L3:
-	.L4:
+	.L5:
+	.L6:
 	mov rbx, [rbp+24]
 	mov rcx, [rbp+32]
 	add rbx, rcx
@@ -4022,12 +4058,30 @@ center:
 	test bl, bl
 	je .L1
 	sub rsp, 16
-	mov rbx, STR17
+	mov rbx, STR18
 	mov [rsp+0], rbx
 	call error
 	add rsp, 16
 	.L1:
 	.L2:
+	sub rsp, 16
+	mov rbx, [rbp+16]
+	mov [rsp+8], rbx
+	call File.get_buffering
+	mov rbx, [rsp+0]
+	add rsp, 16
+	mov rcx, 0x3
+	cmp rbx, rcx
+	sete bl
+	test bl, bl
+	je .L3
+	sub rsp, 16
+	mov rbx, STR16
+	mov [rsp+0], rbx
+	call error
+	add rsp, 16
+	.L3:
+	.L4:
 	mov rcx, [rbp+16]
 	mov rbx, [rcx+24]
 	mov rcx, [rbp+24]
@@ -4036,10 +4090,10 @@ center:
 	cmp rbx, rcx
 	setae bl
 	test bl, bl
-	je .L3
+	je .L5
 	jmp .L0
-	.L3:
-	.L4:
+	.L5:
+	.L6:
 	mov rbx, [rbp+32]
 	mov rsi, [rbp+16]
 	mov rcx, [rsi+24]
@@ -4423,7 +4477,7 @@ print_format:
 	test bl, bl
 	je .L19
 	sub rsp, 16
-	mov rbx, STR18
+	mov rbx, STR19
 	mov [rsp+0], rbx
 	call error
 	add rsp, 16
@@ -4487,7 +4541,7 @@ print_format:
 	test rsi, rsi
 	je .L24
 	sub rsp, 32
-	mov rbx, STR19
+	mov rbx, STR20
 	mov [rsp+0], rbx
 	mov rbx, 0xffffffffffffffff
 	mov [rsp+8], rbx
@@ -4498,7 +4552,7 @@ print_format:
 	jmp .L25
 	.L24:
 	sub rsp, 32
-	mov rbx, STR20
+	mov rbx, STR21
 	mov [rsp+0], rbx
 	mov rbx, 0xffffffffffffffff
 	mov [rsp+8], rbx
@@ -4695,7 +4749,7 @@ print_format:
 	test bl, bl
 	je .L37
 	sub rsp, 16
-	mov rbx, STR21
+	mov rbx, STR22
 	mov [rsp+0], rbx
 	call error
 	add rsp, 16
@@ -5017,7 +5071,7 @@ print_format:
 	test bl, bl
 	je .L59
 	sub rsp, 16
-	mov rbx, STR22
+	mov rbx, STR23
 	mov [rsp+0], rbx
 	call error
 	add rsp, 16
@@ -5101,7 +5155,7 @@ print_format:
 	jmp .L43
 	.L63:
 	sub rsp, 32
-	mov rbx, STR23
+	mov rbx, STR24
 	mov [rsp+0], rbx
 	mov rbx, 0x2
 	mov [rsp+8], rbx
@@ -5115,7 +5169,7 @@ print_format:
 	jmp .L6
 	.L41:
 	sub rsp, 16
-	mov rbx, STR24
+	mov rbx, STR25
 	mov [rsp+0], rbx
 	mov rbx, [rbp+16]
 	inc rbx
@@ -5249,7 +5303,7 @@ input:
 	test bl, bl
 	je .L1
 	sub rsp, 16
-	mov rbx, STR25
+	mov rbx, STR26
 	mov [rsp+0], rbx
 	mov rbx, [rsp+24]
 	mov [rsp+8], rbx
@@ -5298,7 +5352,7 @@ input_char:
 	test bl, bl
 	je .L1
 	sub rsp, 16
-	mov rbx, STR26
+	mov rbx, STR27
 	mov [rsp+0], rbx
 	mov rbx, [rsp+16]
 	mov [rsp+8], rbx
@@ -5803,7 +5857,7 @@ vector.reserve:
 	test bl, bl
 	je .L7
 	sub rsp, 32
-	mov rbx, STR27
+	mov rbx, STR28
 	mov [rsp+0], rbx
 	mov rbx, [rbp+32]
 	mov [rsp+8], rbx
@@ -5898,7 +5952,7 @@ vector.at:
 	test bl, bl
 	je .L3
 	sub rsp, 16
-	mov rbx, STR28
+	mov rbx, STR29
 	mov [rsp+0], rbx
 	mov rbx, [rbp+32]
 	mov [rsp+8], rbx
@@ -5928,7 +5982,7 @@ vector.pushback:
 	test bl, bl
 	je .L1
 	sub rsp, 16
-	mov rbx, STR29
+	mov rbx, STR30
 	mov [rsp+0], rbx
 	call error
 	add rsp, 16
@@ -5969,7 +6023,7 @@ vector.popback:
 	test bl, bl
 	je .L1
 	sub rsp, 16
-	mov rbx, STR30
+	mov rbx, STR31
 	mov [rsp+0], rbx
 	call error
 	add rsp, 16
@@ -5993,7 +6047,7 @@ vector.append_arr:
 	test bl, bl
 	je .L1
 	sub rsp, 16
-	mov rbx, STR31
+	mov rbx, STR32
 	mov [rsp+0], rbx
 	mov rbx, [rbp+32]
 	mov [rsp+8], rbx
@@ -6034,7 +6088,7 @@ vector.append:
 	test bl, bl
 	je .L1
 	sub rsp, 16
-	mov rbx, STR32
+	mov rbx, STR33
 	mov [rsp+0], rbx
 	call error
 	add rsp, 16
@@ -6066,7 +6120,7 @@ vector.insert:
 	test bl, bl
 	je .L1
 	sub rsp, 16
-	mov rbx, STR33
+	mov rbx, STR34
 	mov [rsp+0], rbx
 	call error
 	add rsp, 16
@@ -6080,7 +6134,7 @@ vector.insert:
 	test bl, bl
 	je .L3
 	sub rsp, 32
-	mov rbx, STR34
+	mov rbx, STR35
 	mov [rsp+0], rbx
 	mov rbx, [rbp+32]
 	mov [rsp+8], rbx
@@ -6170,7 +6224,7 @@ vector.remove:
 	test bl, bl
 	je .L1
 	sub rsp, 16
-	mov rbx, STR35
+	mov rbx, STR36
 	mov [rsp+0], rbx
 	mov rbx, [rbp+24]
 	mov [rsp+8], rbx
@@ -6316,6 +6370,9 @@ vector.from_arr:
 extern set_rounding:function
 extern main:function
 extern flush_stdout:function
+extern __exception_push:function
+extern __exception_pop:function
+extern __exception_throw:function
 
 
 section .data align=16
@@ -6413,61 +6470,64 @@ STR15:
 db "",10,"Expected %[ before %L to enclose text to align left",0
 db 0
 STR16:
-db "",10,"Expected %[ before %R to enclose text to align right",0
+db "",10,"File must be buffered to align text",0
+db 0
 STR17:
+db "",10,"Expected %[ before %R to enclose text to align right",0
+STR18:
 db "",10,"Expected %[ before %C to enclose text to center",0
 times 5 db 0
-STR18:
+STR19:
 db "",10,"Expected %[ before %T to enclose text to truncate",10,"",0
 dw 0
-STR19:
+STR20:
 db "true",0
 db 0
-STR20:
-db "false",0
 STR21:
+db "false",0
+STR22:
 db "",10,"Expected in to be in the range [1, 9] in format specifier %%0n",0
 times 6 db 0
-STR22:
+STR23:
 db "",10,"Expected %[ before %*T to enclose text to truncate",0
 dw 0
-STR23:
+STR24:
 db "",10,"Unexpected format specifier %%%*s",0
 times 3 db 0
-STR24:
+STR25:
 db "",10,"Unexpected format specifier %%%c",0
 dd 0
-STR25:
+STR26:
 db "input() error: %i",0
 dd 0
-STR26:
+STR27:
 db "input_char() error: %i",0
 times 7 db 0
-STR27:
+STR28:
 db "vector.reserve(%u) : failed to allocate %u bytes",0
 times 5 db 0
-STR28:
+STR29:
 db "vector.at(%i) : index out of range",0
 times 3 db 0
-STR29:
+STR30:
 db "vector.pushback(NULL) : element is null",0
 times 6 db 0
-STR30:
+STR31:
 db "vector.popback() : array is empty",0
 dd 0
-STR31:
+STR32:
 db "vector.append_arr(NULL, %u) : array is null",0
 dw 0
-STR32:
+STR33:
 db "vector.append(NULL) : vector is null",0
 db 0
-STR33:
+STR34:
 db "vector.insert(%u, NULL) : element is null",0
 dd 0
-STR34:
+STR35:
 db "vector.insert(%u, %*B) : index out of range",0
 dw 0
-STR35:
+STR36:
 db "vector.remove(%u) : index out of range",0
 times 7 db 0
 FP0:

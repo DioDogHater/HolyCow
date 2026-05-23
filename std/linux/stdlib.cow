@@ -653,6 +653,8 @@ void print_double(double x, uint digits, File* f){
 private void left_align(File* f, uint last, uint target, char fill = ' '){
     if(last == -1)
         error("\nExpected %[ before %L to enclose text to align left");
+    if(f.get_buffering() == Buffering.none)
+        error("\nFile must be buffered to align text");
     if(f.cursor - last >= target) return;
     memset(f.buff + f.cursor, fill, target - f.cursor + last);
     f.cursor = last + target;
@@ -661,6 +663,8 @@ private void left_align(File* f, uint last, uint target, char fill = ' '){
 private void right_align(File* f, uint last, uint target, char fill = ' '){
     if(last == -1)
         error("\nExpected %[ before %R to enclose text to align right");
+    if(f.get_buffering() == Buffering.none)
+        error("\nFile must be buffered to align text");
     if(f.cursor - last >= target) return;
     uint target_idx = last + target - (f.cursor - last);
     memmove(f.buff + target_idx, f.buff + last, f.cursor - last);
@@ -671,6 +675,8 @@ private void right_align(File* f, uint last, uint target, char fill = ' '){
 private void center(File* f, uint last, uint target, char fill = ' '){
     if(last == -1)
         error("\nExpected %[ before %C to enclose text to center");
+    if(f.get_buffering() == Buffering.none)
+        error("\nFile must be buffered to align text");
     if(f.cursor - last >= target) return;
     uint space = target - (f.cursor - last);
     uint target_idx = last + (space >> 1);

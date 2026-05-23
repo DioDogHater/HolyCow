@@ -205,6 +205,14 @@ type_t typeof_expr(node_expr* expr){
         case tk_post_inc:
         case tk_post_dec:
             max = typeof_expr(expr->unary_op.lhs);
+            if(!max.ptr_depth && max.data == DATA_STRUCT){
+                func_t* magic = get_magic_method(get_struct_tk(max.repr), expr->type, INVALID_TYPE);
+                if(!magic){
+                    print_context_expr("Operation is not overloaded, undefined operation with struct / class", expr);
+                    return INVALID_TYPE;
+                }
+                max = magic->type;
+            }
             break;
         case tk_open_bracket:
             max = typeof_expr(expr->bin_op.lhs);
@@ -321,7 +329,7 @@ type_t typeof_expr(node_expr* expr){
         case tk_bin_xor:{
             type_t t1 = typeof_expr(expr->bin_op.lhs), t2 = typeof_expr(expr->bin_op.rhs);
             short dt1 = DATAOF_T(t1), dt2 = DATAOF_T(t2);
-            if(t1.data && t2.data && dt1 == DATA_INT && dt2 == DATA_INT){
+            if(dt1 == DATA_INT && dt2 == DATA_INT){
                 size_t sz1 = SIZEOF_T(t1), sz2 = SIZEOF_T(t2);
                 if(sz1 > sz2 || t1.ptr_depth > t2.ptr_depth || (sz1 == sz2 && t1.sign > t2.sign))
                     max = t1;
@@ -336,6 +344,14 @@ type_t typeof_expr(node_expr* expr){
                     max = t1;
                 else
                     max = t2;
+            }else if(dt1 == DATA_STRUCT || dt2 == DATA_STRUCT){
+                func_t* magic;
+                if(dt1 == DATA_STRUCT)
+                    magic = get_magic_method(get_struct_tk(t1.repr), expr->type, t2);
+                if(!magic && dt2 == DATA_STRUCT)
+                    magic = get_magic_method(get_struct_tk(t2.repr), expr->type, t1);
+                if(magic)
+                    max = magic->type;
             }
             break;
         }

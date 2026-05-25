@@ -49,6 +49,7 @@ bool save_expr(HC_FILE, node_expr* dest, node_expr* src);
 bool inc_expr(HC_FILE, node_expr* expr, reg_t* dest, bool before, bool inc);
 bool get_expr_address(HC_FILE, reg_t* dest, node_expr* expr);
 size_t generate_func_call(HC_FILE, node_expr* expr, func_t** func, reg_t* struct_ptr);
+size_t generate_magic_call(HC_FILE fptr, node_expr* stru, node_expr* other, func_t* magic, reg_t* struct_ptr);
 
 // Provided by target (C calling convention of the target architecture)
 size_t generate_cfunc_call(HC_FILE, node_expr* expr, func_t* func, reg_t* struct_ptr);

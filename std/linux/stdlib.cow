@@ -85,17 +85,13 @@ module File = {
         else if(mode == File.append)
             flags = O_WRONLY | O_APPEND;
 
-        if(flags == UINT_MAX){
-            println("\nFile.open(%s, 0x%x) : no file opening flags given", filepath, mode);
-            return NULL;
-        }
+        if(flags == UINT_MAX)
+            throw STDError.FileError, "File.open() : no file opening flags given";
 
         flags = flags | O_CREAT;
         int fd = open(filepath, flags);
-        if(fd < 0){
-            println("\nFailed to open file : %u", errno);
-            return NULL;
-        }
+        if(fd < 0)
+            throw STDError.FileError, "File.open() : Failed to open file";
 
         File* new_file = malloc(sizeof(File));
         if(!new_file)
@@ -106,6 +102,8 @@ module File = {
     }
 
     File* close(File* f){
+        if(!f)
+            return;
         f.flush();
         if(f.fd >= 0)
             close(f.fd);
@@ -652,9 +650,9 @@ void print_double(double x, uint digits, File* f){
 
 private void left_align(File* f, uint last, uint target, char fill = ' '){
     if(last == -1)
-        error("\nExpected %[ before %L to enclose text to align left");
+        throw STDError.FormatError, "Expected %[ before %L to enclose text to align left";
     if(f.get_buffering() == Buffering.none)
-        error("\nFile must be buffered to align text");
+        throw STDError.FormatError, "%L : File must be buffered to align text";
     if(f.cursor - last >= target) return;
     memset(f.buff + f.cursor, fill, target - f.cursor + last);
     f.cursor = last + target;
@@ -662,9 +660,9 @@ private void left_align(File* f, uint last, uint target, char fill = ' '){
 
 private void right_align(File* f, uint last, uint target, char fill = ' '){
     if(last == -1)
-        error("\nExpected %[ before %R to enclose text to align right");
+        throw STDError.FormatError, "Expected %[ before %R to enclose text to align right";
     if(f.get_buffering() == Buffering.none)
-        error("\nFile must be buffered to align text");
+        throw STDError.FormatError, "%R : File must be buffered to align text";
     if(f.cursor - last >= target) return;
     uint target_idx = last + target - (f.cursor - last);
     memmove(f.buff + target_idx, f.buff + last, f.cursor - last);
@@ -674,9 +672,9 @@ private void right_align(File* f, uint last, uint target, char fill = ' '){
 
 private void center(File* f, uint last, uint target, char fill = ' '){
     if(last == -1)
-        error("\nExpected %[ before %C to enclose text to center");
+        throw STDError.FormatError, "Expected %[ before %C to enclose text to center";
     if(f.get_buffering() == Buffering.none)
-        error("\nFile must be buffered to align text");
+        throw STDError.FormatError, "%C : File must be buffered to align text";
     if(f.cursor - last >= target) return;
     uint space = target - (f.cursor - last);
     uint target_idx = last + (space >> 1);
@@ -723,7 +721,7 @@ void print_format(char* fmt, uint* argv, File* f){
             left_align(f, 0, target);
         }else if(*(fmt+1) == 'T'){
             if(last == -1)
-                error("\nExpected %[ before %T to enclose text to truncate\n");
+                throw STDError.FormatError, "Expected %[ before %T to enclose text to truncate";
             uint target = argv[argc++];
             if(f.cursor - last > target){
                 memset(f.buff + last + target, 0, f.cursor - last - target);
@@ -753,7 +751,7 @@ void print_format(char* fmt, uint* argv, File* f){
             char buffer[64];
             ++fmt;
             if(*(fmt+1) < '1' || *(fmt+1) > '9')
-                error("\nExpected in to be in the range [1, 9] in format specifier %%0n");
+                throw STDError.FormatError, "Expected in to be in the range [1, 9] in format specifier %0n";
             uint n_len = *(fmt+1) - '0';
             print_str(uint_to_string(argv[argc++], buffer, n_len + 1, '0'),, f);
         }else if(*(fmt+1) == '%')
@@ -789,7 +787,7 @@ void print_format(char* fmt, uint* argv, File* f){
                 left_align(f, 0, mod, c);
             }else if(*(fmt+1) == 'T'){
                 if(last == -1)
-                    error("\nExpected %[ before %*T to enclose text to truncate");
+                    throw STDError.FormatError, "Expected %[ before %*T to enclose text to truncate";
                 if(f.cursor - last > mod){
                     memmove(f.buff + last, f.buff + f.cursor - mod, mod);
                     memset(f.buff + last + mod, 0, f.cursor - last - mod);
@@ -798,9 +796,9 @@ void print_format(char* fmt, uint* argv, File* f){
             }else if(*(fmt+1) == 'f')
                 print_double(((double*) argv)[argc++], mod, f);
             else
-                error("\nUnexpected format specifier %%%*s", 2, fmt-1);
+                throw STDError.FormatError, "Unexpected format specifier";
         }else
-            error("\nUnexpected format specifier %%%c", *(fmt+1));
+            throw STDError.FormatError, "Unexpected format specifier";
 
         if(n){
             fmt += n;
@@ -833,7 +831,7 @@ uint input(char* buff, uint len){
     stdout.flush();
     int result = stdin.read(buff, len);
     if(result < 0)
-        error("input() error: %i", result);
+        throw STDError.InputError, "input() error";
     buff[--result] = 0;
     @return = result;
 }
@@ -843,7 +841,7 @@ char input_char(){
     uint16 c = 0;
     int result = stdin.read((char*) &c, 2);
     if(result < 0)
-        error("input_char() error: %i", result);
+        throw STDError.InputError, "input_char() error";
     @return = c;
 }
 
@@ -954,40 +952,40 @@ class vector {
     void* at(int index){
         if(index < 0) index = this.size + index;
         if(!this.in_range(index))
-            error("vector.at(%i) : index out of range", index);
+            throw STDError.IndexError, "vector.at() : index out of range";
         @return = this.mem + index * this.data_size;
     }
 
     void* pushback(void* elem){
         if(!elem)
-            error("vector.pushback(NULL) : element is null");
+            throw STDError.InvalidArg, "vector.pushback(NULL) : element is null";
         @return = this.reserve(1);
         memcpy(@return, elem, this.data_size);
     }
 
     void popback(){
         if(this.size == 0)
-            error("vector.popback() : array is empty");
+            throw STDError.IndexError, "vector.popback() : array is empty";
         this.size--;
     }
 
     void append_arr(void* arr, uint count){
         if(!arr)
-            error("vector.append_arr(NULL, %u) : array is null", count);
+            throw STDError.InvalidArg, "vector.append_arr(NULL) : array is null";
         memcpy(this.reserve(count), arr, this.data_size * count);
     }
 
     void append(vector* v){
         if(!v)
-            error("vector.append(NULL) : vector is null");
+            throw STDError.InvalidArg, "vector.append(NULL) : vector is null";
         this.append_arr(v.mem, v.size);
     }
 
     void* insert(uint index, void* elem){
         if(!elem)
-            error("vector.insert(%u, NULL) : element is null");
+            throw STDError.InvalidArg, "vector.insert(NULL) : element is null";
         if(index > this.size)
-            error("vector.insert(%u, %*B) : index out of range", index, this.data_size, elem);
+            throw STDError.IndexError, "vector.insert() : index out of range";
         uint after = this.size - index;
         this.reserve(1);
         if(after)
@@ -997,7 +995,7 @@ class vector {
 
     void remove(uint index){
         if(index >= this.size)
-            error("vector.remove(%u) : index out of range", index);
+            throw STDError.IndexError, "vector.remove() : index out of range";
         memmove(this.at(index), this.at(index+1), (--this.size - index) * this.data_size);
     }
 

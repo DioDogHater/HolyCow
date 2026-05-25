@@ -1,6 +1,16 @@
 // Prototype declaration of the main entry point
 int main(uint argc, char** argv);
 
+enum STDError {
+    FileError   = 0,
+    FormatError = 1,
+    InvalidArg  = 2,
+    IndexError  = 3,
+    MaxMemory   = 4,
+    FreeError   = 5,
+    InputError  = 6
+}
+
 enum Buffering {
     full,
     line,
@@ -426,5 +436,5 @@ module vector extern {
 }
 
 #define EXIT_SUCCESS  0
-#define EXIT_FAILURE -1
+#define EXIT_FAILURE 1
 void exit(int code);

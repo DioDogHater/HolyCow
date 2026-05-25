@@ -453,17 +453,12 @@ size_t generate_cfunc_call(HC_FILE fptr, node_expr* expr, func_t* func, reg_t* s
     else
         gen_call_func(fptr, func->str, func->strlen);
 
-    // Free every register that wasnt used before
-    for(size_t i = 0; i < REGISTER_COUNT; i++)
-        free_reg(&registers[i]);
-    for(size_t i = 0; i < FREG_COUNT; i++)
-        free_freg(&fregs[i]);
-
     arg_ptr = struct_ptr ? 8 : 0;
 
     // Move the struct from the registers to memory
+    if(struct_ptr)
+        gen_load_stack(fptr, alloc_reg(struct_ptr, false), 0);
     if(struct_ptr && ret_in_regs){
-        struct_ptr = GET_MASK_REG(8, ALL_REGS_EXCEPT(REG(0) | REG(3)));
         gen_load_stack(fptr, struct_ptr, func_call_sz - arg_ptr);
         if(func->type.size <= 8){
             if(xmm_stored[0])
@@ -491,7 +486,15 @@ size_t generate_cfunc_call(HC_FILE fptr, node_expr* expr, func_t* func, reg_t* s
     else if(func->type.data == DATA_FLOAT)
         gen_savef_stack(fptr, sysV_XMM(0, func->type.size == 8), 0, func->type.size == 8);
 
+    // Free every register that wasnt used before
+    for(size_t i = 0; i < REGISTER_COUNT; i++)
+        free_reg(&registers[i]);
+    for(size_t i = 0; i < FREG_COUNT; i++)
+        free_freg(&fregs[i]);
+
     // Retrieve every register off the stack
+    if(struct_ptr)
+        (void) alloc_reg(struct_ptr, false);
     for(int i = 0; i < n_regs; i++){
         if(struct_ptr && used_regs[i]->name == struct_ptr->name) continue;
         arg_ptr = ALIGN(arg_ptr, used_regs[i]->size);

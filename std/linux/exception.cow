@@ -19,7 +19,7 @@ void __exception_push(){
     "mov QWORD [@0], rax
     mov QWORD [@1], rdx
     mov QWORD [@2], rsp
-    add QWORD [@2], 16",
+    add QWORD [@2], 32",
     &except.jmp, &except.rbp, &except.rsp);
 }
 
@@ -33,7 +33,7 @@ void __exception_throw(){
     exception* except;
     if(__exception_idx == 0){
         @asm(rax, rdx, "mov [@0], rax\n\tmov [@1], rdx", &except.rsp, &except.rbp);
-        error("Exception %i : %s", except.rsp, except.rbp);
+        error("\nException %i : %s", except.rsp, except.rbp);
     }
     except = &__exception_buff[--__exception_idx];
 

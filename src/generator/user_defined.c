@@ -95,48 +95,64 @@ func_t* get_magic_method(struct_t* stru, tk_type op, type_t other){
     char* prefix = NULL;
     switch(op){
     case tk_add:
-        prefix = "__add_";
+        prefix = "add_";
         break;
     case tk_sub:
-        prefix = "__sub_";
+        prefix = "sub_";
         break;
     case tk_mult:
-        prefix = "__mul_";
+        prefix = "mul_";
         break;
     case tk_div:
-        prefix = "__div_";
+        prefix = "div_";
         break;
     case tk_mod:
-        prefix = "__mod_";
+        prefix = "mod_";
+        break;
+    case tk_cmp_eq:
+        prefix = "eq_";
+        break;
+    case tk_cmp_l:
+        prefix = "lt_";
+        break;
+    case tk_cmp_le:
+        prefix = "le_";
+        break;
+    case tk_cmp_g:
+        prefix = "g_";
+        break;
+    case tk_cmp_ge:
+        prefix = "ge_";
         break;
     case tk_cmp_approx:
-        prefix = "__approx_";
+        prefix = "approx_";
         break;
     case tk_bin_and:
-        prefix = "__and_";
+        prefix = "and_";
         break;
     case tk_bin_or:
-        prefix = "__or_";
+        prefix = "or_";
         break;
     case tk_bin_xor:
-        prefix = "__xor_";
+        prefix = "xor_";
         break;
     case tk_shl:
-        prefix = "__shl_";
+        prefix = "shl_";
         break;
     case tk_shr:
-        prefix = "__shr_";
+        prefix = "shr_";
         break;
     case tk_bin_flip:
-        prefix = "__not_";
+        prefix = "not";
         break;
     case tk_neg:
-        prefix = "__neg";
+        prefix = "neg";
         break;
     default:
         return NULL;
     }
-    prefix = strcpy(buffer + 2, prefix);
+    memcpy(buffer + 2, prefix, strlen(prefix));
+    prefix = buffer + 2 + strlen(prefix);
     if(other.data == DATA_FLOAT)
         strcpy(prefix, "float");
     else if(other.data == DATA_INT)
@@ -144,6 +160,55 @@ func_t* get_magic_method(struct_t* stru, tk_type op, type_t other){
     else if(other.data == DATA_STRUCT || other.data == DATA_UNION)
         memcpy(prefix, other.repr->str, other.repr->strlen);
     return get_method(stru, buffer, strlen(buffer));
+}
+
+func_t* get_magic_method_from_expr(node_expr* expr, node_expr** obj, node_expr** other){
+    switch(expr->type){
+        case tk_add:
+        case tk_sub:
+        case tk_mult:
+        case tk_div:
+        case tk_mod:
+        case tk_cmp_eq:
+        case tk_cmp_l:
+        case tk_cmp_le:
+        case tk_cmp_g:
+        case tk_cmp_ge:
+        case tk_cmp_approx:
+        case tk_bin_and:
+        case tk_bin_or:
+        case tk_bin_xor:
+        case tk_shl:
+        case tk_shr:{
+            type_t lhs = typeof_expr(expr->bin_op.lhs), rhs = typeof_expr(expr->bin_op.rhs);
+            uint8_t dt1 = DATAOF_T(lhs), dt2 = DATAOF_T(rhs);
+            if(dt1 != DATA_STRUCT && dt2 != DATA_STRUCT)
+                return NULL;
+            if(dt1 == DATA_STRUCT){
+                struct_t* stru = get_struct_tk(lhs.repr);
+                *obj = expr->bin_op.lhs;
+                *other = expr->bin_op.rhs;
+                return get_magic_method(stru, expr->type, rhs);
+            }else if(expr->type != tk_div && expr->type != tk_mod){
+                struct_t* stru = get_struct_tk(rhs.repr);
+                *obj = expr->bin_op.rhs;
+                *other = expr->bin_op.lhs;
+                return get_magic_method(stru, expr->type, lhs);
+            }
+        }
+        case tk_bin_flip:
+        case tk_neg:{
+            type_t t = typeof_expr(expr->unary_op.lhs);
+            if(DATAOF_T(t) == DATA_STRUCT){
+                struct_t* stru = get_struct_tk(t.repr);
+                *obj = expr->unary_op.lhs;
+                *other = NULL;
+                return get_magic_method(stru, expr->type, INVALID_TYPE);
+            }else
+                return NULL;
+        }
+    }
+    return NULL;
 }
 
 // Find a union type

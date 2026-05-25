@@ -521,7 +521,55 @@ global OperatorTest.__add_int:function
 OperatorTest.__add_int:
 	push rbp
 	mov rbp, rsp
+	mov rcx, [rbp+24]
+	mov rbx, [rcx+0]
+	mov rcx, [rbp+32]
+	add rbx, rcx
+	mov [rbp+16], rbx
+	jmp .L0
+	.L0:
+	leave
+	ret
+
+global OperatorTest.__mul_float:function
+OperatorTest.__mul_float:
+	push rbp
+	mov rbp, rsp
+	mov rsi, [rbp+24]
+	mov rcx, [rsi+0]
+	cvtsi2ss xmm0, rcx
+	cvtsd2ss xmm1, [rbp+32]
+	mulss xmm0, xmm1
+	cvtss2sd xmm0, xmm0
+	cvttsd2si rbx, xmm0
+	mov [rbp+16], rbx
+	jmp .L0
+	.L0:
+	leave
+	ret
+
+global OperatorTest.__div_OperatorTest:function
+OperatorTest.__div_OperatorTest:
+	push rbp
+	mov rbp, rsp
+	mov rbx, [rbp+24]
+	mov rax, [rbx+0]
 	mov rbx, [rbp+32]
+	xor rdx, rdx
+	idiv rbx
+	mov [rbp+16], rax
+	jmp .L0
+	.L0:
+	leave
+	ret
+
+global OperatorTest.__neg:function
+OperatorTest.__neg:
+	push rbp
+	mov rbp, rsp
+	mov rcx, [rbp+24]
+	mov rbx, [rcx+0]
+	neg rbx
 	mov [rbp+16], rbx
 	jmp .L0
 	.L0:
@@ -599,18 +647,22 @@ main:
 	lea rbx, [rsp+0]
 	sub rsp, 16
 	mov [rsp+0], rbx
+	mov [rsp+8], rbx
 	call test.get
+	mov rbx, [rsp+8]
 	add rsp, 16
 	call test.print
 	add rsp, 32
 	lea rbx, [rsp+160]
 	sub rsp, 32
 	mov [rsp+0], rbx
+	mov [rsp+24], rbx
 	mov rbx, STR8
 	mov [rsp+8], rbx
 	mov rbx, 0xffffffffffffffff
 	mov [rsp+16], rbx
 	call string.from_str
+	mov rbx, [rsp+24]
 	add rsp, 32
 	sub rsp, 16
 	lea rbx, [rsp+176]
@@ -625,11 +677,13 @@ main:
 	lea rbx, [rsp+160]
 	sub rsp, 32
 	mov [rsp+0], rbx
+	mov [rsp+24], rbx
 	mov rbx, STR29
 	mov [rsp+8], rbx
 	mov rbx, STR30
 	mov [rsp+16], rbx
 	call string.format
+	mov rbx, [rsp+24]
 	add rsp, 32
 	sub rsp, 16
 	lea rbx, [rsp+176]
@@ -637,12 +691,14 @@ main:
 	call string.print_debug
 	add rsp, 16
 	lea rbx, [rsp+128]
-	sub rsp, 16
+	sub rsp, 32
 	mov [rsp+0], rbx
-	lea rbx, [rsp+176]
+	mov [rsp+24], rbx
+	lea rbx, [rsp+192]
 	mov [rsp+8], rbx
 	call string.from_shared
-	add rsp, 16
+	mov rbx, [rsp+24]
+	add rsp, 32
 	sub rsp, 32
 	lea rbx, [rsp+160]
 	mov [rsp+0], rbx
@@ -684,11 +740,13 @@ main:
 	lea rbx, [rsp+88]
 	sub rsp, 32
 	mov [rsp+0], rbx
+	mov [rsp+24], rbx
 	mov rbx, 0x8
 	mov [rsp+8], rbx
 	mov rbx, 0x40
 	mov [rsp+16], rbx
 	call vector.new
+	mov rbx, [rsp+24]
 	add rsp, 32
 	mov rbx, 0x5
 	mov [rsp+120], rbx
@@ -837,6 +895,62 @@ main:
 	mov rbx, [rbx]
 	call [rbx+0*8]
 	add rsp, 16
+	sub rsp, 48
+	mov rbx, STR31
+	mov [rsp+0], rbx
+	sub rsp, 16
+	lea rbx, [rsp+0]
+	mov rcx, 0x2
+	mov [rbx+0], rcx
+	sub rsp, 32
+	lea rbx, [rsp+32]
+	mov [rsp+8], rbx
+	mov rbx, 0x5
+	mov [rsp+16], rbx
+	call OperatorTest.__add_int
+	mov rbx, [rsp+0]
+	add rsp, 48
+	mov [rsp+8], rbx
+	sub rsp, 16
+	lea rbx, [rsp+0]
+	mov rcx, 0xa
+	mov [rbx+0], rcx
+	sub rsp, 32
+	lea rbx, [rsp+32]
+	mov [rsp+8], rbx
+	movsd xmm0, [FP3]
+	movsd [rsp+16], xmm0
+	call OperatorTest.__mul_float
+	mov rbx, [rsp+0]
+	add rsp, 48
+	mov [rsp+16], rbx
+	sub rsp, 16
+	lea rbx, [rsp+0]
+	mov rcx, 0x10
+	mov [rbx+0], rcx
+	sub rsp, 32
+	lea rbx, [rsp+32]
+	mov [rsp+8], rbx
+	lea rbx, [rsp+16]
+	mov rcx, 0x2
+	mov [rbx+0], rcx
+	call OperatorTest.__div_OperatorTest
+	mov rbx, [rsp+0]
+	add rsp, 48
+	mov [rsp+24], rbx
+	sub rsp, 16
+	lea rbx, [rsp+0]
+	mov rcx, 0x19
+	mov [rbx+0], rcx
+	sub rsp, 16
+	lea rbx, [rsp+16]
+	mov [rsp+8], rbx
+	call OperatorTest.__neg
+	mov rbx, [rsp+0]
+	add rsp, 32
+	mov [rsp+32], rbx
+	call println
+	add rsp, 48
 	mov rax, .L3
 	mov rdx, rbp
 	call __exception_push
@@ -860,14 +974,13 @@ main:
 	test bl, bl
 	je .L10
 	mov rbx, [rsp+8]
-	mov rcx, [rsp+8]
-	mov rax, rcx
+	mov rax, rbx
 	xor rdx, rdx
 	call __exception_throw
 	.L10:
 	.L11:
 	.L8:
-	mov rcx, [rsp+8]
+	mov rbx, [rsp+8]
 	inc QWORD [rsp+8]
 	jmp .L7
 	.L9:
@@ -878,20 +991,17 @@ main:
 	sub rsp, 16
 	mov [rsp+8], rax
 	mov [rsp+0], rdx
-	sub rsp, 32
-	mov [rsp+24], rbx
-	mov rbx, STR31
+	sub rsp, 16
+	mov rbx, STR32
 	mov [rsp+0], rbx
-	mov rbx, [rsp+40]
+	mov rbx, [rsp+24]
 	mov [rsp+8], rbx
 	call println
-	mov rbx, [rsp+24]
-	add rsp, 32
-	mov rcx, 0xffffffffffffffff
-	mov rsi, 0xffffffffffffffff
-	mov rdi, STR32
-	mov rax, rsi
-	mov rdx, rdi
+	add rsp, 16
+	mov rbx, 0xffffffffffffffff
+	mov rcx, STR33
+	mov rax, rbx
+	mov rdx, rcx
 	call __exception_throw
 	add rsp, 16
 	.L6:
@@ -901,19 +1011,15 @@ main:
 	sub rsp, 16
 	mov [rsp+8], rax
 	mov [rsp+0], rdx
-	sub rsp, 48
-	mov [rsp+40], rbx
-	mov [rsp+32], rcx
-	mov rbx, STR33
+	sub rsp, 32
+	mov rbx, STR34
 	mov [rsp+0], rbx
-	mov rbx, [rsp+56]
+	mov rbx, [rsp+40]
 	mov [rsp+8], rbx
-	mov rbx, [rsp+48]
+	mov rbx, [rsp+32]
 	mov [rsp+16], rbx
 	call println
-	mov rbx, [rsp+40]
-	mov rcx, [rsp+32]
-	add rsp, 48
+	add rsp, 32
 	add rsp, 16
 	.L4:
 	.L0:
@@ -1154,12 +1260,15 @@ STR30:
 db "friend",0
 times 7 db 0
 STR31:
+db "%i, %i, %i, %i",0
+times 7 db 0
+STR32:
 db "Caught exception %i inside try ... catch",0
 times 5 db 0
-STR32:
-db "Shut the fuck up kid",0
-db 0
 STR33:
+db "Shut up kid",0
+dw 0
+STR34:
 db "Exception %i caught : %s",0
 times 5 db 0
 FP0:
@@ -1168,3 +1277,5 @@ FP1:
 dq 3.1415300000
 FP2:
 dq 6.6700000000
+FP3:
+dq 6.7000000000

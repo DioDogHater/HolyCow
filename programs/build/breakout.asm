@@ -141,8 +141,8 @@ TTY.raw_input:
 	leave
 	ret
 
-global vec2.add:function
-vec2.add:
+global vec2.__add_vec2:function
+vec2.__add_vec2:
 	push rbp
 	mov rbp, rsp
 	mov rbx, [rbp+16]
@@ -161,28 +161,8 @@ vec2.add:
 	leave
 	ret
 
-global vec2.iadd:function
-vec2.iadd:
-	push rbp
-	mov rbp, rsp
-	mov rbx, [rbp+16]
-	mov rsi, [rbp+16]
-	mov ecx, [rsi+0]
-	mov esi, [rbp+24]
-	add ecx, esi
-	mov [rbx+0], ecx
-	mov rbx, [rbp+16]
-	mov rsi, [rbp+16]
-	mov ecx, [rsi+4]
-	mov esi, [rbp+28]
-	add ecx, esi
-	mov [rbx+4], ecx
-	.L0:
-	leave
-	ret
-
-global vec2.sub:function
-vec2.sub:
+global vec2.__sub_vec2:function
+vec2.__sub_vec2:
 	push rbp
 	mov rbp, rsp
 	mov rbx, [rbp+16]
@@ -201,28 +181,8 @@ vec2.sub:
 	leave
 	ret
 
-global vec2.isub:function
-vec2.isub:
-	push rbp
-	mov rbp, rsp
-	mov rbx, [rbp+16]
-	mov rsi, [rbp+16]
-	mov ecx, [rsi+0]
-	mov esi, [rbp+24]
-	sub ecx, esi
-	mov [rbx+0], ecx
-	mov rbx, [rbp+16]
-	mov rsi, [rbp+16]
-	mov ecx, [rsi+4]
-	mov esi, [rbp+28]
-	sub ecx, esi
-	mov [rbx+4], ecx
-	.L0:
-	leave
-	ret
-
-global vec2.mul:function
-vec2.mul:
+global vec2.__mul_int:function
+vec2.__mul_int:
 	push rbp
 	mov rbp, rsp
 	mov rbx, [rbp+16]
@@ -241,28 +201,8 @@ vec2.mul:
 	leave
 	ret
 
-global vec2.imul:function
-vec2.imul:
-	push rbp
-	mov rbp, rsp
-	mov rbx, [rbp+16]
-	mov rcx, [rbp+16]
-	mov eax, [rcx+0]
-	mov ecx, [rbp+24]
-	imul ecx
-	mov [rbx+0], eax
-	mov rbx, [rbp+16]
-	mov rcx, [rbp+16]
-	mov eax, [rcx+4]
-	mov ecx, [rbp+24]
-	imul ecx
-	mov [rbx+4], eax
-	.L0:
-	leave
-	ret
-
-global vec2.div:function
-vec2.div:
+global vec2.__div_int:function
+vec2.__div_int:
 	push rbp
 	mov rbp, rsp
 	mov rbx, [rbp+16]
@@ -279,26 +219,6 @@ vec2.div:
 	idiv ecx
 	mov [rbx+4], eax
 	jmp .L0
-	.L0:
-	leave
-	ret
-
-global vec2.idiv:function
-vec2.idiv:
-	push rbp
-	mov rbp, rsp
-	mov rbx, [rbp+16]
-	mov rcx, [rbp+16]
-	mov eax, [rcx+0]
-	mov ecx, [rbp+24]
-	imul ecx
-	mov [rbx+0], eax
-	mov rbx, [rbp+16]
-	mov rcx, [rbp+16]
-	mov eax, [rcx+4]
-	mov ecx, [rbp+24]
-	imul ecx
-	mov [rbx+4], eax
 	.L0:
 	leave
 	ret
@@ -326,8 +246,8 @@ vec2.dot:
 	leave
 	ret
 
-global vec2.is_equal:function
-vec2.is_equal:
+global vec2.__eq_vec2:function
+vec2.__eq_vec2:
 	push rbp
 	mov rbp, rsp
 	mov rcx, [rbp+24]
@@ -865,7 +785,7 @@ Blocks.collide:
 	sub rsp, 32
 	xor rbx, rbx
 	mov [rsp+8], rbx
-	mov rbx, 0x3
+	mov rbx, 0x5
 	mov [rsp+16], rbx
 	call randint
 	mov rbx, [rsp+0]
@@ -996,7 +916,7 @@ Ball.check_collisions:
 	mov [rbx+0], ecx
 	xor ecx, ecx
 	mov [rbx+4], ecx
-	call vec2.is_equal
+	call vec2.__eq_vec2
 	mov bl, [rsp+0]
 	add rsp, 32
 	test bl, bl
@@ -1027,6 +947,7 @@ Ball.check_collisions:
 	lea rbx, [rsp+8]
 	sub rsp, 32
 	mov [rsp+0], rbx
+	mov [rsp+24], rbx
 	mov rbx, [rbp+24]
 	lea rbx, [rbx+0]
 	mov [rsp+8], rbx
@@ -1035,7 +956,8 @@ Ball.check_collisions:
 	lea r8, [r8+8]
 	mov rdi, [r8]
 	mov [rbx], rdi
-	call vec2.add
+	call vec2.__add_vec2
+	mov rbx, [rsp+24]
 	add rsp, 32
 	movsxd rbx, DWORD [rsp+8]
 	xor rcx, rcx
@@ -1146,17 +1068,21 @@ Ball.update:
 	je .L4
 	jmp .L3
 	.L4:
-	sub rsp, 16
+	mov rbx, [rbp+16]
+	sub rsp, 32
+	mov [rsp+0], rbx
+	mov [rsp+24], rbx
 	mov rbx, [rbp+16]
 	lea rbx, [rbx+0]
-	mov [rsp+0], rbx
-	lea rbx, [rsp+8]
+	mov [rsp+8], rbx
+	lea rbx, [rsp+16]
 	mov r8, [rbp+16]
 	lea r8, [r8+8]
 	mov rdi, [r8]
 	mov [rbx], rdi
-	call vec2.iadd
-	add rsp, 16
+	call vec2.__add_vec2
+	mov rbx, [rsp+24]
+	add rsp, 32
 	.L1:
 	.L2:
 	.L0:
@@ -1539,15 +1465,24 @@ main:
 	test bl, bl
 	je .L3
 	call Balls.update
-	call Powerups.update
 	.L3:
 	.L4:
+	mov rbx, QWORD [Game+16]
+	and rbx, 0x7
+	xor rcx, rcx
+	cmp rbx, rcx
+	sete bl
+	test bl, bl
+	je .L5
+	call Powerups.update
+	.L5:
+	.L6:
 	mov rbx, QWORD [Game+8]
 	mov rcx, 0x90
 	cmp rbx, rcx
 	sete bl
 	test bl, bl
-	je .L5
+	je .L7
 	call Screen.clear
 	call Screen.print
 	sub rsp, 32
@@ -1560,8 +1495,8 @@ main:
 	call println
 	add rsp, 32
 	jmp .L2
-	.L5:
-	.L6:
+	.L7:
+	.L8:
 	sub rsp, 16
 	movsd xmm0, [FP0]
 	movsd [rsp+0], xmm0

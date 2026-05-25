@@ -362,7 +362,9 @@ JSON.parse_term:
 	lea rbx, [rsp+0]
 	sub rsp, 16
 	mov [rsp+0], rbx
+	mov [rsp+8], rbx
 	call JSON.parse_term
+	mov rbx, [rsp+8]
 	add rsp, 16
 	sub rsp, 48
 	lea rbx, [rsp+80]
@@ -472,7 +474,9 @@ JSON.parse_term:
 	lea rbx, [rsp+32]
 	sub rsp, 16
 	mov [rsp+0], rbx
+	mov [rsp+8], rbx
 	call JSON.parse_term
+	mov rbx, [rsp+8]
 	add rsp, 16
 	lea rcx, [rsp+32]
 	mov rbx, [rcx+24]
@@ -547,7 +551,9 @@ JSON.parse_term:
 	lea rbx, [rsp+0]
 	sub rsp, 16
 	mov [rsp+0], rbx
+	mov [rsp+8], rbx
 	call JSON.parse_term
+	mov rbx, [rsp+8]
 	add rsp, 16
 	sub rsp, 48
 	lea rbx, [rsp+120]
@@ -767,7 +773,9 @@ JSON.parse:
 	mov rbx, [rbp+16]
 	sub rsp, 16
 	mov [rsp+0], rbx
+	mov [rsp+8], rbx
 	call JSON.parse_term
+	mov rbx, [rsp+8]
 	add rsp, 16
 	jmp .L0
 	.L0:
@@ -1908,12 +1916,14 @@ main:
 	xor sil, sil
 	mov [rbx+rcx*1], sil
 	lea rbx, [rsp+8]
-	sub rsp, 16
+	sub rsp, 32
 	mov [rsp+0], rbx
-	lea rbx, [rsp+64]
+	mov [rsp+24], rbx
+	lea rbx, [rsp+80]
 	mov [rsp+8], rbx
 	call JSON.parse
-	add rsp, 16
+	mov rbx, [rsp+24]
+	add rsp, 32
 	mov cl, BYTE [JSON+16]
 	test cl, cl
 	sete bl

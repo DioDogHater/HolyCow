@@ -130,6 +130,21 @@ RMAPI bool Vector2Equals(Vector2 v1, Vector2 v2);
 //    to the refractive index of the medium on the other side of the surface
 RMAPI Vector2 Vector2Refract(Vector2 v, Vector2 n, float r);
 
+class Vector2 {
+    Vector2 __add_Vector2(Vector2 v){ *@return = Vector2Add(*this, v); }
+    Vector2 __add_float(float x){ *@return = Vector2AddValue(*this, x); }
+    Vector2 __sub_Vector2(Vector2 v){ *@return = Vector2Subtract(*this, v); }
+    Vector2 __sub_float(float x){ *@return = Vector2SubtractValue(*this, x); }
+    Vector2 __mul_Vector2(Vector2 v){ *@return = Vector2Multiply(*this, v); }
+    Vector2 __mul_float(float x){ *@return = Vector2Scale(*this, x); }
+    Vector2 __div_Vector2(Vector2 v){ *@return = Vector2Divide(*this, v); }
+    bool __eq_Vector2(Vector2 v){ @return = Vector2Equals(*this, v); }
+
+    float length(){ @return = Vector2Length(*this); }
+    float length2(){ @return = Vector2LengthSqr(*this); }
+    Vector2 normalized(){ *@return = Vector2Normalize(*this); }
+}
+
 RMAPI Vector3 Vector3Zero();
 RMAPI Vector3 Vector3One();
 
@@ -256,6 +271,21 @@ RMAPI int Vector3Equals(Vector3 p, Vector3 q);
 //    to the refractive index of the medium on the other side of the surface
 RMAPI Vector3 Vector3Refract(Vector3 v, Vector3 n, float r);
 
+class Vector3 {
+    Vector3 __add_Vector3(Vector3 v){ *@return = Vector3Add(*this, v); }
+    Vector3 __add_float(float x){ *@return = Vector3AddValue(*this, x); }
+    Vector3 __sub_Vector3(Vector3 v){ *@return = Vector3Subtract(*this, v); }
+    Vector3 __sub_float(float x){ *@return = Vector3SubtractValue(*this, x); }
+    Vector3 __mul_Vector3(Vector3 v){ *@return = Vector3Multiply(*this, v); }
+    Vector3 __mul_float(float x){ *@return = Vector3Scale(*this, x); }
+    Vector3 __div_Vector3(Vector3 v){ *@return = Vector3Divide(*this, v); }
+    bool __eq_Vector3(Vector3 v){ @return = Vector3Equals(*this, v); }
+
+    float length(){ @return = Vector3Length(*this); }
+    float length2(){ @return = Vector3LengthSqr(*this); }
+    Vector3 normalized(){ *@return = Vector3Normalize(*this); }
+}
+
 
 //----------------------------------------------------------------------------------
 // Module Functions Definition - Vector4 math
@@ -319,6 +349,21 @@ RMAPI Vector4 Vector4Invert(Vector4 v);
 // Check whether two given vectors are almost equal
 RMAPI int Vector4Equals(Vector4 p, Vector4 q);
 
+
+class Vector4 {
+    Vector4 __add_Vector4(Vector4 v){ *@return = Vector4Add(*this, v); }
+    Vector4 __add_float(float x){ *@return = Vector4AddValue(*this, x); }
+    Vector4 __sub_Vector4(Vector4 v){ *@return = Vector4Subtract(*this, v); }
+    Vector4 __sub_float(float x){ *@return = Vector4SubtractValue(*this, x); }
+    Vector4 __mul_Vector4(Vector4 v){ *@return = Vector4Multiply(*this, v); }
+    Vector4 __mul_float(float x){ *@return = Vector4Scale(*this, x); }
+    Vector4 __div_Vector4(Vector4 v){ *@return = Vector4Divide(*this, v); }
+    bool __eq_Vector4(Vector4 v){ @return = Vector4Equals(*this, v); }
+
+    float length(){ @return = Vector4Length(*this); }
+    float length2(){ @return = Vector4LengthSqr(*this); }
+    Vector4 normalized(){ *@return = Vector4Normalize(*this); }
+}
 
 //----------------------------------------------------------------------------------
 // Module Functions Definition - Matrix math

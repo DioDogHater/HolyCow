@@ -208,7 +208,7 @@ type_t typeof_expr(node_expr* expr){
             if(!max.ptr_depth && max.data == DATA_STRUCT){
                 func_t* magic = get_magic_method(get_struct_tk(max.repr), expr->type, INVALID_TYPE);
                 if(!magic){
-                    print_context_expr("Operation is not overloaded, undefined operation with struct / class", expr);
+                    print_context_expr("Operation is not overloaded, undefined operation with class", expr);
                     return INVALID_TYPE;
                 }
                 max = magic->type;
@@ -348,10 +348,12 @@ type_t typeof_expr(node_expr* expr){
                 func_t* magic;
                 if(dt1 == DATA_STRUCT)
                     magic = get_magic_method(get_struct_tk(t1.repr), expr->type, t2);
-                if(!magic && dt2 == DATA_STRUCT)
+                if(!magic && expr->type != tk_div && expr->type != tk_mod && dt2 == DATA_STRUCT)
                     magic = get_magic_method(get_struct_tk(t2.repr), expr->type, t1);
                 if(magic)
                     max = magic->type;
+                else
+                    print_context_expr("Operation is not overloaded, undefined operation with class", expr);
             }
             break;
         }

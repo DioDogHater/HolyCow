@@ -11,7 +11,7 @@ class Ball {
     Vector3 vel;
 
     void update(float delta){
-        this.pos = Vector3Add(this.pos, Vector3Scale(this.vel, delta));
+        this.pos += this.vel * delta;
     }
 }
 
@@ -79,11 +79,11 @@ int main(uint argc, char** argv){
         // Camera rotation
         if(IsMouseButtonDown(MouseButton.RIGHT)){
             Vector2 delta_mouse = GetMouseDelta();
-            cam_rot = Vector3Add(cam_rot, Vector3{-delta_mouse.y * 0.005, -delta_mouse.x * 0.005, 0.0});
+            cam_rot = cam_rot + Vector3{-delta_mouse.y * 0.005, -delta_mouse.x * 0.005, 0.0};
             cam_rot.x = clampf(cam_rot.x, -M_PI_2 + 0.01, M_PI_2 - 0.01);
             cam_quat = QuaternionFromEuler(cam_rot.x, cam_rot.y, cam_rot.z);
             cam.position = Vector3RotateByQuaternion(Vector3{0.0, 0.0, 5.0}, cam_quat);
-            cam.position = Vector3Add(cam.position, cam.target);
+            cam.position = cam.position + cam.target;
         }
 
         // Shoot a ball
@@ -91,13 +91,13 @@ int main(uint argc, char** argv){
             Balls.new(cam.target, cam_quat);
 
         // Linear movement
-        Vector3 delta_pos = Vector3{IsKeyDown(Key.D) - IsKeyDown(Key.A), IsKeyDown(Key.SPACE) - IsKeyDown(Key.C), IsKeyDown(Key.S) - IsKeyDown(Key.W)};
-        delta_pos = Vector3Scale(Vector3Normalize(delta_pos), delta * 5.0);
+        Vector3 delta_pos = Vector3{(int)(IsKeyDown(Key.D) - IsKeyDown(Key.A)), (int)(IsKeyDown(Key.SPACE) - IsKeyDown(Key.C)), (int)(IsKeyDown(Key.S) - IsKeyDown(Key.W))};
+        delta_pos = delta_pos.normalized() * (delta * 5.0);
         delta_pos = Vector3RotateByAxisAngle(delta_pos, Vector3{0.0, 1.0, 0.0}, cam_rot.y);
 
         // Apply the linear movement
-        cam.target = Vector3Add(cam.target, delta_pos);
-        cam.position = Vector3Add(cam.position, delta_pos);
+        cam.target = cam.target + delta_pos;
+        cam.position = cam.position + delta_pos;
 
         BeginDrawing();
             ClearBackground(BLACK);

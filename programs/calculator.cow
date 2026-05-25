@@ -105,7 +105,7 @@ Expr* parse_expression(vector* tks, uint* index, int min_precedence = 0);
 // Parse a term
 Expr* parse_term(vector* tks, int* index){
     if(*index >= tks.size)
-        error("Expression missing");
+        throw -1, "Expression missing";
     Token* tk = tks.at((*index)++);
     if(tk.type == Token.num){
         double num = string_to_double(tk.num);
@@ -118,13 +118,17 @@ Expr* parse_term(vector* tks, int* index){
         @return = neg;
     }else if(tk.op == '('){
         @return = parse_expression(tks, index);
-        if(*index >= tks.size)
-            error("Missing closing ')'");
+        if(*index >= tks.size){
+            @return.free();
+            throw -1, "Missing closing ')'";
+        }
         Token* paren = tks.at((*index)++);
-        if(paren.type != Token.op or paren.op != ')')
-            error("Expected closing ')'");
+        if(paren.type != Token.op or paren.op != ')'){
+            @return.free();
+            throw -1, "Expected closing ')'";
+        }
     }else
-        error("Invalid term expression");
+        throw -1, "Invalid term expression";
 }
 
 // Parse an expression
@@ -132,14 +136,18 @@ Expr* parse_expression(vector* tks, uint* index, int min_precedence){
     @return = parse_term(tks, index);
     while(*index < tks.size){
         Token* tk = tks.at(*index);
-        if(tk.type == Token.num)
-            error("No implicit multiplication");
+        if(tk.type == Token.num){
+            @return.free();
+            throw -1, "No implicit multiplication";
+        }
         if(tk.type != Token.op)
             break;
 
         int prec = get_precedence(tk.op);
-        if(prec == -1 and tk.op != ')')
-            error("Invalid operator %c", tk.op);
+        if(prec == -1 and tk.op != ')'){
+            @return.free();
+            throw -1, "Invalid operator";
+        }
         if(prec < min_precedence)
             break;
         (*index)++;
@@ -187,8 +195,14 @@ Expr* parse(char* str){
     //         println("Token.op{%c}", tk.op);
     // }
 
-    uint index = 0;
-    @return = parse_expression(&tks, &index);
+    try{
+        uint index = 0;
+        @return = parse_expression(&tks, &index);
+    }catch(x, msg){
+        tks.free();
+        throw x, msg;
+    }
+
 
     // Tokens are no longer necessary
     tks.free();
@@ -205,9 +219,11 @@ int main(uint argc, char** argv){
         if(buffer[0] == 'q')
             break;
 
-        Expr* expr = parse(buffer);
-        println("= %g", expr.eval());
-
-        expr.free();
+        try{
+            Expr* expr = parse(buffer);
+            println("= %g", expr.eval());
+            expr.free();
+        }catch(_x, msg)
+            println("%s", msg);
     }
 }

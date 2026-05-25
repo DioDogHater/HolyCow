@@ -1150,22 +1150,22 @@ __MAlloc.free:
 	sete bl
 	test bl, bl
 	je .L8
-	sub rsp, 16
-	mov rbx, STR7
-	mov [rsp+0], rbx
-	call error
-	add rsp, 16
+	mov rbx, 0x5
+	mov rcx, STR7
+	mov rax, rbx
+	mov rdx, rcx
+	call __exception_throw
 	.L8:
 	.L9:
 	mov rcx, [rbp+16]
 	mov bl, [rcx+8]
 	test bl, bl
 	je .L10
-	sub rsp, 16
-	mov rbx, STR8
-	mov [rsp+0], rbx
-	call error
-	add rsp, 16
+	mov rbx, 0x5
+	mov rcx, STR8
+	mov rax, rbx
+	mov rdx, rcx
+	call __exception_throw
 	.L10:
 	.L11:
 	mov rbx, QWORD [__MAlloc+8]
@@ -1220,16 +1220,11 @@ malloc:
 	setge bl
 	test bl, bl
 	je .L3
-	sub rsp, 16
-	mov rbx, STR9
-	mov [rsp+0], rbx
-	mov rbx, [rbp+24]
-	mov [rsp+8], rbx
-	call println
-	add rsp, 16
-	xor rbx, rbx
-	mov [rbp+16], rbx
-	jmp .L0
+	mov rbx, 0x4
+	mov rcx, STR9
+	mov rax, rbx
+	mov rdx, rcx
+	call __exception_throw
 	.L3:
 	.L4:
 	sub rsp, 16
@@ -1264,16 +1259,11 @@ realloc:
 	setge bl
 	test bl, bl
 	je .L3
-	sub rsp, 16
-	mov rbx, STR9
-	mov [rsp+0], rbx
-	mov rbx, [rbp+32]
-	mov [rsp+8], rbx
-	call println
-	add rsp, 16
-	xor rbx, rbx
-	mov [rbp+16], rbx
-	jmp .L0
+	mov rbx, 0x4
+	mov rcx, STR9
+	mov rax, rbx
+	mov rdx, rcx
+	call __exception_throw
 	.L3:
 	.L4:
 	mov rcx, [rbp+24]
@@ -1743,18 +1733,11 @@ File.open:
 	sete bl
 	test bl, bl
 	je .L6
-	sub rsp, 32
-	mov rbx, STR11
-	mov [rsp+0], rbx
-	mov rbx, [rbp+24]
-	mov [rsp+8], rbx
-	mov rbx, [rbp+32]
-	mov [rsp+16], rbx
-	call println
-	add rsp, 32
 	xor rbx, rbx
-	mov [rbp+16], rbx
-	jmp .L0
+	mov rcx, STR11
+	mov rax, rbx
+	mov rdx, rcx
+	call __exception_throw
 	.L6:
 	.L7:
 	mov rbx, [rsp+24]
@@ -1777,16 +1760,11 @@ File.open:
 	setl bl
 	test bl, bl
 	je .L8
-	sub rsp, 16
-	mov rbx, STR12
-	mov [rsp+0], rbx
-	mov rbx, QWORD [errno]
-	mov [rsp+8], rbx
-	call println
-	add rsp, 16
 	xor rbx, rbx
-	mov [rbp+16], rbx
-	jmp .L0
+	mov rcx, STR12
+	mov rax, rbx
+	mov rdx, rcx
+	call __exception_throw
 	.L8:
 	.L9:
 	sub rsp, 16
@@ -1829,6 +1807,14 @@ global File.close:function
 File.close:
 	push rbp
 	mov rbp, rsp
+	mov rcx, [rbp+24]
+	test rcx, rcx
+	sete bl
+	test bl, bl
+	je .L1
+	jmp .L0
+	.L1:
+	.L2:
 	sub rsp, 16
 	mov rbx, [rbp+24]
 	mov [rsp+0], rbx
@@ -1840,15 +1826,15 @@ File.close:
 	cmp rbx, rcx
 	setge bl
 	test bl, bl
-	je .L1
+	je .L3
 	sub rsp, 16
 	mov rcx, [rbp+24]
 	mov rbx, [rcx+0]
 	mov [rsp+8], rbx
 	call close
 	add rsp, 16
-	.L1:
-	.L2:
+	.L3:
+	.L4:
 	sub rsp, 16
 	mov rbx, [rbp+24]
 	mov [rsp+0], rbx
@@ -2910,6 +2896,7 @@ string.copy:
 	mov rbx, [rbp+16]
 	sub rsp, 32
 	mov [rsp+0], rbx
+	mov [rsp+24], rbx
 	mov rcx, [rbp+24]
 	mov rbx, [rcx+0]
 	mov [rsp+8], rbx
@@ -2917,6 +2904,7 @@ string.copy:
 	mov rbx, [rcx+8]
 	mov [rsp+16], rbx
 	call string.new
+	mov rbx, [rsp+24]
 	add rsp, 32
 	.L0:
 	leave
@@ -2979,12 +2967,14 @@ string.replace:
 	je .L1
 	sub rsp, 32
 	lea rbx, [rsp+0]
-	sub rsp, 16
+	sub rsp, 32
 	mov [rsp+0], rbx
+	mov [rsp+24], rbx
 	mov rbx, [rbp+16]
 	mov [rsp+8], rbx
 	call string.copy
-	add rsp, 16
+	mov rbx, [rsp+24]
+	add rsp, 32
 	sub rsp, 16
 	mov rbx, [rbp+16]
 	mov [rsp+0], rbx
@@ -3453,11 +3443,13 @@ string.format:
 	mov rbx, [rbp+16]
 	sub rsp, 32
 	mov [rsp+0], rbx
+	mov [rsp+24], rbx
 	lea rbx, [rsp+80]
 	mov [rsp+8], rbx
 	mov rbx, [rsp+64]
 	mov [rsp+16], rbx
 	call string.new
+	mov rbx, [rsp+24]
 	add rsp, 32
 	.L0:
 	leave
@@ -3884,11 +3876,11 @@ left_align:
 	sete bl
 	test bl, bl
 	je .L1
-	sub rsp, 16
-	mov rbx, STR15
-	mov [rsp+0], rbx
-	call error
-	add rsp, 16
+	mov rbx, 0x1
+	mov rcx, STR15
+	mov rax, rbx
+	mov rdx, rcx
+	call __exception_throw
 	.L1:
 	.L2:
 	sub rsp, 16
@@ -3902,11 +3894,11 @@ left_align:
 	sete bl
 	test bl, bl
 	je .L3
-	sub rsp, 16
-	mov rbx, STR16
-	mov [rsp+0], rbx
-	call error
-	add rsp, 16
+	mov rbx, 0x1
+	mov rcx, STR16
+	mov rax, rbx
+	mov rdx, rcx
+	call __exception_throw
 	.L3:
 	.L4:
 	mov rcx, [rbp+16]
@@ -3959,11 +3951,11 @@ right_align:
 	sete bl
 	test bl, bl
 	je .L1
-	sub rsp, 16
-	mov rbx, STR17
-	mov [rsp+0], rbx
-	call error
-	add rsp, 16
+	mov rbx, 0x1
+	mov rcx, STR17
+	mov rax, rbx
+	mov rdx, rcx
+	call __exception_throw
 	.L1:
 	.L2:
 	sub rsp, 16
@@ -3977,11 +3969,11 @@ right_align:
 	sete bl
 	test bl, bl
 	je .L3
-	sub rsp, 16
-	mov rbx, STR16
-	mov [rsp+0], rbx
-	call error
-	add rsp, 16
+	mov rbx, 0x1
+	mov rcx, STR18
+	mov rax, rbx
+	mov rdx, rcx
+	call __exception_throw
 	.L3:
 	.L4:
 	mov rcx, [rbp+16]
@@ -4057,11 +4049,11 @@ center:
 	sete bl
 	test bl, bl
 	je .L1
-	sub rsp, 16
-	mov rbx, STR18
-	mov [rsp+0], rbx
-	call error
-	add rsp, 16
+	mov rbx, 0x1
+	mov rcx, STR19
+	mov rax, rbx
+	mov rdx, rcx
+	call __exception_throw
 	.L1:
 	.L2:
 	sub rsp, 16
@@ -4075,11 +4067,11 @@ center:
 	sete bl
 	test bl, bl
 	je .L3
-	sub rsp, 16
-	mov rbx, STR16
-	mov [rsp+0], rbx
-	call error
-	add rsp, 16
+	mov rbx, 0x1
+	mov rcx, STR20
+	mov rax, rbx
+	mov rdx, rcx
+	call __exception_throw
 	.L3:
 	.L4:
 	mov rcx, [rbp+16]
@@ -4476,11 +4468,11 @@ print_format:
 	sete bl
 	test bl, bl
 	je .L19
-	sub rsp, 16
-	mov rbx, STR19
-	mov [rsp+0], rbx
-	call error
-	add rsp, 16
+	mov rbx, 0x1
+	mov rcx, STR21
+	mov rax, rbx
+	mov rdx, rcx
+	call __exception_throw
 	.L19:
 	.L20:
 	mov rbx, [rbp+24]
@@ -4541,7 +4533,7 @@ print_format:
 	test rsi, rsi
 	je .L24
 	sub rsp, 32
-	mov rbx, STR20
+	mov rbx, STR22
 	mov [rsp+0], rbx
 	mov rbx, 0xffffffffffffffff
 	mov [rsp+8], rbx
@@ -4552,7 +4544,7 @@ print_format:
 	jmp .L25
 	.L24:
 	sub rsp, 32
-	mov rbx, STR21
+	mov rbx, STR23
 	mov [rsp+0], rbx
 	mov rbx, 0xffffffffffffffff
 	mov [rsp+8], rbx
@@ -4748,11 +4740,11 @@ print_format:
 	.L39:
 	test bl, bl
 	je .L37
-	sub rsp, 16
-	mov rbx, STR22
-	mov [rsp+0], rbx
-	call error
-	add rsp, 16
+	mov rbx, 0x1
+	mov rcx, STR24
+	mov rax, rbx
+	mov rdx, rcx
+	call __exception_throw
 	.L37:
 	.L38:
 	mov rbx, [rbp+16]
@@ -5070,11 +5062,11 @@ print_format:
 	sete bl
 	test bl, bl
 	je .L59
-	sub rsp, 16
-	mov rbx, STR23
-	mov [rsp+0], rbx
-	call error
-	add rsp, 16
+	mov rbx, 0x1
+	mov rcx, STR25
+	mov rax, rbx
+	mov rdx, rcx
+	call __exception_throw
 	.L59:
 	.L60:
 	mov rcx, [rbp+32]
@@ -5154,29 +5146,20 @@ print_format:
 	add rsp, 32
 	jmp .L43
 	.L63:
-	sub rsp, 32
-	mov rbx, STR24
-	mov [rsp+0], rbx
-	mov rbx, 0x2
-	mov [rsp+8], rbx
-	mov rbx, [rbp+16]
-	dec rbx
-	mov [rsp+16], rbx
-	call error
-	add rsp, 32
+	mov rbx, 0x1
+	mov rcx, STR26
+	mov rax, rbx
+	mov rdx, rcx
+	call __exception_throw
 	.L43:
 	add rsp, 16
 	jmp .L6
 	.L41:
-	sub rsp, 16
-	mov rbx, STR25
-	mov [rsp+0], rbx
-	mov rbx, [rbp+16]
-	inc rbx
-	movzx rcx, BYTE [rbx]
-	mov [rsp+8], rcx
-	call error
-	add rsp, 16
+	mov rbx, 0x1
+	mov rcx, STR26
+	mov rax, rbx
+	mov rdx, rcx
+	call __exception_throw
 	.L6:
 	mov rbx, [rsp+8]
 	test rbx, rbx
@@ -5267,7 +5250,7 @@ error:
 	call print_char
 	add rsp, 16
 	sub rsp, 16
-	mov rbx, 0xffffffffffffffff
+	mov rbx, 0x1
 	mov [rsp+0], rbx
 	call exit
 	add rsp, 16
@@ -5302,13 +5285,11 @@ input:
 	setl bl
 	test bl, bl
 	je .L1
-	sub rsp, 16
-	mov rbx, STR26
-	mov [rsp+0], rbx
-	mov rbx, [rsp+24]
-	mov [rsp+8], rbx
-	call error
-	add rsp, 16
+	mov rbx, 0x6
+	mov rcx, STR27
+	mov rax, rbx
+	mov rdx, rcx
+	call __exception_throw
 	.L1:
 	.L2:
 	mov rbx, [rbp+24]
@@ -5351,13 +5332,11 @@ input_char:
 	setl bl
 	test bl, bl
 	je .L1
-	sub rsp, 16
-	mov rbx, STR27
-	mov [rsp+0], rbx
-	mov rbx, [rsp+16]
-	mov [rsp+8], rbx
-	call error
-	add rsp, 16
+	mov rbx, 0x6
+	mov rcx, STR28
+	mov rax, rbx
+	mov rdx, rcx
+	call __exception_throw
 	.L1:
 	.L2:
 	mov bl, [rsp+14]
@@ -5857,7 +5836,7 @@ vector.reserve:
 	test bl, bl
 	je .L7
 	sub rsp, 32
-	mov rbx, STR28
+	mov rbx, STR29
 	mov [rsp+0], rbx
 	mov rbx, [rbp+32]
 	mov [rsp+8], rbx
@@ -5882,8 +5861,9 @@ vector.copy:
 	push rbp
 	mov rbp, rsp
 	mov rbx, [rbp+16]
-	sub rsp, 32
+	sub rsp, 48
 	mov [rsp+0], rbx
+	mov [rsp+40], rbx
 	mov rcx, [rbp+24]
 	mov rbx, [rcx+24]
 	mov [rsp+8], rbx
@@ -5894,7 +5874,8 @@ vector.copy:
 	mov rbx, [rcx+8]
 	mov [rsp+24], rbx
 	call vector.from_arr
-	add rsp, 32
+	mov rbx, [rsp+40]
+	add rsp, 48
 	.L0:
 	leave
 	ret
@@ -5951,13 +5932,11 @@ vector.at:
 	sete bl
 	test bl, bl
 	je .L3
-	sub rsp, 16
-	mov rbx, STR29
-	mov [rsp+0], rbx
-	mov rbx, [rbp+32]
-	mov [rsp+8], rbx
-	call error
-	add rsp, 16
+	mov rbx, 0x3
+	mov rcx, STR30
+	mov rax, rbx
+	mov rdx, rcx
+	call __exception_throw
 	.L3:
 	.L4:
 	mov rcx, [rbp+24]
@@ -5981,11 +5960,11 @@ vector.pushback:
 	sete bl
 	test bl, bl
 	je .L1
-	sub rsp, 16
-	mov rbx, STR30
-	mov [rsp+0], rbx
-	call error
-	add rsp, 16
+	mov rbx, 0x2
+	mov rcx, STR31
+	mov rax, rbx
+	mov rdx, rcx
+	call __exception_throw
 	.L1:
 	.L2:
 	sub rsp, 32
@@ -6022,11 +6001,11 @@ vector.popback:
 	sete bl
 	test bl, bl
 	je .L1
-	sub rsp, 16
-	mov rbx, STR31
-	mov [rsp+0], rbx
-	call error
-	add rsp, 16
+	mov rbx, 0x3
+	mov rcx, STR32
+	mov rax, rbx
+	mov rdx, rcx
+	call __exception_throw
 	.L1:
 	.L2:
 	mov rcx, [rbp+16]
@@ -6046,13 +6025,11 @@ vector.append_arr:
 	sete bl
 	test bl, bl
 	je .L1
-	sub rsp, 16
-	mov rbx, STR32
-	mov [rsp+0], rbx
-	mov rbx, [rbp+32]
-	mov [rsp+8], rbx
-	call error
-	add rsp, 16
+	mov rbx, 0x2
+	mov rcx, STR33
+	mov rax, rbx
+	mov rdx, rcx
+	call __exception_throw
 	.L1:
 	.L2:
 	sub rsp, 32
@@ -6087,11 +6064,11 @@ vector.append:
 	sete bl
 	test bl, bl
 	je .L1
-	sub rsp, 16
-	mov rbx, STR33
-	mov [rsp+0], rbx
-	call error
-	add rsp, 16
+	mov rbx, 0x2
+	mov rcx, STR34
+	mov rax, rbx
+	mov rdx, rcx
+	call __exception_throw
 	.L1:
 	.L2:
 	sub rsp, 32
@@ -6119,11 +6096,11 @@ vector.insert:
 	sete bl
 	test bl, bl
 	je .L1
-	sub rsp, 16
-	mov rbx, STR34
-	mov [rsp+0], rbx
-	call error
-	add rsp, 16
+	mov rbx, 0x2
+	mov rcx, STR35
+	mov rax, rbx
+	mov rdx, rcx
+	call __exception_throw
 	.L1:
 	.L2:
 	mov rbx, [rbp+32]
@@ -6133,18 +6110,11 @@ vector.insert:
 	seta bl
 	test bl, bl
 	je .L3
-	sub rsp, 32
-	mov rbx, STR35
-	mov [rsp+0], rbx
-	mov rbx, [rbp+32]
-	mov [rsp+8], rbx
-	mov rcx, [rbp+24]
-	mov rbx, [rcx+24]
-	mov [rsp+16], rbx
-	mov rbx, [rbp+40]
-	mov [rsp+24], rbx
-	call error
-	add rsp, 32
+	mov rbx, 0x3
+	mov rcx, STR36
+	mov rax, rbx
+	mov rdx, rcx
+	call __exception_throw
 	.L3:
 	.L4:
 	mov rcx, [rbp+24]
@@ -6223,13 +6193,11 @@ vector.remove:
 	setae bl
 	test bl, bl
 	je .L1
-	sub rsp, 16
-	mov rbx, STR36
-	mov [rsp+0], rbx
-	mov rbx, [rbp+24]
-	mov [rsp+8], rbx
-	call error
-	add rsp, 16
+	mov rbx, 0x3
+	mov rcx, STR37
+	mov rax, rbx
+	mov rdx, rcx
+	call __exception_throw
 	.L1:
 	.L2:
 	sub rsp, 32
@@ -6347,11 +6315,13 @@ vector.from_arr:
 	mov rbx, [rbp+16]
 	sub rsp, 32
 	mov [rsp+0], rbx
+	mov [rsp+24], rbx
 	mov rbx, [rbp+24]
 	mov [rsp+8], rbx
 	mov rbx, [rbp+40]
 	mov [rsp+16], rbx
 	call vector.new
+	mov rbx, [rsp+24]
 	add rsp, 32
 	sub rsp, 32
 	mov rbx, [rbp+16]
@@ -6449,16 +6419,16 @@ STR8:
 db "Could not free memory : Double free",0
 dw 0
 STR9:
-db "Cannot allocate more than %u bytes",0
-times 3 db 0
+db "Cannot allocate more than MAX_ALLOC bytes",0
+dd 0
 STR10:
 db "",10,"",0
 dd 0
 STR11:
-db "",10,"File.open(%s, 0x%x) : no file opening flags given",0
-times 3 db 0
+db "File.open() : no file opening flags given",0
+dd 0
 STR12:
-db "",10,"Failed to open file : %u",0
+db "File.open() : Failed to open file",0
 dd 0
 STR13:
 db "(NULL)",0
@@ -6467,69 +6437,70 @@ STR14:
 db "0123456789ABCDEF",0
 times 5 db 0
 STR15:
-db "",10,"Expected %[ before %L to enclose text to align left",0
-db 0
+db "Expected %[ before %L to enclose text to align left",0
+dw 0
 STR16:
-db "",10,"File must be buffered to align text",0
-db 0
+db "%L : File must be buffered to align text",0
+times 5 db 0
 STR17:
-db "",10,"Expected %[ before %R to enclose text to align right",0
+db "Expected %[ before %R to enclose text to align right",0
+db 0
 STR18:
-db "",10,"Expected %[ before %C to enclose text to center",0
+db "%R : File must be buffered to align text",0
 times 5 db 0
 STR19:
-db "",10,"Expected %[ before %T to enclose text to truncate",10,"",0
-dw 0
+db "Expected %[ before %C to enclose text to center",0
+times 6 db 0
 STR20:
+db "%C : File must be buffered to align text",0
+times 5 db 0
+STR21:
+db "Expected %[ before %T to enclose text to truncate",0
+dd 0
+STR22:
 db "true",0
 db 0
-STR21:
-db "false",0
-STR22:
-db "",10,"Expected in to be in the range [1, 9] in format specifier %%0n",0
-times 6 db 0
 STR23:
-db "",10,"Expected %[ before %*T to enclose text to truncate",0
-dw 0
+db "false",0
 STR24:
-db "",10,"Unexpected format specifier %%%*s",0
-times 3 db 0
+db "Expected in to be in the range [1, 9] in format specifier %0n",0
 STR25:
-db "",10,"Unexpected format specifier %%%c",0
-dd 0
+db "Expected %[ before %*T to enclose text to truncate",0
+times 3 db 0
 STR26:
-db "input() error: %i",0
-dd 0
+db "Unexpected format specifier",0
+dw 0
 STR27:
-db "input_char() error: %i",0
-times 7 db 0
+db "input() error",0
 STR28:
+db "input_char() error",0
+times 3 db 0
+STR29:
 db "vector.reserve(%u) : failed to allocate %u bytes",0
 times 5 db 0
-STR29:
-db "vector.at(%i) : index out of range",0
-times 3 db 0
 STR30:
+db "vector.at() : index out of range",0
+times 5 db 0
+STR31:
 db "vector.pushback(NULL) : element is null",0
 times 6 db 0
-STR31:
+STR32:
 db "vector.popback() : array is empty",0
 dd 0
-STR32:
-db "vector.append_arr(NULL, %u) : array is null",0
-dw 0
 STR33:
+db "vector.append_arr(NULL) : array is null",0
+times 6 db 0
+STR34:
 db "vector.append(NULL) : vector is null",0
 db 0
-STR34:
-db "vector.insert(%u, NULL) : element is null",0
-dd 0
 STR35:
-db "vector.insert(%u, %*B) : index out of range",0
-dw 0
+db "vector.insert(NULL) : element is null",0
 STR36:
-db "vector.remove(%u) : index out of range",0
-times 7 db 0
+db "vector.insert() : index out of range",0
+db 0
+STR37:
+db "vector.remove() : index out of range",0
+db 0
 FP0:
 dq 1.0000000000
 FP1:

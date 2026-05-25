@@ -243,11 +243,13 @@ tokenize:
 	lea rbx, [rsp+0]
 	sub rsp, 32
 	mov [rsp+0], rbx
+	mov [rsp+24], rbx
 	mov rbx, 0x10
 	mov [rsp+8], rbx
 	mov rbx, 0x40
 	mov [rsp+16], rbx
 	call vector.new
+	mov rbx, [rsp+24]
 	add rsp, 32
 	sub rsp, 16
 	.L1:
@@ -435,11 +437,11 @@ parse_term:
 	setge bl
 	test bl, bl
 	je .L1
-	sub rsp, 16
-	mov rbx, STR0
-	mov [rsp+0], rbx
-	call error
-	add rsp, 16
+	mov rbx, 0xffffffffffffffff
+	mov rcx, STR0
+	mov rax, rbx
+	mov rdx, rcx
+	call __exception_throw
 	.L1:
 	.L2:
 	sub rsp, 32
@@ -550,10 +552,17 @@ parse_term:
 	test bl, bl
 	je .L7
 	sub rsp, 16
-	mov rbx, STR1
+	mov rbx, [rbp+16]
 	mov [rsp+0], rbx
-	call error
+	mov rbx, [rsp+0]
+	mov rbx, [rbx]
+	call [rbx+1*8]
 	add rsp, 16
+	mov rbx, 0xffffffffffffffff
+	mov rcx, STR1
+	mov rax, rbx
+	mov rdx, rcx
+	call __exception_throw
 	.L7:
 	.L8:
 	sub rsp, 32
@@ -583,20 +592,27 @@ parse_term:
 	test bl, bl
 	je .L9
 	sub rsp, 16
-	mov rbx, STR2
+	mov rbx, [rbp+16]
 	mov [rsp+0], rbx
-	call error
+	mov rbx, [rsp+0]
+	mov rbx, [rbx]
+	call [rbx+1*8]
 	add rsp, 16
+	mov rbx, 0xffffffffffffffff
+	mov rcx, STR2
+	mov rax, rbx
+	mov rdx, rcx
+	call __exception_throw
 	.L9:
 	.L10:
 	add rsp, 16
 	jmp .L4
 	.L6:
-	sub rsp, 16
-	mov rbx, STR3
-	mov [rsp+0], rbx
-	call error
-	add rsp, 16
+	mov rbx, 0xffffffffffffffff
+	mov rcx, STR3
+	mov rax, rbx
+	mov rdx, rcx
+	call __exception_throw
 	.L4:
 	.L0:
 	leave
@@ -643,10 +659,17 @@ parse_expression:
 	test bl, bl
 	je .L3
 	sub rsp, 16
-	mov rbx, STR4
+	mov rbx, [rbp+16]
 	mov [rsp+0], rbx
-	call error
+	mov rbx, [rsp+0]
+	mov rbx, [rbx]
+	call [rbx+1*8]
 	add rsp, 16
+	mov rbx, 0xffffffffffffffff
+	mov rcx, STR4
+	mov rax, rbx
+	mov rdx, rcx
+	call __exception_throw
 	.L3:
 	.L4:
 	mov rcx, [rsp+24]
@@ -682,13 +705,17 @@ parse_expression:
 	test bl, bl
 	je .L7
 	sub rsp, 16
-	mov rbx, STR5
+	mov rbx, [rbp+16]
 	mov [rsp+0], rbx
-	mov rcx, [rsp+40]
-	movzx rbx, BYTE [rcx]
-	mov [rsp+8], rbx
-	call error
+	mov rbx, [rsp+0]
+	mov rbx, [rbx]
+	call [rbx+1*8]
 	add rsp, 16
+	mov rbx, 0xffffffffffffffff
+	mov rcx, STR5
+	mov rax, rbx
+	mov rdx, rcx
+	call __exception_throw
 	.L7:
 	.L8:
 	mov rbx, [rsp+16]
@@ -891,14 +918,20 @@ global parse:function
 parse:
 	push rbp
 	mov rbp, rsp
-	sub rsp, 48
-	lea rbx, [rsp+16]
-	sub rsp, 16
+	sub rsp, 32
+	lea rbx, [rsp+0]
+	sub rsp, 32
 	mov [rsp+0], rbx
+	mov [rsp+24], rbx
 	mov rbx, [rbp+24]
 	mov [rsp+8], rbx
 	call tokenize
-	add rsp, 16
+	mov rbx, [rsp+24]
+	add rsp, 32
+	mov rax, .L1
+	mov rdx, rbp
+	call __exception_push
+	sub rsp, 16
 	xor rbx, rbx
 	mov [rsp+8], rbx
 	sub rsp, 32
@@ -912,8 +945,27 @@ parse:
 	mov rbx, [rsp+0]
 	add rsp, 32
 	mov [rbp+16], rbx
+	add rsp, 16
+	call __exception_pop
+	jmp .L2
+	.L1:
+	sub rsp, 16
+	mov [rsp+8], rax
+	mov [rsp+0], rdx
 	sub rsp, 16
 	lea rbx, [rsp+32]
+	mov [rsp+0], rbx
+	call vector.free
+	add rsp, 16
+	mov rbx, [rsp+8]
+	mov rcx, [rsp+0]
+	mov rax, rbx
+	mov rdx, rcx
+	call __exception_throw
+	add rsp, 16
+	.L2:
+	sub rsp, 16
+	lea rbx, [rsp+16]
 	mov [rsp+0], rbx
 	call vector.free
 	add rsp, 16
@@ -930,7 +982,7 @@ main:
 	mov [rsp+0], rbx
 	call println
 	add rsp, 16
-	sub rsp, 1040
+	sub rsp, 1024
 	.L1:
 	sub rsp, 16
 	mov rbx, STR7
@@ -938,13 +990,13 @@ main:
 	call println
 	add rsp, 16
 	sub rsp, 32
-	lea rbx, [rsp+48]
+	lea rbx, [rsp+32]
 	mov [rsp+8], rbx
 	mov rbx, 0x400
 	mov [rsp+16], rbx
 	call input
 	add rsp, 32
-	lea rbx, [rsp+16]
+	lea rbx, [rsp+0]
 	xor rcx, rcx
 	mov sil, [rbx+rcx*1]
 	mov bl, 0x71
@@ -955,6 +1007,10 @@ main:
 	jmp .L2
 	.L3:
 	.L4:
+	mov rax, .L5
+	mov rdx, rbp
+	call __exception_push
+	sub rsp, 16
 	sub rsp, 16
 	lea rbx, [rsp+32]
 	mov [rsp+8], rbx
@@ -983,9 +1039,25 @@ main:
 	mov rbx, [rbx]
 	call [rbx+1*8]
 	add rsp, 16
+	add rsp, 16
+	call __exception_pop
+	jmp .L6
+	.L5:
+	sub rsp, 16
+	mov [rsp+8], rax
+	mov [rsp+0], rdx
+	sub rsp, 16
+	mov rbx, STR9
+	mov [rsp+0], rbx
+	mov rbx, [rsp+16]
+	mov [rsp+8], rbx
+	call println
+	add rsp, 16
+	add rsp, 16
+	.L6:
 	jmp .L1
 	.L2:
-	add rsp, 1040
+	add rsp, 1024
 	.L0:
 	leave
 	ret
@@ -1193,8 +1265,8 @@ STR4:
 db "No implicit multiplication",0
 times 3 db 0
 STR5:
-db "Invalid operator %c",0
-dw 0
+db "Invalid operator",0
+times 5 db 0
 STR6:
 db "[==== Press 'q' to quit calculator. ====]",0
 dd 0
@@ -1204,3 +1276,6 @@ times 5 db 0
 STR8:
 db "= %g",0
 db 0
+STR9:
+db "%s",0
+times 3 db 0

@@ -132,9 +132,9 @@ module __MAlloc {
         MemNode* n = __MAlloc.head;
         for(; n && n != m && n.next() != m; n = n.next());
         if(n == NULL)
-            error("Could not free memory : Pointer given is invalid");
+            throw STDError.FreeError, "Could not free memory : Pointer given is invalid";
         if(m.is_free)
-            error("Could not free memory : Double free");
+            throw STDError.FreeError, "Could not free memory : Double free";
         __MAlloc.usage -= m.size;
         m.free();
         if(n != m && n.is_free)
@@ -145,20 +145,16 @@ module __MAlloc {
 void* malloc(uint sz){
     if(!sz)
         return NULL;
-    if(sz >= MAX_ALLOC){
-        println("Cannot allocate more than %u bytes", sz);
-        return NULL;
-    }
+    if(sz >= MAX_ALLOC)
+        throw STDError.MaxMemory, "Cannot allocate more than MAX_ALLOC bytes";
     @return = __MAlloc.alloc(sz);
 }
 
 void* realloc(void* ptr, uint sz){
     if(!sz)
         return NULL;
-    if(sz >= MAX_ALLOC){
-        println("Cannot allocate more than %u bytes", sz);
-        return NULL;
-    }
+    if(sz >= MAX_ALLOC)
+        throw STDError.MaxMemory, "Cannot allocate more than MAX_ALLOC bytes";
     if(!ptr)
         return malloc(sz);
     MemNode* m = (MemNode*)(ptr - sizeof(MemNode));

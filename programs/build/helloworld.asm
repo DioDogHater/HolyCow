@@ -162,11 +162,13 @@ main:
 	lea rbx, [rsp+16]
 	sub rsp, 32
 	mov [rsp+0], rbx
+	mov [rsp+24], rbx
 	mov rbx, STR12
 	mov [rsp+8], rbx
 	mov rbx, 0xffffffffffffffff
 	mov [rsp+16], rbx
 	call string.from_str
+	mov rbx, [rsp+24]
 	add rsp, 32
 	sub rsp, 16
 	mov rbx, STR13

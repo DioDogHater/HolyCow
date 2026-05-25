@@ -88,6 +88,8 @@ func_t* get_method(struct_t* stru, const char* str, size_t strlen);
 int64_t get_virtual_method(struct_t* stru, func_t* func);
 // Get a "magic method"
 func_t* get_magic_method(struct_t* stru, tk_type op, type_t other);
+// Get a "magic method" from an expression
+func_t* get_magic_method_from_expr(node_expr* expr, node_expr** obj, node_expr** other);
 
 
 // Unions / variants

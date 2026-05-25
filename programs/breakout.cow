@@ -20,17 +20,13 @@ class vec2 {
     int32 x;
     int32 y;
 
-    vec2 add(vec2 b){ return vec2{this.x + b.x, this.y + b.y}; }
-    void iadd(vec2 b){ this.x += b.x; this.y += b.y; }
-    vec2 sub(vec2 b){ return vec2{this.x - b.x, this.y - b.y}; }
-    void isub(vec2 b){ this.x -= b.x; this.y -= b.y; }
-    vec2 mul(int32 s){ return vec2{this.x * s, this.y * s}; }
-    void imul(int32 s){ this.x *= s; this.y *= s; }
-    vec2 div(int32 s){ return vec2{this.x / s, this.y / s}; }
-    void idiv(int32 s){ this.x *= s; this.y *= s; }
+    vec2 __add_vec2(vec2 b){ return vec2{this.x + b.x, this.y + b.y}; }
+    vec2 __sub_vec2(vec2 b){ return vec2{this.x - b.x, this.y - b.y}; }
+    vec2 __mul_int(int s){ return vec2{this.x * s, this.y * s}; }
+    vec2 __div_int(int s){ return vec2{this.x / s, this.y / s}; }
     int dot(vec2 b){ return this.x * b.x + this.y * b.y; }
 
-    bool is_equal(vec2 b){ return (this.x == b.x) and (this.y == b.y); }
+    bool __eq_vec2(vec2 b){ return (this.x == b.x) and (this.y == b.y); }
 
     void print(){ println("(%i, %i)", this.x, this.y); }
 }
@@ -89,11 +85,11 @@ module Paddle {
     // Check if the ball hits the paddle, change its direction if it did
     bool check_hit(vec2* pos, vec2* vel){
         @return = false;
-        if(vel.y > 0 && (pos.y + vel.y == Paddle.y || pos.y == Paddle.y)){
+        if(vel.y > 0 and (pos.y + vel.y == Paddle.y or pos.y == Paddle.y)){
             int32 x = pos.x + vel.x;
-            if(x / 2 >= Paddle.x && x / 2 < Paddle.x + Paddle.width){
+            if(x / 2 >= Paddle.x and x / 2 < Paddle.x + Paddle.width){
                 // Reflect the ball horizontally if it hit the corner of the paddle (to make the game more fun)
-                if((x / 2 == Paddle.x && vel.x > 0) || (x / 2 == Paddle.x + Paddle.width - 1 && vel.x < 0))
+                if((x / 2 == Paddle.x and vel.x > 0) or (x / 2 == Paddle.x + Paddle.width - 1 && vel.x < 0))
                     vel.x = -vel.x;
                 vel.y = -vel.y;
                 @return = true;
@@ -177,7 +173,7 @@ module Blocks {
         // If we hit a block
         if(@return){
             *ptr = false;
-            if(randint(0, 3) == 0)
+            if(randint(0, 5) == 0)
                 Powerups.new(x, y);
             Game.score++;
         }
@@ -207,9 +203,9 @@ class Ball {
     // Check all collisions, return wether we hit something
     private bool check_collisions(){
         @return = true;
-        if(this.vel.is_equal(vec2{0, 0}) && Input.space)
+        if(this.vel == vec2{0, 0} && Input.space)
             this.vel = vec2{randint(0, 2) * 2 - 1, -1};
-            vec2 next_pos = this.pos.add(this.vel);
+            vec2 next_pos = this.pos + this.vel;
             if(next_pos.x < 0 || next_pos.x >= Game.width * 2)
                 this.vel.x *= -1;
         else if(next_pos.y < 0)
@@ -228,7 +224,7 @@ class Ball {
     void update(){
         if(this.active){
             while(this.check_collisions());
-            this.pos.iadd(this.vel);
+            this.pos += this.vel;
         }
     }
 }
@@ -343,10 +339,11 @@ int main(uint argc, char** argv){
         Input.get();
         Paddle.update();
 
-        if(Game.frames % 5 == 0){
+        if(Game.frames % 5 == 0)
             Balls.update();
+
+        if(Game.frames % 8 == 0)
             Powerups.update();
-        }
 
         if(Game.score == Blocks.count){
             Screen.clear();

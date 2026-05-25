@@ -1,6 +1,6 @@
 # The Holy Cow programming language
-is a language inspired by the ***C Programming Language***, ***Rust*** and
-***Holy C***. This is an attempt at making a more programmer-friendly
+is a language inspired by ***C***, ***Rust***,
+***Holy C*** and ***Python***. This is an attempt at making a more programmer-friendly
 C-like programming language without delving too much in complicated systems.
 An easier to write C++ is close to what I aim for. Most features added to this
 language have the goal to reduce the time and effort necessary to write programs.

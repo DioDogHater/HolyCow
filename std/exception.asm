@@ -38,7 +38,7 @@ __exception_push:
 	mov QWORD [rbx], rax
     mov QWORD [rcx], rdx
     mov QWORD [rsi], rsp
-    add QWORD [rsi], 16
+    add QWORD [rsi], 32
 	.L0:
 	leave
 	ret
@@ -256,5 +256,5 @@ STR1:
 db "Cannot pop inexistant exception!",0
 times 5 db 0
 STR2:
-db "Exception %i : %s",0
-dd 0
+db "",10,"Exception %i : %s",0
+times 3 db 0

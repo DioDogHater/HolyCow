@@ -162,8 +162,22 @@ static bool save_memory(HC_FILE fptr, size_t sz, reg_t* ptr, node_expr* value){
         size_t func_call_sz = generate_func_call(fptr, value, &func, ptr);
         gen_dealloc_stack(fptr, func_call_sz);
         stack_sz -= func_call_sz;
-    }else
-        return false;
+    }else{
+        // If we have a magic method to call
+        node_expr* obj;
+        node_expr* other;
+        func_t* magic = get_magic_method_from_expr(value, &obj, &other);
+        if(magic){
+            size_t func_size = generate_magic_call(fptr, obj, other, magic, ptr);
+            if(func_size)
+                gen_dealloc_stack(fptr, func_size);
+            stack_sz -= func_size;
+            return true;
+        }else{
+            print_context_expr("Value assignment not valid!", value);
+            return false;
+        }
+    }
     return true;
 }
 
@@ -969,7 +983,7 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
             func = get_method(stru, expr->func.func->access.member->str, expr->func.func->access.member->strlen);
             if(!func || !check_private(func->flags, stru, expr->func.func, false))
                 fail_gen_expr(fptr);
-            if(t.ptr_depth == 0 && (obj->type == tk_func_call || obj->type == tk_struct)){
+            if(t.ptr_depth == 0 && (obj->type != tk_dot && obj->type != tk_identifier && obj->type != tk_open_bracket && obj->type != tk_deref)){
                 temp_struct_space = ALIGN(t.size, 16);
                 gen_alloc_stack(fptr, temp_struct_space);
                 stack_sz += temp_struct_space;
@@ -1002,8 +1016,6 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
     // (because a function can affect registers)
     int n_regs = get_mask_occup_regs(ALL_REGS, true, registers, used_regs);
     for(int i = 0; i < n_regs; i++){
-        if(struct_ptr && used_regs[i]->name == struct_ptr->name)
-            continue;
         func_call_sz = ALIGN(func_call_sz, used_regs[i]->size);
         func_call_sz += used_regs[i]->size;
     }
@@ -1044,8 +1056,6 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
     // Save each occupied register on the stack
     size_t arg_ptr = 0;
     for(int i = 0; i < n_regs; i++){
-        if(struct_ptr && used_regs[i]->name == struct_ptr->name)
-            continue;
         arg_ptr = ALIGN(arg_ptr, used_regs[i]->size);
         arg_ptr += used_regs[i]->size;
         gen_save_stack(fptr, free_reg(used_regs[i]), func_call_sz - arg_ptr);
@@ -1068,7 +1078,7 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
         else if(method.ptr_depth)
             tmp = generate_expr(fptr, expr->func.func->access.obj, method, NULL);
         else if(!get_expr_address(fptr, alloc_reg(tmp, false), expr->func.func->access.obj))
-            return false;
+            fail_gen_expr(fptr);
         gen_save_stack(fptr, tmp, arg_ptr);
         (void) free_reg(tmp);
         arg_ptr += target_address_size;
@@ -1186,7 +1196,6 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
     // Retrieve every register off the stack
     arg_ptr = 0;
     for(int i = 0; i < n_regs; i++){
-        if(struct_ptr && used_regs[i]->name == struct_ptr->name) continue;
         arg_ptr = ALIGN(arg_ptr, used_regs[i]->size);
         arg_ptr += used_regs[i]->size;
         gen_load_stack(fptr, alloc_reg(used_regs[i], false), func_call_sz - arg_ptr);
@@ -1204,7 +1213,7 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
 size_t generate_magic_call(HC_FILE fptr, node_expr* stru, node_expr* other, func_t* magic, reg_t* struct_ptr){
     token_t tk = (token_t){tk_identifier, magic->str, magic->strlen};
     node_access method_access = (node_access){tk_dot, NULL, stru, &tk};
-    node_func_expr func_call = (node_func_expr){tk_func_call, (node_expr*) &method_access, other};
+    node_func_expr func_call = (node_func_expr){tk_func_call, NULL, (node_expr*) &method_access, other};
     func_t* func;
     size_t func_call_sz = generate_func_call(fptr, (node_expr*) &func_call, &func, struct_ptr);
     if(func != magic)
@@ -1271,6 +1280,25 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
                 gen_clear_reg(fptr, tmp);
             else
                 gen_set_reg_raw(fptr, tmp, result);
+            return tmp;
+        }
+    }
+
+    // If we have a magic method to call
+    {
+        node_expr* obj;
+        node_expr* other;
+        func_t* magic = get_magic_method_from_expr(expr, &obj, &other);
+        if(magic){
+            size_t func_size = generate_magic_call(fptr, obj, other, magic, NULL);
+            reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(sz), sign);
+            if(SIZEOF_T(magic->type) < sz)
+                gen_loadx_stack(fptr, tmp, 0, SIZEOF_T(magic->type), sign);
+            else
+                gen_load_stack(fptr, tmp, 0);
+            if(func_size)
+                gen_dealloc_stack(fptr, func_size);
+            stack_sz -= func_size;
             return tmp;
         }
     }
@@ -1498,6 +1526,8 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
         size_t skip_label = label_count++;
         type_t t = typeof_expr(expr->bin_op.lhs);
         reg_t* tmp1 = NULL;
+        if(!t.data)
+            fail_gen_expr(fptr);
         if(!t.repr || t.repr->type != tk_bool){
             if(t.ptr_depth || t.data == DATA_INT){
                 tmp1 = generate_expr(fptr, expr->bin_op.lhs, t, NULL);
@@ -1521,6 +1551,8 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
         else
             gen_cond_jump(fptr, tk_cmp_neq, skip_label, false);
         t = typeof_expr(expr->bin_op.rhs);
+        if(!t.data)
+            fail_gen_expr(fptr);
         if(!t.repr || t.repr->type != tk_bool){
             if(t.ptr_depth || t.data == DATA_INT){
                 reg_t* tmp2 = generate_expr(fptr, expr->bin_op.rhs, t, NULL);
@@ -1777,7 +1809,7 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
                         gen_load_arg(fptr, tmp, var->stack_ptr + member->stack_ptr);
                 }
                 return tmp;
-            }else if(expr->access.obj->type == tk_func_call || expr->access.obj->type == tk_struct){
+            }else{
                 // Get tmp stack space
                 size_t tmp_size = ALIGN(stru->size, 16);
                 gen_alloc_stack(fptr, tmp_size);
@@ -1801,9 +1833,6 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
                 gen_dealloc_stack(fptr, tmp_size);
                 stack_sz -= tmp_size;
                 return tmp;
-            }else{
-                print_context_expr("Not implemented yet", expr);
-                fail_gen_expr(fptr);
             }
         }else if(obj_type.data == DATA_UNION){
             union_t* unio = get_union_tk(obj_type.repr);
@@ -1894,8 +1923,29 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
                 }
                 return tmp;
             }else{
-                print_context_expr("Not implemented yet", expr);
-                fail_gen_expr(fptr);
+                // Get tmp stack space
+                size_t tmp_size = ALIGN(unio->size, 16);
+                gen_alloc_stack(fptr, tmp_size);
+                stack_sz += tmp_size;
+
+                // Get union
+                reg_t* ptr = alloc_reg(GET_FREE_REG(target_address_size), false);
+                gen_load_stack_ptr(fptr, ptr, 0);
+                if(!save_union(fptr, unio, ptr, expr->access.obj))
+                    fail_gen_expr(fptr);
+                (void) free_reg(ptr);
+
+                if(SIZEOF_T(member_type) < sz)
+                    gen_loadx_stack(fptr, tmp, 0, SIZEOF_T(member_type), sign);
+                else if(member->type == tk_arr_decl)
+                    gen_load_stack_ptr(fptr, tmp, 0);
+                else
+                    gen_load_stack(fptr, tmp, 0);
+
+                // Free tmp stack space
+                gen_dealloc_stack(fptr, tmp_size);
+                stack_sz -= tmp_size;
+                return tmp;
             }
         }
     }
@@ -1964,30 +2014,6 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
         gen_label(fptr, end_label);
         return tmp;
     }
-    // NOT WORTH IT AT THE MOMENT
-    /*case tk_stack_alloc:{
-        if(sz != target_address_size){
-            print_context_expr("Cannot store address in smaller type", expr);
-            print_type("Type ", target_type, " is not big enough for an address.");
-            fail_gen_expr(fptr);
-        }
-        type_t elem_type = type_from_tk(expr->salloc.elem_type);
-        size_t elem_count = 0, strlen = expr->salloc.elem_count->strlen;
-        for(const char* str = expr->salloc.elem_count->str; strlen; str++, strlen--){
-            if(*str < '0' || *str > '9'){
-                print_context_ex("Expected base 10 integer literal", str, strlen);
-                fail_gen_expr(fptr);
-            }
-            elem_count = elem_count * 10 + (int)(*str - '0');
-        }
-        size_t alloc_sz = ((elem_type.ptr_depth) ? target_address_size : elem_type.size) * elem_count;
-        alloc_sz = (alloc_sz + 15) / 16 * 16;
-        gen_alloc_stack(fptr, alloc_sz);
-        stack_sz += alloc_sz;
-        reg_t* tmp = alloc_reg(prefered ? prefered : GET_FREE_REG(sz), sign);
-        gen_load_stack_ptr(fptr, tmp, 0);
-        return tmp;
-    }*/
     }
     print_context_expr("Expression type not implemented", expr);
     fail_gen_expr(fptr);
@@ -2018,6 +2044,22 @@ freg_t* generate_fexpr(HC_FILE fptr, node_expr* expr, bool dp){
         freg = alloc_freg(GET_FREG(dp));
         gen_loadf(fptr, freg, append_float_literal(result));
         return freg;
+    }
+
+    // If we have a magic method to call
+    {
+        node_expr* obj;
+        node_expr* other;
+        func_t* magic = get_magic_method_from_expr(expr, &obj, &other);
+        if(magic){
+            size_t func_size = generate_magic_call(fptr, obj, other, magic, NULL);
+            freg = alloc_freg(GET_FREG(dp));
+            gen_loadf_stack(fptr, freg, 0, expr_type.size == 8);
+            if(func_size)
+                gen_dealloc_stack(fptr, func_size);
+            stack_sz -= func_size;
+            return freg;
+        }
     }
 
     switch(expr->type){
@@ -2173,8 +2215,23 @@ freg_t* generate_fexpr(HC_FILE fptr, node_expr* expr, bool dp){
                 else if(var->location == VAR_ARG)
                     gen_loadf_arg(fptr, freg, var->stack_ptr + member->stack_ptr, member->type.size == 8);
             }else{
-                print_context_expr("Not implemented yet", expr);
-                fail_gen_expr(fptr);
+                // Get tmp stack space
+                size_t tmp_size = ALIGN(stru->size, 16);
+                gen_alloc_stack(fptr, tmp_size);
+                stack_sz += tmp_size;
+
+                // Get struct
+                reg_t* ptr = alloc_reg(GET_FREE_REG(target_address_size), false);
+                gen_load_stack_ptr(fptr, ptr, 0);
+                if(!save_struct(fptr, stru, ptr, expr->access.obj))
+                    fail_gen_expr(fptr);
+                (void) free_reg(ptr);
+
+                gen_loadf_stack(fptr, freg, member->stack_ptr, member->type.size == 8);
+
+                // Free tmp stack space
+                gen_dealloc_stack(fptr, tmp_size);
+                stack_sz -= tmp_size;
             }
         }else if(obj_type.data == DATA_UNION){
             union_t* unio = get_union_tk(obj_type.repr);
@@ -2212,8 +2269,23 @@ freg_t* generate_fexpr(HC_FILE fptr, node_expr* expr, bool dp){
                 else if(var->location == VAR_ARG)
                     gen_loadf_arg(fptr, freg, var->stack_ptr, member_type.size == 8);
             }else{
-                print_context_expr("Not implemented yet", expr);
-                fail_gen_expr(fptr);
+                // Get tmp stack space
+                size_t tmp_size = ALIGN(unio->size, 16);
+                gen_alloc_stack(fptr, tmp_size);
+                stack_sz += tmp_size;
+
+                // Get union
+                reg_t* ptr = alloc_reg(GET_FREE_REG(target_address_size), false);
+                gen_load_stack_ptr(fptr, ptr, 0);
+                if(!save_union(fptr, unio, ptr, expr->access.obj))
+                    fail_gen_expr(fptr);
+                (void) free_reg(ptr);
+
+                gen_loadf_stack(fptr, freg, 0, member_type.size == 8);
+
+                // Free tmp stack space
+                gen_dealloc_stack(fptr, tmp_size);
+                stack_sz -= tmp_size;
             }
         }
         break;
@@ -2647,7 +2719,8 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             if(stmt->try_except.except->next && stmt->try_except.except->next->type == tk_identifier){
                 val.str = stmt->try_except.except->next->str;
                 val.strlen = stmt->try_except.except->next->strlen;
-                val.stack_ptr = (stack_ptr += 8);
+                stack_ptr += 8;
+                val.stack_ptr = stack_ptr;
                 val.type = (type_t){1, GET_DUMMY_TYPE(uint8), false, DATA_INT, 1, 1};
                 if(get_var(val.str, val.strlen)){
                     print_context("Variable with the same name already defined", stmt->try_except.except);
@@ -2671,7 +2744,6 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
     }
     case tk_throw:{
         reg_t* tmp1 = NULL;
-        generate_expr(fptr, stmt->ret.expr, (type_t){8, GET_DUMMY_TYPE(int64), true, DATA_INT, 8, 0}, NULL);
         reg_t* tmp2 = NULL;
         if(stmt->ret.expr)
             tmp1 = generate_expr(fptr, stmt->ret.expr, (type_t){8, GET_DUMMY_TYPE(int64), true, DATA_INT, 8, 0}, NULL);

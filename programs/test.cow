@@ -186,11 +186,48 @@ class OperatorTest {
     int __neg(){
         return -this.x;
     }
+
+    bool __and_bool(bool other){
+        return (this.x != 0) && other;
+    }
 }
+
+// Copy of C++ cout
+class iostream {
+    uint8 pad;
+
+    iostream __shl_str(char* str){
+        print("%s", str);
+    }
+
+    iostream __shl_int(int i){
+        print("%i", i);
+    }
+
+    iostream __shl_bool(int b){
+        print("%b", b);
+    }
+
+    iostream __shl_char(char c){
+        print("%c", c);
+    }
+
+    iostream __shl_float(double f){
+        print("%g", f);
+    }
+
+    iostream __shl_string(string s){
+        s.print();
+    }
+}
+#define endl '\n'
+iostream cout;
 
 int main(uint argc, char** argv){
     double pi = PI;
     double almost_pi = 3.14153;
+
+    int arr[10] = [5, 2, 1, 6, 8];
 
     if(pi ~= almost_pi)
         println("%*f ~= %*f ± %f", 10, pi, 10, almost_pi, FP_PRECISION);
@@ -272,12 +309,15 @@ int main(uint argc, char** argv){
     c2_c.test();        // Now the method Child.test should be overriden by Child2.test
 
     // Test magic methods
-    println("%i, %i, %i, %i",
+    println("%i, %i, %i, %i, %b",
         OperatorTest{2} + 5,
         OperatorTest{10} * 6.7,
         OperatorTest{16} / OperatorTest{2},
-        -OperatorTest{25}
+        -OperatorTest{25},
+        OperatorTest{0} & true
     );
+
+    cout << "Hello world " << 42 << " " << true << " " << 105.912 << endl;
 
     try{
         try{

@@ -395,8 +395,6 @@ static bool check_private(size_t flags, struct_t* stru, node_expr* expr, bool wr
     return true;
 }
 
-
-
 // Get the address of a value
 bool get_expr_address(HC_FILE fptr, reg_t* tmp,  node_expr* expr){
     if(expr->type == tk_identifier){
@@ -3076,7 +3074,6 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
         }
 
         size_t arr_size = elem_size * elem_count;
-        elem_type.ptr_depth++;
 
         if(fn_type.data){
             // Stack array
@@ -3084,22 +3081,67 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             stack_ptr += arr_size;
             size_t var_ptr = stack_ptr;
 
+            if(stmt->arr_decl.expr){
+                size_t elem_ptr = 0;
+                node_expr* elem = stmt->arr_decl.expr;
+                for(size_t i = 0; elem; elem = elem->next, i++){
+                    if(i >= elem_count){
+                        print_context_expr("Too many array elements", elem);
+                        return false;
+                    }
+                    if(elem_type.ptr_depth || elem_type.data == DATA_INT){
+                        reg_t* reg = EXPR_ONCE(elem, elem_type, NULL);
+                        gen_save_stack(fptr, reg, stack_sz - var_ptr + elem_ptr);
+                    }else if(elem_type.data == DATA_FLOAT){
+                        freg_t* freg = free_freg(generate_fexpr(fptr, elem, elem_size == 8));
+                        gen_savef_stack(fptr, freg, stack_sz - var_ptr + elem_ptr, elem_size == 8);
+                    }else if(elem_type.data == DATA_STRUCT || elem_type.data == DATA_UNION){
+                        reg_t* reg = alloc_reg(GET_MASK_REG(target_address_size, allowed_copy_regs), false);
+                        gen_load_stack_ptr(fptr, reg, stack_sz - var_ptr + elem_ptr);
+                        if(elem_type.data == DATA_STRUCT){
+                            struct_t* stru = get_struct_tk(elem_type.repr);
+                            if(!save_struct(fptr, stru, reg, elem))
+                                return false;
+                        }else{
+                            union_t* unio = get_union_tk(elem_type.repr);
+                            if(!save_union(fptr, unio, reg, elem))
+                                return false;
+                        }
+                    }
+                    elem_ptr += elem_size;
+                }
+            }
+
             if(arr_flags != FLAG_NONE){
                 print_context("Incompatible modifier(s)", stmt->arr_decl.elem_type);
                 return false;
             }
 
             // Register the array in the variable vector
+            elem_type.ptr_depth++;
             var_t new_var = (var_t){stmt->arr_decl.identifier->str, stmt->arr_decl.identifier->strlen, var_ptr, VAR_ARRAY, arr_flags, elem_type};
-            vector_append(vars, &new_var);
+            if(last_def)
+                *last_def = new_var;
+            else
+                vector_append(vars, &new_var);
         }else{
             if(arr_flags != FLAG_NONE && arr_flags != FLAG_EXTERN && arr_flags != FLAG_PRIVATE){
                 print_context("Incompatible modifier(s)", stmt->arr_decl.elem_type);
                 return false;
             }
+
+            if(stmt->arr_decl.expr){
+                print_context_expr("Cannot give a value for global array (for now)", stmt->arr_decl.expr);
+                return false;
+            }
+
             // Global array
+            elem_type.ptr_depth++;
             var_t new_var = (var_t){stmt->arr_decl.identifier->str, stmt->arr_decl.identifier->strlen, arr_size, VAR_GLOBAL_ARR, arr_flags, elem_type};
-            vector_append(vars, &new_var);
+            if(last_def)
+                *last_def = new_var;
+            else
+                vector_append(vars, &new_var);
         }
         return true;
     }case tk_constexpr:{
@@ -3800,7 +3842,24 @@ bool generate_stmt(HC_FILE fptr, node_stmt* stmt, type_t fn_type, scope_info par
             EXPR_ONCE(stmt->expr.expr, type, NULL);
         else if(type.data == DATA_FLOAT)
             (void) FEXPR_ONCE(stmt->expr.expr, type.size == 8);
-
+        else if(type.data == DATA_UNION || type.data == DATA_STRUCT){
+            size_t tmp_size = ALIGN(type.size, 16);
+            reg_t* ptr = alloc_reg(GET_MASK_REG(target_address_size, allowed_copy_regs), false);
+            gen_alloc_stack(fptr, tmp_size);
+            stack_sz += tmp_size;
+            gen_load_stack_ptr(fptr, ptr, 0);
+            if(type.data == DATA_STRUCT){
+                struct_t* stru = get_struct_tk(type.repr);
+                if(!save_struct(fptr, stru, ptr, stmt->expr.expr))
+                    return false;
+            }else{
+                union_t* unio = get_union_tk(type.repr);
+                if(!save_union(fptr, unio, ptr, stmt->expr.expr))
+                    return false;
+            }
+            gen_dealloc_stack(fptr, tmp_size);
+            stack_sz -= tmp_size;
+        }
         return true;
     }
     case tk_continue:

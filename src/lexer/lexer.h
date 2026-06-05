@@ -34,6 +34,7 @@ enum{
     tk_float_lit,   // Floating point literal
     tk_str_lit,     // String literal
     tk_bool_lit,    // Boolean literal
+    tk_arr_lit,     // List literal [...]
     tk_nothing,     // nothing
 
     // Arithmetic operations

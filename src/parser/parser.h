@@ -177,6 +177,7 @@ typedef struct{
     token_t* elem_type;
     token_t* identifier;
     node_expr* elem_count;
+    node_expr* expr;
 } node_arr_decl;
 
 // tk_constexpr

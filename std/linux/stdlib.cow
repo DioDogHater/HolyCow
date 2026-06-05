@@ -642,10 +642,14 @@ void print_double(double x, uint digits, File* f){
         x = -x;
     }
     uint integer = x;
-    uint fractional = round((x - (double)integer) * pow(10.0, (double)digits));
+    double fractional = round(x % 1.0 * pow(10.0, (double)digits));
+    if(absf(fractional - pow(10.0, (double)digits)) <= 0.0001){
+        integer += 1.0;
+        fractional %= pow(10.0, (double)digits);
+    }
     print_udecimal(integer, f);
     print_char('.', f);
-    print_str(uint_to_string(fractional, buffer, digits+1, '0'),, f);
+    print_str(uint_to_string((uint)fractional, buffer, digits+1, '0'),, f);
 }
 
 private void left_align(File* f, uint last, uint target, char fill = ' '){
@@ -722,6 +726,8 @@ void print_format(char* fmt, uint* argv, File* f){
         }else if(*(fmt+1) == 'T'){
             if(last == -1)
                 throw STDError.FormatError, "Expected %[ before %T to enclose text to truncate";
+            if(f.get_buffering() == Buffering.none)
+                throw STDError.FormatError, "%T : File must be buffered to truncate text";
             uint target = argv[argc++];
             if(f.cursor - last > target){
                 memset(f.buff + last + target, 0, f.cursor - last - target);
@@ -742,8 +748,8 @@ void print_format(char* fmt, uint* argv, File* f){
             double x = ((double*)argv)[argc++];
             double x_frac = absf(x % 1.0);
             uint decimals = 0;
-            for(; x_frac % 1.0 >= 0.01; x_frac *= 10.0, decimals++){
-                if(decimals > 4 and ceil(x_frac) == round(x_frac))
+            for(; x_frac >= 0.01 and decimals <= 8; x_frac = (x_frac * 10.0) % 1.0, decimals++){
+                if(absf(round(x_frac) - x_frac) < 0.01)
                     break;
             }
             print_double(x, decimals, f);
@@ -788,6 +794,8 @@ void print_format(char* fmt, uint* argv, File* f){
             }else if(*(fmt+1) == 'T'){
                 if(last == -1)
                     throw STDError.FormatError, "Expected %[ before %*T to enclose text to truncate";
+                if(f.get_buffering() == Buffering.none)
+                    throw STDError.FormatError, "%T : File must be buffered to truncate text";
                 if(f.cursor - last > mod){
                     memmove(f.buff + last, f.buff + f.cursor - mod, mod);
                     memset(f.buff + last + mod, 0, f.cursor - last - mod);

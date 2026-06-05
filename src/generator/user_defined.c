@@ -155,10 +155,16 @@ func_t* get_magic_method(struct_t* stru, tk_type op, type_t other){
     prefix = buffer + 2 + strlen(prefix);
     if(other.data == DATA_FLOAT)
         strcpy(prefix, "float");
-    else if(other.data == DATA_INT)
-        strcpy(prefix, "int");
     else if(other.data == DATA_STRUCT || other.data == DATA_UNION)
         memcpy(prefix, other.repr->str, other.repr->strlen);
+    else if(other.data == DATA_INT){
+        if(other.repr && other.repr->type == tk_bool)
+            strcpy(prefix, "bool");
+        else if(other.size == 1 && !other.sign)
+            strcpy(prefix, (other.ptr_depth) ? "str" : "char");
+        else
+            strcpy(prefix, "int");
+    }
     return get_method(stru, buffer, strlen(buffer));
 }
 
@@ -182,14 +188,14 @@ func_t* get_magic_method_from_expr(node_expr* expr, node_expr** obj, node_expr**
         case tk_shr:{
             type_t lhs = typeof_expr(expr->bin_op.lhs), rhs = typeof_expr(expr->bin_op.rhs);
             uint8_t dt1 = DATAOF_T(lhs), dt2 = DATAOF_T(rhs);
-            if(dt1 != DATA_STRUCT && dt2 != DATA_STRUCT)
+            if(dt1 != DATA_STRUCT && dt2 != DATA_STRUCT){
                 return NULL;
-            if(dt1 == DATA_STRUCT){
+            }if(dt1 == DATA_STRUCT){
                 struct_t* stru = get_struct_tk(lhs.repr);
                 *obj = expr->bin_op.lhs;
                 *other = expr->bin_op.rhs;
                 return get_magic_method(stru, expr->type, rhs);
-            }else if(expr->type != tk_div && expr->type != tk_mod){
+            }else if(expr->type != tk_div && expr->type != tk_mod && expr->type != tk_shl && expr->type != tk_shr){
                 struct_t* stru = get_struct_tk(rhs.repr);
                 *obj = expr->bin_op.rhs;
                 *other = expr->bin_op.lhs;

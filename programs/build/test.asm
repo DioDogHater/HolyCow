@@ -576,17 +576,136 @@ OperatorTest.__neg:
 	leave
 	ret
 
+global OperatorTest.__and_bool:function
+OperatorTest.__and_bool:
+	push rbp
+	mov rbp, rsp
+	mov rcx, [rbp+24]
+	mov rbx, [rcx+0]
+	xor rcx, rcx
+	cmp rbx, rcx
+	setne bl
+	test bl, bl
+	je .L1
+	mov bl, [rbp+32]
+	.L1:
+	mov [rbp+16], bl
+	jmp .L0
+	.L0:
+	leave
+	ret
+
+global iostream.__shl_str:function
+iostream.__shl_str:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 16
+	mov rbx, STR23
+	mov [rsp+0], rbx
+	mov rbx, [rbp+32]
+	mov [rsp+8], rbx
+	call print
+	add rsp, 16
+	.L0:
+	leave
+	ret
+
+global iostream.__shl_int:function
+iostream.__shl_int:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 16
+	mov rbx, STR17
+	mov [rsp+0], rbx
+	mov rbx, [rbp+32]
+	mov [rsp+8], rbx
+	call print
+	add rsp, 16
+	.L0:
+	leave
+	ret
+
+global iostream.__shl_bool:function
+iostream.__shl_bool:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 16
+	mov rbx, STR24
+	mov [rsp+0], rbx
+	mov rbx, [rbp+32]
+	mov [rsp+8], rbx
+	call print
+	add rsp, 16
+	.L0:
+	leave
+	ret
+
+global iostream.__shl_char:function
+iostream.__shl_char:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 16
+	mov rbx, STR25
+	mov [rsp+0], rbx
+	movzx rbx, BYTE [rbp+32]
+	mov [rsp+8], rbx
+	call print
+	add rsp, 16
+	.L0:
+	leave
+	ret
+
+global iostream.__shl_float:function
+iostream.__shl_float:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 16
+	mov rbx, STR26
+	mov [rsp+0], rbx
+	movsd xmm0, [rbp+32]
+	movsd [rsp+8], xmm0
+	call print
+	add rsp, 16
+	.L0:
+	leave
+	ret
+
+global iostream.__shl_string:function
+iostream.__shl_string:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 16
+	lea rbx, [rbp+32]
+	mov [rsp+0], rbx
+	mov rbx, QWORD [stdout]
+	mov [rsp+8], rbx
+	call string.print
+	add rsp, 16
+	.L0:
+	leave
+	ret
+
 global main:function
 main:
 	push rbp
 	mov rbp, rsp
-	sub rsp, 240
+	sub rsp, 320
 	movsd xmm0, [FP0]
-	movsd [rsp+232], xmm0
+	movsd [rsp+312], xmm0
 	movsd xmm0, [FP1]
-	movsd [rsp+224], xmm0
-	movsd xmm0, [rsp+224]
-	movsd xmm1, [rsp+232]
+	movsd [rsp+304], xmm0
+	mov rbx, 0x5
+	mov [rsp+224], rbx
+	mov rbx, 0x2
+	mov [rsp+232], rbx
+	mov rbx, 0x1
+	mov [rsp+240], rbx
+	mov rbx, 0x6
+	mov [rsp+248], rbx
+	mov rbx, 0x8
+	mov [rsp+256], rbx
+	movsd xmm0, [rsp+304]
+	movsd xmm1, [rsp+312]
 	movsd xmm2, xmm0
 	subsd xmm2, xmm1
 	andpd xmm2, [__FABS_MASKd]
@@ -595,15 +714,15 @@ main:
 	test bl, bl
 	je .L1
 	sub rsp, 48
-	mov rbx, STR23
+	mov rbx, STR27
 	mov [rsp+0], rbx
 	mov rbx, 0xa
 	mov [rsp+8], rbx
-	movsd xmm0, [rsp+280]
+	movsd xmm0, [rsp+360]
 	movsd [rsp+16], xmm0
 	mov rbx, 0xa
 	mov [rsp+24], rbx
-	movsd xmm0, [rsp+272]
+	movsd xmm0, [rsp+352]
 	movsd [rsp+32], xmm0
 	movsd xmm0, [FP_PRECISION]
 	movsd [rsp+40], xmm0
@@ -612,15 +731,15 @@ main:
 	.L1:
 	.L2:
 	sub rsp, 48
-	mov rbx, STR24
+	mov rbx, STR28
 	mov [rsp+0], rbx
 	mov rbx, 0x3
 	mov [rsp+8], rbx
-	mov rbx, STR25
+	mov rbx, STR29
 	mov [rsp+16], rbx
-	mov rbx, STR26
+	mov rbx, STR30
 	mov [rsp+24], rbx
-	mov rbx, STR27
+	mov rbx, STR31
 	mov [rsp+32], rbx
 	call frame
 	add rsp, 48
@@ -632,7 +751,7 @@ main:
 	lea r8, [rbx+16]
 	mov rcx, STR8
 	mov [r8+0], rcx
-	mov rcx, STR28
+	mov rcx, STR32
 	mov [r8+8], rcx
 	sub rsp, 32
 	lea rbx, [rsp+0]
@@ -678,9 +797,9 @@ main:
 	sub rsp, 32
 	mov [rsp+0], rbx
 	mov [rsp+24], rbx
-	mov rbx, STR29
+	mov rbx, STR33
 	mov [rsp+8], rbx
-	mov rbx, STR30
+	mov rbx, STR34
 	mov [rsp+16], rbx
 	call string.format
 	mov rbx, [rsp+24]
@@ -896,7 +1015,7 @@ main:
 	call [rbx+0*8]
 	add rsp, 16
 	sub rsp, 48
-	mov rbx, STR31
+	mov rbx, STR35
 	mov [rsp+0], rbx
 	sub rsp, 16
 	lea rbx, [rsp+0]
@@ -949,8 +1068,148 @@ main:
 	mov rbx, [rsp+0]
 	add rsp, 32
 	mov [rsp+32], rbx
+	sub rsp, 16
+	lea rbx, [rsp+0]
+	xor rcx, rcx
+	mov [rbx+0], rcx
+	sub rsp, 32
+	lea rbx, [rsp+32]
+	mov [rsp+8], rbx
+	mov bl, 0x1
+	mov [rsp+16], bl
+	call OperatorTest.__and_bool
+	movzx rbx, BYTE [rsp+0]
+	add rsp, 48
+	mov [rsp+40], rbx
 	call println
 	add rsp, 48
+	sub rsp, 16
+	lea rbx, [rsp+0]
+	sub rsp, 16
+	lea rcx, [rsp+0]
+	sub rsp, 16
+	lea rsi, [rsp+0]
+	sub rsp, 16
+	lea rdi, [rsp+0]
+	sub rsp, 16
+	lea r8, [rsp+0]
+	sub rsp, 16
+	lea r9, [rsp+0]
+	sub rsp, 16
+	lea r10, [rsp+0]
+	sub rsp, 80
+	mov [rsp+0], r10
+	mov [rsp+72], rbx
+	mov [rsp+64], rcx
+	mov [rsp+56], rsi
+	mov [rsp+48], rdi
+	mov [rsp+40], r8
+	mov [rsp+32], r9
+	mov [rsp+24], r10
+	lea rbx, [cout]
+	mov [rsp+8], rbx
+	mov rbx, STR36
+	mov [rsp+16], rbx
+	call iostream.__shl_str
+	mov rbx, [rsp+72]
+	mov rcx, [rsp+64]
+	mov rsi, [rsp+56]
+	mov rdi, [rsp+48]
+	mov r8, [rsp+40]
+	mov r9, [rsp+32]
+	mov r10, [rsp+24]
+	add rsp, 80
+	sub rsp, 80
+	mov [rsp+0], r9
+	mov [rsp+72], rbx
+	mov [rsp+64], rcx
+	mov [rsp+56], rsi
+	mov [rsp+48], rdi
+	mov [rsp+40], r8
+	mov [rsp+32], r9
+	lea rbx, [rsp+80]
+	mov [rsp+8], rbx
+	mov rbx, 0x2a
+	mov [rsp+16], rbx
+	call iostream.__shl_int
+	mov rbx, [rsp+72]
+	mov rcx, [rsp+64]
+	mov rsi, [rsp+56]
+	mov rdi, [rsp+48]
+	mov r8, [rsp+40]
+	mov r9, [rsp+32]
+	add rsp, 96
+	sub rsp, 64
+	mov [rsp+0], r8
+	mov [rsp+56], rbx
+	mov [rsp+48], rcx
+	mov [rsp+40], rsi
+	mov [rsp+32], rdi
+	mov [rsp+24], r8
+	lea rbx, [rsp+64]
+	mov [rsp+8], rbx
+	mov rbx, STR37
+	mov [rsp+16], rbx
+	call iostream.__shl_str
+	mov rbx, [rsp+56]
+	mov rcx, [rsp+48]
+	mov rsi, [rsp+40]
+	mov rdi, [rsp+32]
+	mov r8, [rsp+24]
+	add rsp, 80
+	sub rsp, 64
+	mov [rsp+0], rdi
+	mov [rsp+56], rbx
+	mov [rsp+48], rcx
+	mov [rsp+40], rsi
+	mov [rsp+32], rdi
+	lea rbx, [rsp+64]
+	mov [rsp+8], rbx
+	mov rbx, 0x1
+	mov [rsp+16], rbx
+	call iostream.__shl_bool
+	mov rbx, [rsp+56]
+	mov rcx, [rsp+48]
+	mov rsi, [rsp+40]
+	mov rdi, [rsp+32]
+	add rsp, 80
+	sub rsp, 48
+	mov [rsp+0], rsi
+	mov [rsp+40], rbx
+	mov [rsp+32], rcx
+	mov [rsp+24], rsi
+	lea rbx, [rsp+48]
+	mov [rsp+8], rbx
+	mov rbx, STR37
+	mov [rsp+16], rbx
+	call iostream.__shl_str
+	mov rbx, [rsp+40]
+	mov rcx, [rsp+32]
+	mov rsi, [rsp+24]
+	add rsp, 64
+	sub rsp, 48
+	mov [rsp+0], rcx
+	mov [rsp+40], rbx
+	mov [rsp+32], rcx
+	lea rbx, [rsp+48]
+	mov [rsp+8], rbx
+	movsd xmm0, [FP4]
+	movsd [rsp+16], xmm0
+	call iostream.__shl_float
+	mov rbx, [rsp+40]
+	mov rcx, [rsp+32]
+	add rsp, 64
+	sub rsp, 32
+	mov [rsp+0], rbx
+	mov [rsp+24], rbx
+	lea rbx, [rsp+32]
+	mov [rsp+8], rbx
+	mov bl, 0xa
+	mov [rsp+16], bl
+	call iostream.__shl_char
+	mov rbx, [rsp+24]
+	add rsp, 48
+	add rsp, 16
 	mov rax, .L3
 	mov rdx, rbp
 	call __exception_push
@@ -958,29 +1217,29 @@ main:
 	mov rdx, rbp
 	call __exception_push
 	sub rsp, 16
-	xor rbx, rbx
-	mov [rsp+8], rbx
+	xor rcx, rcx
+	mov [rsp+8], rcx
 	.L7:
-	mov rbx, [rsp+8]
-	mov rcx, 0x64
-	cmp rbx, rcx
-	setl bl
-	test bl, bl
+	mov rcx, [rsp+8]
+	mov rsi, 0x64
+	cmp rcx, rsi
+	setl cl
+	test cl, cl
 	je .L9
-	mov rbx, [rsp+8]
-	mov rcx, 0x43
-	cmp rbx, rcx
-	sete bl
-	test bl, bl
+	mov rcx, [rsp+8]
+	mov rsi, 0x43
+	cmp rcx, rsi
+	sete cl
+	test cl, cl
 	je .L10
-	mov rbx, [rsp+8]
-	mov rax, rbx
+	mov rcx, [rsp+8]
+	mov rax, rcx
 	xor rdx, rdx
 	call __exception_throw
 	.L10:
 	.L11:
 	.L8:
-	mov rbx, [rsp+8]
+	mov rcx, [rsp+8]
 	inc QWORD [rsp+8]
 	jmp .L7
 	.L9:
@@ -991,17 +1250,19 @@ main:
 	sub rsp, 16
 	mov [rsp+8], rax
 	mov [rsp+0], rdx
-	sub rsp, 16
-	mov rbx, STR32
+	sub rsp, 32
+	mov [rsp+24], rbx
+	mov rbx, STR38
 	mov [rsp+0], rbx
-	mov rbx, [rsp+24]
+	mov rbx, [rsp+40]
 	mov [rsp+8], rbx
 	call println
-	add rsp, 16
-	mov rbx, 0xffffffffffffffff
-	mov rcx, STR33
-	mov rax, rbx
-	mov rdx, rcx
+	mov rbx, [rsp+24]
+	add rsp, 32
+	mov rcx, 0xffffffffffffffff
+	mov rsi, STR39
+	mov rax, rcx
+	mov rdx, rsi
 	call __exception_throw
 	add rsp, 16
 	.L6:
@@ -1012,13 +1273,15 @@ main:
 	mov [rsp+8], rax
 	mov [rsp+0], rdx
 	sub rsp, 32
-	mov rbx, STR34
+	mov [rsp+24], rbx
+	mov rbx, STR40
 	mov [rsp+0], rbx
 	mov rbx, [rsp+40]
 	mov [rsp+8], rbx
 	mov rbx, [rsp+32]
 	mov [rsp+16], rbx
 	call println
+	mov rbx, [rsp+24]
 	add rsp, 32
 	add rsp, 16
 	.L4:
@@ -1150,6 +1413,9 @@ extern stdin:data
 global FP_PRECISION:data
 FP_PRECISION:
 dq 0.0001000000
+global cout:data
+cout:
+dq 0
 static Child__VTABLE:data
 Child__VTABLE:
 dq Child.test
@@ -1236,39 +1502,57 @@ STR22:
 db "Test from Child2",0
 times 5 db 0
 STR23:
+db "%s",0
+times 3 db 0
+STR24:
+db "%b",0
+times 3 db 0
+STR25:
+db "%c",0
+times 3 db 0
+STR26:
+db "%g",0
+times 3 db 0
+STR27:
 db "%*f ~= %*f ± %f",0
 times 5 db 0
-STR24:
+STR28:
 db "Foo tierlist",0
 db 0
-STR25:
+STR29:
 db "1. Foo",0
 times 7 db 0
-STR26:
+STR30:
 db "2. Bar",0
 times 7 db 0
-STR27:
+STR31:
 db "3. Foo-bar",0
 times 3 db 0
-STR28:
+STR32:
 db "Foo bar",0
 times 6 db 0
-STR29:
+STR33:
 db "Hello %s!",0
 dd 0
-STR30:
+STR34:
 db "friend",0
 times 7 db 0
-STR31:
-db "%i, %i, %i, %i",0
-times 7 db 0
-STR32:
+STR35:
+db "%i, %i, %i, %i, %b",0
+times 3 db 0
+STR36:
+db "Hello world ",0
+db 0
+STR37:
+db " ",0
+dd 0
+STR38:
 db "Caught exception %i inside try ... catch",0
 times 5 db 0
-STR33:
+STR39:
 db "Shut up kid",0
 dw 0
-STR34:
+STR40:
 db "Exception %i caught : %s",0
 times 5 db 0
 FP0:
@@ -1279,3 +1563,5 @@ FP2:
 dq 6.6700000000
 FP3:
 dq 6.7000000000
+FP4:
+dq 105.9120000000

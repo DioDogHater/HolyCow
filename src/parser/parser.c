@@ -334,6 +334,21 @@ node_expr* parse_term(token_t** tokens){
     return expr;
 }
 
+node_expr* parse_array(token_t** tokens){
+    if(!consume_tk_type(tokens, tk_open_bracket)){
+        print_context("Expected '['", *tokens);
+        return (node_expr*)(~0);
+    }
+
+    node_expr* expr = parse_args(tokens, tk_close_bracket);
+
+    if(!consume_tk_type(tokens, tk_close_bracket)){
+        print_context("Expected closing ']'", *tokens);
+        return (node_expr*)(~0);
+    }
+    return expr;
+}
+
 node_expr* parse_expr(token_t** tokens, int min_precedence){
     node_expr* lhs = parse_term(tokens);
     if(lhs){
@@ -485,17 +500,25 @@ node_stmt* parse_stmt(token_t** tokens, bool sc_necessary){
         // Array declaration
         if(consume_tk_type(tokens, tk_open_bracket)){
             node_expr* elem_count = parse_expr(tokens, 0);
+            node_expr* expr = NULL;
             if(!elem_count){
                 print_context("Expected size of array (you have to specify it manually)", *tokens);
                 return NULL;
             }
+
             if(!consume_tk_type(tokens, tk_close_bracket)){
                 print_context("Expected ']'", *tokens);
                 return NULL;
             }
 
+            if(consume_tk_type(tokens, tk_assign)){
+                expr = parse_array(tokens);
+                if(expr == (node_expr*)(~0))
+                    return NULL;
+            }
+
             stmt = (node_stmt*) ARENA_ALLOC(arena, node_arr_decl);
-            stmt->arr_decl = (node_arr_decl){tk_arr_decl, NULL, token, identifier, elem_count};
+            stmt->arr_decl = (node_arr_decl){tk_arr_decl, NULL, token, identifier, elem_count, expr};
         }else{
             // Variable declaration
             node_expr* expr = NULL;

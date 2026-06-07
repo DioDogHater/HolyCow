@@ -345,7 +345,7 @@ type_t typeof_expr(node_expr* expr){
                 else
                     max = t2;
             }else if(dt1 == DATA_STRUCT || dt2 == DATA_STRUCT){
-                func_t* magic;
+                func_t* magic = NULL;
                 if(dt1 == DATA_STRUCT)
                     magic = get_magic_method(get_struct_tk(t1.repr), expr->type, t2);
                 if(!magic && expr->type != tk_div && expr->type != tk_mod && dt2 == DATA_STRUCT)

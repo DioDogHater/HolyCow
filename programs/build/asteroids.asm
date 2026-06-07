@@ -1584,153 +1584,327 @@ Matrix.__mul_Matrix:
 	leave
 	ret
 
-global Ball.update:function
-Ball.update:
+global Button.width:function
+Button.width:
 	push rbp
 	mov rbp, rsp
-	mov rbx, [rbp+16]
-	sub rsp, 48
-	mov [rsp+0], rbx
-	mov [rsp+40], rbx
-	mov rbx, [rbp+16]
-	lea rbx, [rbx+0]
-	mov [rsp+8], rbx
-	lea rbx, [rsp+16]
-	sub rsp, 32
-	mov [rsp+0], rbx
-	mov [rsp+24], rbx
-	mov rbx, [rbp+16]
-	lea rbx, [rbx+12]
-	mov [rsp+8], rbx
-	movss xmm0, [rbp+24]
-	movss [rsp+16], xmm0
-	call Vector3.__mul_float
-	mov rbx, [rsp+24]
-	add rsp, 32
-	call Vector3.__add_Vector3
-	mov rbx, [rsp+40]
-	add rsp, 48
+	sub rsp, 16
+	mov rbx, [rbp+24]
+	movsxd rsi, DWORD [rbx+20]
+	mov rbx, [rbp+24]
+	mov rdi, [rbx+8]
+	call MeasureText
+	mov [rsp+0], rax
+	mov ebx, [rsp+0]
+	add rsp, 16
+	mov [rbp+16], ebx
 	.L0:
 	leave
 	ret
 
-global Balls.new:function
-Balls.new:
+global Button.height:function
+Button.height:
+	push rbp
+	mov rbp, rsp
+	mov rcx, [rbp+24]
+	mov ebx, [rcx+20]
+	mov [rbp+16], ebx
+	.L0:
+	leave
+	ret
+
+global Button.draw:function
+Button.draw:
 	push rbp
 	mov rbp, rsp
 	sub rsp, 16
-	mov rbx, QWORD [Balls+392]
+	sub rsp, 16
+	mov rbx, [rbp+16]
 	mov [rsp+8], rbx
-	mov rbx, QWORD [Balls+392]
-	mov rcx, 0x10
-	cmp rbx, rcx
+	call Button.width
+	mov ebx, [rsp+0]
+	add rsp, 16
+	mov [rsp+12], ebx
+	lea rbx, [rsp+8]
+	mov r8, [rbp+16]
+	lea r8, [r8+16]
+	mov edi, [r8]
+	mov [rbx], edi
+	mov rcx, [rbp+16]
+	mov bl, [rcx+25]
+	test bl, bl
+	je .L1
+	lea rbx, [rsp+8]
+	mov cl, [rsp+8]
+	shr cl, 1
+	mov [rbx+0], cl
+	mov cl, [rsp+9]
+	shr cl, 1
+	mov [rbx+1], cl
+	mov cl, [rsp+10]
+	shr cl, 1
+	mov [rbx+2], cl
+	mov cl, 0xff
+	mov [rbx+3], cl
+	jmp .L2
+	.L1:
+	mov rcx, [rbp+16]
+	mov bl, [rcx+24]
+	test bl, bl
+	je .L3
+	lea rbx, [rsp+8]
+	movzx rax, BYTE [rsp+8]
+	shl rax, 1
+	mov rcx, 0x3
+	xor rdx, rdx
+	idiv rcx
+	mov [rbx+0], al
+	movzx rax, BYTE [rsp+9]
+	shl rax, 1
+	mov rcx, 0x3
+	xor rdx, rdx
+	idiv rcx
+	mov [rbx+1], al
+	movzx rax, BYTE [rsp+10]
+	shl rax, 1
+	mov rcx, 0x3
+	xor rdx, rdx
+	idiv rcx
+	mov [rbx+2], al
+	mov cl, 0xff
+	mov [rbx+3], cl
+	jmp .L2
+	.L3:
+	.L2:
+	lea rbx, [__GP_TMP]
+	mov edi, [rsp+8]
+	mov [rbx], edi
+	mov r8, QWORD [__GP_TMP+0]
+	sub rsp, 32
+	mov [rsp+24], r8
+	mov [rsp+16], rax
+	mov rbx, [rbp+16]
+	mov [rsp+8], rbx
+	call Button.height
+	mov r8, [rsp+24]
+	mov rax, [rsp+16]
+	movsxd rcx, DWORD [rsp+0]
+	add rsp, 32
+	add rcx, 0xa
+	movsxd rdx, DWORD [rsp+12]
+	add rdx, 0x14
+	mov rbx, [rbp+16]
+	movsxd rsi, DWORD [rbx+4]
+	sub rsp, 64
+	mov [rsp+56], rcx
+	mov [rsp+48], rsi
+	mov [rsp+40], r8
+	mov [rsp+32], rax
+	mov [rsp+24], rdx
+	mov rbx, [rbp+16]
+	mov [rsp+8], rbx
+	call Button.height
+	mov rcx, [rsp+56]
+	mov rsi, [rsp+48]
+	mov r8, [rsp+40]
+	mov rax, [rsp+32]
+	mov rdx, [rsp+24]
+	movsxd rbx, DWORD [rsp+0]
+	add rsp, 64
+	sar rbx, 1
+	sub rsi, rbx
+	sub rsi, 0x5
+	mov rbx, [rbp+16]
+	movsxd rdi, DWORD [rbx+0]
+	movsxd rbx, DWORD [rsp+12]
+	sar rbx, 1
+	sub rdi, rbx
+	sub rdi, 0xa
+	call DrawRectangle
+	lea rbx, [__GP_TMP]
+	mov cl, 0xff
+	mov [rbx+0], cl
+	mov cl, 0xff
+	mov [rbx+1], cl
+	mov cl, 0xff
+	mov [rbx+2], cl
+	mov cl, 0xff
+	mov [rbx+3], cl
+	mov r8, QWORD [__GP_TMP+0]
+	mov rbx, [rbp+16]
+	movsxd rcx, DWORD [rbx+20]
+	mov rbx, [rbp+16]
+	movsxd rdx, DWORD [rbx+4]
+	sub rsp, 48
+	mov [rsp+40], rcx
+	mov [rsp+32], r8
+	mov [rsp+24], rax
+	mov [rsp+16], rdx
+	mov rbx, [rbp+16]
+	mov [rsp+8], rbx
+	call Button.height
+	mov rcx, [rsp+40]
+	mov r8, [rsp+32]
+	mov rax, [rsp+24]
+	mov rdx, [rsp+16]
+	movsxd rbx, DWORD [rsp+0]
+	add rsp, 48
+	sar rbx, 1
+	sub rdx, rbx
+	mov rbx, [rbp+16]
+	movsxd rsi, DWORD [rbx+0]
+	movsxd rbx, DWORD [rsp+12]
+	sar rbx, 1
+	sub rsi, rbx
+	mov rbx, [rbp+16]
+	mov rdi, [rbx+8]
+	call DrawText
+	.L0:
+	leave
+	ret
+
+global Button.update:function
+Button.update:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 16
+	mov rbx, [rbp+16]
+	xor cl, cl
+	mov [rbx+24], cl
+	mov rbx, [rbp+16]
+	xor cl, cl
+	mov [rbx+25], cl
+	sub rsp, 16
+	mov rbx, [rbp+16]
+	mov [rsp+8], rbx
+	call Button.width
+	mov ebx, [rsp+0]
+	add rsp, 16
+	mov [rsp+12], ebx
+	sub rsp, 16
+	call GetMouseX
+	mov [rsp+0], rax
+	mov ebx, [rsp+0]
+	add rsp, 16
+	mov [rsp+4], ebx
+	sub rsp, 16
+	call GetMouseY
+	mov [rsp+0], rax
+	mov ebx, [rsp+0]
+	add rsp, 16
+	mov [rsp+8], ebx
+	lea rbx, [rsp+4]
+	xor rcx, rcx
+	movsxd rsi, DWORD [rbx+rcx*4]
+	mov rcx, [rbp+16]
+	movsxd rbx, DWORD [rcx+0]
+	movsxd rcx, DWORD [rsp+12]
+	sar rcx, 1
+	sub rbx, rcx
+	sub rbx, 0xa
+	cmp rsi, rbx
+	setge bl
+	test bl, bl
+	je .L5
+	lea rcx, [rsp+4]
+	xor rsi, rsi
+	movsxd rdi, DWORD [rcx+rsi*4]
+	mov rsi, [rbp+16]
+	movsxd rcx, DWORD [rsi+0]
+	movsxd rsi, DWORD [rsp+12]
+	sar rsi, 1
+	add rcx, rsi
+	add rcx, 0xa
+	cmp rdi, rcx
+	setle bl
+	.L5:
+	test bl, bl
+	je .L4
+	lea rcx, [rsp+4]
+	mov rsi, 0x1
+	movsxd rdi, DWORD [rcx+rsi*4]
+	mov rsi, [rbp+16]
+	movsxd rcx, DWORD [rsi+4]
+	sub rsp, 48
+	mov [rsp+47], bl
+	mov [rsp+32], rcx
+	mov [rsp+24], rdi
+	mov rbx, [rbp+16]
+	mov [rsp+8], rbx
+	call Button.height
+	mov bl, [rsp+47]
+	mov rcx, [rsp+32]
+	mov rdi, [rsp+24]
+	movsxd rsi, DWORD [rsp+0]
+	add rsp, 48
+	sar rsi, 1
+	sub rcx, rsi
+	sub rcx, 0x5
+	cmp rdi, rcx
+	setge bl
+	.L4:
+	test bl, bl
+	je .L3
+	lea rcx, [rsp+4]
+	mov rsi, 0x1
+	movsxd rdi, DWORD [rcx+rsi*4]
+	mov rsi, [rbp+16]
+	movsxd rcx, DWORD [rsi+4]
+	sub rsp, 48
+	mov [rsp+47], bl
+	mov [rsp+32], rcx
+	mov [rsp+24], rdi
+	mov rbx, [rbp+16]
+	mov [rsp+8], rbx
+	call Button.height
+	mov bl, [rsp+47]
+	mov rcx, [rsp+32]
+	mov rdi, [rsp+24]
+	movsxd rsi, DWORD [rsp+0]
+	add rsp, 48
+	sar rsi, 1
+	add rcx, rsi
+	add rcx, 0x5
+	cmp rdi, rcx
+	setle bl
+	.L3:
+	test bl, bl
+	je .L1
+	sub rsp, 16
+	xor rdi, rdi
+	call IsMouseButtonDown
+	mov [rsp+0], rax
+	mov bl, [rsp+0]
+	add rsp, 16
+	test bl, bl
+	je .L6
+	mov rbx, [rbp+16]
+	mov cl, 0x1
+	mov [rbx+25], cl
+	.L6:
+	.L7:
+	mov rbx, [rbp+16]
+	mov cl, 0x1
+	mov [rbx+24], cl
+	.L1:
+	.L2:
+	.L0:
+	leave
+	ret
+
+global Missile.draw:function
+Missile.draw:
+	push rbp
+	mov rbp, rsp
+	mov rsi, [rbp+16]
+	mov cl, [rsi+16]
+	test cl, cl
 	sete bl
 	test bl, bl
 	je .L1
-	mov rbx, [rsp+8]
-	lea rsi, [Balls+384]
-	mov rcx, [rsi]
-	inc QWORD [rsi]
-	add rbx, rcx
-	and rbx, 0xf
-	mov [rsp+8], rbx
-	mov rbx, QWORD [Balls+384]
-	and rbx, 0xf
-	mov [Balls+384], rbx
-	jmp .L2
+	jmp .L0
 	.L1:
-	lea rcx, [Balls+392]
-	mov rbx, [rcx]
-	inc QWORD [rcx]
 	.L2:
-	lea rcx, [Balls+0]
-	mov rsi, [rsp+8]
-	lea rsi, [rsi+rsi*2]
-	lea rbx, [rcx+rsi*8]
-	mov [rsp+0], rbx
-	mov rbx, [rsp+0]
-	lea rbx, [rbx+12]
-	sub rsp, 16
-	mov [rsp+8], rbx
-	lea rbx, [__GP_TMP]
-	cld
-	lea rdi, [rbx]
-	lea rsi, [rbp+28]
-	mov rcx, 2
-	rep movsq
-	movsd xmm3, [__GP_TMP+8]
-	movsd xmm2, [__GP_TMP]
-	lea rbx, [__GP_TMP]
-	cvtsd2ss xmm0, [FP1]
-	movss [rbx+0], xmm0
-	cvtsd2ss xmm0, [FP1]
-	movss [rbx+4], xmm0
-	cvtsd2ss xmm0, [FP2]
-	movss [rbx+8], xmm0
-	movss xmm1, [__GP_TMP+8]
-	movsd xmm0, [__GP_TMP]
-	call Vector3RotateByQuaternion
-	mov rbx, [rsp+0]
-	mov rbx, [rsp+8]
-	movsd [rbx], xmm0
-	movss [rbx+8], xmm1
-	add rsp, 16
-	mov rbx, [rsp+0]
-	sub rsp, 48
-	mov [rsp+0], rbx
-	mov [rsp+40], rbx
-	lea rbx, [rbp+16]
-	mov [rsp+8], rbx
-	lea rbx, [rsp+16]
-	sub rsp, 32
-	mov [rsp+0], rbx
-	mov [rsp+24], rbx
-	mov rbx, [rsp+80]
-	lea rbx, [rbx+12]
-	mov [rsp+8], rbx
-	cvtsd2ss xmm0, [FP3]
-	movss [rsp+16], xmm0
-	call Vector3.__mul_float
-	mov rbx, [rsp+24]
-	add rsp, 32
-	call Vector3.__add_Vector3
-	mov rbx, [rsp+40]
-	add rsp, 48
-	.L0:
-	leave
-	ret
-
-global Balls.update:function
-Balls.update:
-	push rbp
-	mov rbp, rsp
-	sub rsp, 32
-	xor rbx, rbx
-	mov [rsp+24], rbx
-	.L1:
-	mov rbx, [rsp+24]
-	mov rcx, QWORD [Balls+392]
-	cmp rbx, rcx
-	setb bl
-	test bl, bl
-	je .L3
-	mov rbx, [rsp+24]
-	mov rcx, QWORD [Balls+384]
-	add rbx, rcx
-	and rbx, 0xf
-	mov [rsp+16], rbx
-	lea rcx, [Balls+0]
-	mov rsi, [rsp+16]
-	lea rsi, [rsi+rsi*2]
-	lea rbx, [rcx+rsi*8]
-	mov [rsp+8], rbx
-	sub rsp, 16
-	mov rbx, [rsp+24]
-	mov [rsp+0], rbx
-	movss xmm0, [rbp+16]
-	movss [rsp+8], xmm0
-	call Ball.update
-	add rsp, 16
 	lea rbx, [__GP_TMP]
 	mov cl, 0xe6
 	mov [rbx+0], cl
@@ -1740,61 +1914,1595 @@ Balls.update:
 	mov [rbx+2], cl
 	mov cl, 0xff
 	mov [rbx+3], cl
-	mov rdi, QWORD [__GP_TMP+0]
-	cvtsd2ss xmm0, [FP4]
-	movss xmm2, xmm0
-	lea rbx, [__GP_TMP]
-	mov r8, [rsp+8]
-	lea r8, [r8+0]
-	mov r9, rdi
-	cld
-	lea rdi, [rbx]
-	lea rsi, [r8]
-	mov rcx, 3
-	rep movsd
-	mov rdi, r9
-	movss xmm1, [__GP_TMP+8]
-	movsd xmm0, [__GP_TMP]
-	call DrawSphere
-	.L2:
-	mov rbx, [rsp+24]
-	inc QWORD [rsp+24]
-	jmp .L1
-	.L3:
-	add rsp, 32
+	mov rdx, QWORD [__GP_TMP+0]
+	cvtsd2ss xmm0, [FP1]
+	mov rbx, [rbp+16]
+	lea rbx, [rbx+0]
+	movss xmm1, [rbx+4]
+	cvttss2si rsi, xmm1
+	mov rbx, [rbp+16]
+	lea rbx, [rbx+0]
+	movss xmm1, [rbx+0]
+	cvttss2si rdi, xmm1
+	call DrawCircleLines
 	.L0:
 	leave
 	ret
 
-global clampf:function
-clampf:
+global Missile.update:function
+Missile.update:
 	push rbp
 	mov rbp, rsp
-	movss xmm0, [rbp+24]
-	movss xmm1, [rbp+20]
-	comiss xmm1, xmm0
-	setb bl
+	mov rsi, [rbp+16]
+	mov cl, [rsi+16]
+	test cl, cl
+	sete bl
 	test bl, bl
 	je .L1
-	movss xmm0, [rbp+24]
-	movss [rbp+16], xmm0
 	jmp .L0
 	.L1:
 	.L2:
-	movss xmm0, [rbp+28]
-	movss xmm1, [rbp+20]
-	comiss xmm1, xmm0
+	mov rbx, [rbp+16]
+	sub rsp, 32
+	mov [rsp+0], rbx
+	mov [rsp+24], rbx
+	mov rbx, [rbp+16]
+	lea rbx, [rbx+0]
+	mov [rsp+8], rbx
+	lea rbx, [rsp+16]
+	sub rsp, 32
+	mov [rsp+0], rbx
+	mov [rsp+24], rbx
+	mov rbx, [rbp+16]
+	lea rbx, [rbx+8]
+	mov [rsp+8], rbx
+	movss xmm0, [rbp+24]
+	movss [rsp+16], xmm0
+	call Vector2.__mul_float
+	mov rbx, [rsp+24]
+	add rsp, 32
+	call Vector2.__add_Vector2
+	mov rbx, [rsp+24]
+	add rsp, 32
+	mov rbx, 0x190
+	cvtsi2sd xmm0, rbx
+	sub rsp, 16
+	movsd [rsp+8], xmm0
+	mov rbx, [rbp+16]
+	lea rbx, [rbx+0]
+	movss xmm0, [rbx+0]
+	call fabsf
+	movss [rsp+0], xmm0
+	movsd xmm0, [rsp+8]
+	cvtss2sd xmm1, [rsp+0]
+	add rsp, 16
+	comisd xmm1, xmm0
 	seta bl
 	test bl, bl
+	jne .L5
+	mov rcx, 0x190
+	cvtsi2sd xmm0, rcx
+	sub rsp, 32
+	mov [rsp+31], bl
+	movsd [rsp+16], xmm0
+	mov rbx, [rbp+16]
+	lea rbx, [rbx+0]
+	movss xmm0, [rbx+4]
+	call fabsf
+	movss [rsp+0], xmm0
+	mov bl, [rsp+31]
+	movsd xmm0, [rsp+16]
+	cvtss2sd xmm1, [rsp+0]
+	add rsp, 32
+	comisd xmm1, xmm0
+	seta bl
+	.L5:
+	test bl, bl
 	je .L3
-	movss xmm0, [rbp+28]
-	movss [rbp+16], xmm0
-	jmp .L0
+	mov rbx, [rbp+16]
+	xor cl, cl
+	mov [rbx+16], cl
 	.L3:
 	.L4:
-	cvtss2sd xmm0, [rbp+20]
-	cvtsd2ss xmm0, xmm0
-	movss [rbp+16], xmm0
+	movsd xmm0, [FP1]
+	sub rsp, 16
+	movsd [rsp+8], xmm0
+	call GetTime
+	movsd [rsp+0], xmm0
+	movsd xmm0, [rsp+8]
+	movsd xmm1, [rsp+0]
+	add rsp, 16
+	mov rbx, [rbp+16]
+	cvtss2sd xmm2, [rbx+20]
+	subsd xmm1, xmm2
+	comisd xmm1, xmm0
+	seta bl
+	test bl, bl
+	je .L6
+	mov rbx, [rbp+16]
+	xor cl, cl
+	mov [rbx+16], cl
+	.L6:
+	.L7:
+	.L0:
+	leave
+	ret
+
+global Missiles.init:function
+Missiles.init:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 16
+	xor rbx, rbx
+	mov [rsp+8], rbx
+	.L1:
+	mov rbx, [rsp+8]
+	mov rcx, 0x10
+	cmp rbx, rcx
+	setl bl
+	test bl, bl
+	je .L3
+	lea rcx, [Missiles+0]
+	mov rsi, [rsp+8]
+	lea rsi, [rsi+rsi*2]
+	lea rbx, [rcx+rsi*8]
+	xor cl, cl
+	mov [rbx+16], cl
+	.L2:
+	mov rbx, [rsp+8]
+	inc QWORD [rsp+8]
+	jmp .L1
+	.L3:
+	add rsp, 16
+	.L0:
+	leave
+	ret
+
+global Missiles.new:function
+Missiles.new:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 16
+	xor rbx, rbx
+	mov [rsp+8], rbx
+	.L1:
+	mov rbx, [rsp+8]
+	mov rcx, 0x10
+	cmp rbx, rcx
+	setl bl
+	test bl, bl
+	je .L3
+	lea rdi, [Missiles+0]
+	mov r8, [rsp+8]
+	lea r8, [r8+r8*2]
+	lea rsi, [rdi+r8*8]
+	mov cl, [rsi+16]
+	test cl, cl
+	sete bl
+	test bl, bl
+	je .L4
+	lea rbx, [Missiles+0]
+	mov rcx, [rsp+8]
+	lea rcx, [rcx+rcx*2]
+	lea rbx, [rbx+rcx*8]
+	lea r8, [rbx+0]
+	mov rdi, [rbp+16]
+	mov [r8], rdi
+	lea r8, [rbx+8]
+	mov rdi, [rbp+24]
+	mov [r8], rdi
+	mov cl, 0x1
+	mov [rbx+16], cl
+	sub rsp, 16
+	mov [rsp+8], rbx
+	call GetTime
+	movsd [rsp+0], xmm0
+	mov rbx, [rsp+8]
+	cvtsd2ss xmm0, [rsp+0]
+	add rsp, 16
+	movss [rbx+20], xmm0
+	jmp .L3
+	.L4:
+	.L5:
+	.L2:
+	mov rbx, [rsp+8]
+	inc QWORD [rsp+8]
+	jmp .L1
+	.L3:
+	add rsp, 16
+	.L0:
+	leave
+	ret
+
+global Missiles.draw:function
+Missiles.draw:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 16
+	xor rbx, rbx
+	mov [rsp+8], rbx
+	.L1:
+	mov rbx, [rsp+8]
+	mov rcx, 0x10
+	cmp rbx, rcx
+	setl bl
+	test bl, bl
+	je .L3
+	sub rsp, 16
+	lea rcx, [Missiles+0]
+	mov rsi, [rsp+24]
+	lea rsi, [rsi+rsi*2]
+	lea rbx, [rcx+rsi*8]
+	mov [rsp+0], rbx
+	call Missile.draw
+	add rsp, 16
+	.L2:
+	mov rbx, [rsp+8]
+	inc QWORD [rsp+8]
+	jmp .L1
+	.L3:
+	add rsp, 16
+	.L0:
+	leave
+	ret
+
+global Missiles.update:function
+Missiles.update:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 16
+	xor rbx, rbx
+	mov [rsp+8], rbx
+	.L1:
+	mov rbx, [rsp+8]
+	mov rcx, 0x10
+	cmp rbx, rcx
+	setl bl
+	test bl, bl
+	je .L3
+	sub rsp, 16
+	lea rcx, [Missiles+0]
+	mov rsi, [rsp+24]
+	lea rsi, [rsi+rsi*2]
+	lea rbx, [rcx+rsi*8]
+	mov [rsp+0], rbx
+	movss xmm0, [rbp+16]
+	movss [rsp+8], xmm0
+	call Missile.update
+	add rsp, 16
+	.L2:
+	mov rbx, [rsp+8]
+	inc QWORD [rsp+8]
+	jmp .L1
+	.L3:
+	add rsp, 16
+	.L0:
+	leave
+	ret
+
+global Spaceship.init:function
+Spaceship.init:
+	push rbp
+	mov rbp, rsp
+	lea rbx, [Spaceship+0]
+	cvtsd2ss xmm0, [FP2]
+	movss [rbx+0], xmm0
+	cvtsd2ss xmm0, [FP2]
+	movss [rbx+4], xmm0
+	lea rbx, [Spaceship+8]
+	cvtsd2ss xmm0, [FP2]
+	movss [rbx+0], xmm0
+	cvtsd2ss xmm0, [FP2]
+	movss [rbx+4], xmm0
+	cvtsd2ss xmm0, [FP2]
+	movss [Spaceship+16], xmm0
+	cvtsd2ss xmm0, [FP2]
+	movss [Spaceship+20], xmm0
+	movsd xmm0, [FP2]
+	movsd [Spaceship+32], xmm0
+	mov rbx, 0x64
+	mov [Spaceship+40], rbx
+	.L0:
+	leave
+	ret
+
+global Spaceship.shoot:function
+Spaceship.shoot:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 16
+	sub rsp, 16
+	call GetTime
+	movsd [rsp+0], xmm0
+	movsd xmm0, [rsp+0]
+	add rsp, 16
+	movsd [rsp+8], xmm0
+	movsd xmm0, [FP3]
+	movsd xmm1, [rsp+8]
+	movsd xmm2, [Spaceship+32]
+	subsd xmm1, xmm2
+	comisd xmm1, xmm0
+	setae bl
+	test bl, bl
+	je .L1
+	sub rsp, 16
+	lea rbx, [rsp+8]
+	sub rsp, 16
+	lea rcx, [rsp+0]
+	sub rsp, 16
+	mov [rsp+8], rcx
+	mov [rsp+0], rbx
+	movss xmm0, [Spaceship+16]
+	movss xmm1, xmm0
+	lea rbx, [__GP_TMP]
+	cvtsd2ss xmm0, [FP2]
+	movss [rbx+0], xmm0
+	cvtsd2ss xmm0, [FP4]
+	movss [rbx+4], xmm0
+	movsd xmm0, [__GP_TMP]
+	call Vector2Rotate
+	mov rcx, [rsp+0]
+	mov rcx, [rsp+8]
+	movsd [rcx], xmm0
+	mov rbx, [rsp+0]
+	add rsp, 16
+	sub rsp, 32
+	mov [rsp+0], rbx
+	mov [rsp+24], rbx
+	lea rbx, [rsp+32]
+	mov [rsp+8], rbx
+	lea rbx, [rsp+16]
+	lea r8, [Spaceship+8]
+	mov rdi, [r8]
+	mov [rbx], rdi
+	call Vector2.__add_Vector2
+	mov rbx, [rsp+24]
+	add rsp, 48
+	lea rbx, [rsp+0]
+	sub rsp, 32
+	mov [rsp+0], rbx
+	mov [rsp+24], rbx
+	lea rbx, [Spaceship+0]
+	mov [rsp+8], rbx
+	lea rbx, [rsp+16]
+	sub rsp, 16
+	lea rcx, [rsp+0]
+	sub rsp, 32
+	mov [rsp+0], rcx
+	mov [rsp+24], rbx
+	mov [rsp+16], rcx
+	lea rbx, [rsp+88]
+	mov [rsp+8], rbx
+	call Vector2.normalized
+	mov rbx, [rsp+24]
+	mov rcx, [rsp+16]
+	add rsp, 32
+	sub rsp, 32
+	mov [rsp+0], rbx
+	mov [rsp+24], rbx
+	lea rbx, [rsp+32]
+	mov [rsp+8], rbx
+	cvtsd2ss xmm0, [FP5]
+	movss [rsp+16], xmm0
+	call Vector2.__mul_float
+	mov rbx, [rsp+24]
+	add rsp, 48
+	call Vector2.__add_Vector2
+	mov rbx, [rsp+24]
+	add rsp, 32
+	sub rsp, 16
+	lea rbx, [rsp+0]
+	mov rdi, [rsp+16]
+	mov [rbx], rdi
+	lea rbx, [rsp+8]
+	mov rdi, [rsp+24]
+	mov [rbx], rdi
+	call Missiles.new
+	add rsp, 16
+	movsd xmm0, [rsp+24]
+	movsd [Spaceship+32], xmm0
+	add rsp, 16
+	.L1:
+	.L2:
+	.L0:
+	leave
+	ret
+
+global Spaceship.damage:function
+Spaceship.damage:
+	push rbp
+	mov rbp, rsp
+	mov rbx, QWORD [Spaceship+40]
+	sub rbx, 0xa
+	mov [Spaceship+40], rbx
+	mov rbx, QWORD [Spaceship+40]
+	xor rcx, rcx
+	cmp rbx, rcx
+	setle bl
+	test bl, bl
+	je .L1
+	mov rbx, 0x2
+	mov [Game+0], rbx
+	.L1:
+	.L2:
+	.L0:
+	leave
+	ret
+
+global Spaceship.draw:function
+Spaceship.draw:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 32
+	lea rbx, [rsp+24]
+	sub rsp, 16
+	lea rcx, [rsp+0]
+	sub rsp, 16
+	mov [rsp+8], rcx
+	mov [rsp+0], rbx
+	movss xmm0, [Spaceship+16]
+	movss xmm1, xmm0
+	lea rbx, [__GP_TMP]
+	cvtsd2ss xmm0, [FP6]
+	movss [rbx+0], xmm0
+	cvtsd2ss xmm0, [FP5]
+	movss [rbx+4], xmm0
+	movsd xmm0, [__GP_TMP]
+	call Vector2Rotate
+	mov rcx, [rsp+0]
+	mov rcx, [rsp+8]
+	movsd [rcx], xmm0
+	mov rbx, [rsp+0]
+	add rsp, 16
+	sub rsp, 32
+	mov [rsp+0], rbx
+	mov [rsp+24], rbx
+	lea rbx, [rsp+32]
+	mov [rsp+8], rbx
+	lea rbx, [rsp+16]
+	lea r8, [Spaceship+0]
+	mov rdi, [r8]
+	mov [rbx], rdi
+	call Vector2.__add_Vector2
+	mov rbx, [rsp+24]
+	add rsp, 48
+	lea rbx, [rsp+16]
+	sub rsp, 16
+	lea rcx, [rsp+0]
+	sub rsp, 16
+	mov [rsp+8], rcx
+	mov [rsp+0], rbx
+	movss xmm0, [Spaceship+16]
+	movss xmm1, xmm0
+	lea rbx, [__GP_TMP]
+	cvtsd2ss xmm0, [FP2]
+	movss [rbx+0], xmm0
+	cvtsd2ss xmm0, [FP7]
+	movss [rbx+4], xmm0
+	movsd xmm0, [__GP_TMP]
+	call Vector2Rotate
+	mov rcx, [rsp+0]
+	mov rcx, [rsp+8]
+	movsd [rcx], xmm0
+	mov rbx, [rsp+0]
+	add rsp, 16
+	sub rsp, 32
+	mov [rsp+0], rbx
+	mov [rsp+24], rbx
+	lea rbx, [rsp+32]
+	mov [rsp+8], rbx
+	lea rbx, [rsp+16]
+	lea r8, [Spaceship+0]
+	mov rdi, [r8]
+	mov [rbx], rdi
+	call Vector2.__add_Vector2
+	mov rbx, [rsp+24]
+	add rsp, 48
+	lea rbx, [rsp+8]
+	sub rsp, 16
+	lea rcx, [rsp+0]
+	sub rsp, 16
+	mov [rsp+8], rcx
+	mov [rsp+0], rbx
+	movss xmm0, [Spaceship+16]
+	movss xmm1, xmm0
+	lea rbx, [__GP_TMP]
+	cvtsd2ss xmm0, [FP8]
+	movss [rbx+0], xmm0
+	cvtsd2ss xmm0, [FP5]
+	movss [rbx+4], xmm0
+	movsd xmm0, [__GP_TMP]
+	call Vector2Rotate
+	mov rcx, [rsp+0]
+	mov rcx, [rsp+8]
+	movsd [rcx], xmm0
+	mov rbx, [rsp+0]
+	add rsp, 16
+	sub rsp, 32
+	mov [rsp+0], rbx
+	mov [rsp+24], rbx
+	lea rbx, [rsp+32]
+	mov [rsp+8], rbx
+	lea rbx, [rsp+16]
+	lea r8, [Spaceship+0]
+	mov rdi, [r8]
+	mov [rbx], rdi
+	call Vector2.__add_Vector2
+	mov rbx, [rsp+24]
+	add rsp, 48
+	lea rbx, [__GP_TMP]
+	mov cl, 0xf5
+	mov [rbx+0], cl
+	mov cl, 0xf5
+	mov [rbx+1], cl
+	mov cl, 0xf5
+	mov [rbx+2], cl
+	mov cl, 0xff
+	mov [rbx+3], cl
+	mov rdi, QWORD [__GP_TMP+0]
+	lea rbx, [__GP_TMP]
+	mov r8, rdi
+	mov rdi, [rsp+8]
+	mov [rbx], rdi
+	mov rdi, r8
+	movsd xmm2, [__GP_TMP]
+	lea rbx, [__GP_TMP]
+	mov r8, rdi
+	mov rdi, [rsp+16]
+	mov [rbx], rdi
+	mov rdi, r8
+	movsd xmm1, [__GP_TMP]
+	lea rbx, [__GP_TMP]
+	mov r8, rdi
+	mov rdi, [rsp+24]
+	mov [rbx], rdi
+	mov rdi, r8
+	movsd xmm0, [__GP_TMP]
+	call DrawTriangleLines
+	lea rbx, [__GP_TMP]
+	mov cl, 0xe6
+	mov [rbx+0], cl
+	mov cl, 0x29
+	mov [rbx+1], cl
+	mov cl, 0x37
+	mov [rbx+2], cl
+	mov cl, 0xff
+	mov [rbx+3], cl
+	mov rdx, QWORD [__GP_TMP+0]
+	cvtsd2ss xmm0, [FP9]
+	lea rbx, [Spaceship+24]
+	movss xmm1, [rbx+4]
+	cvttss2si rsi, xmm1
+	lea rbx, [Spaceship+24]
+	movss xmm1, [rbx+0]
+	cvttss2si rdi, xmm1
+	call DrawCircleLines
+	.L0:
+	leave
+	ret
+
+global Spaceship.update:function
+Spaceship.update:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 16
+	sub rsp, 16
+	mov rdi, 0x20
+	call IsKeyDown
+	mov [rsp+0], rax
+	mov bl, [rsp+0]
+	add rsp, 16
+	test bl, bl
+	je .L1
+	call Spaceship.shoot
+	.L1:
+	.L2:
+	sub rsp, 16
+	mov rdi, 0x57
+	call IsKeyDown
+	mov [rsp+0], rax
+	movzx rbx, BYTE [rsp+0]
+	add rsp, 16
+	sub rsp, 16
+	mov [rsp+8], rbx
+	mov rdi, 0x53
+	call IsKeyDown
+	mov [rsp+0], rax
+	mov rbx, [rsp+8]
+	movzx rcx, BYTE [rsp+0]
+	add rsp, 16
+	sub rbx, rcx
+	cvtsi2ss xmm0, rbx
+	movss [rsp+12], xmm0
+	lea rbx, [Spaceship+8]
+	sub rsp, 32
+	mov [rsp+0], rbx
+	mov [rsp+24], rbx
+	lea rbx, [Spaceship+8]
+	mov [rsp+8], rbx
+	lea rbx, [rsp+16]
+	sub rsp, 16
+	mov [rsp+8], rbx
+	movss xmm0, [Spaceship+16]
+	movss xmm1, xmm0
+	lea rbx, [__GP_TMP]
+	cvtsd2ss xmm0, [FP2]
+	movss [rbx+0], xmm0
+	cvtsd2ss xmm0, [FP10]
+	movss xmm2, [rbp+16]
+	mulss xmm0, xmm2
+	movss xmm2, [rsp+60]
+	mulss xmm0, xmm2
+	movss [rbx+4], xmm0
+	movsd xmm0, [__GP_TMP]
+	call Vector2Rotate
+	mov rbx, [rsp+0]
+	mov rbx, [rsp+8]
+	movsd [rbx], xmm0
+	add rsp, 16
+	call Vector2.__add_Vector2
+	mov rbx, [rsp+24]
+	add rsp, 32
+	movss xmm0, [Spaceship+20]
+	sub rsp, 16
+	movss [rsp+12], xmm0
+	mov rdi, 0x44
+	call IsKeyDown
+	mov [rsp+0], rax
+	movss xmm0, [rsp+12]
+	movzx rbx, BYTE [rsp+0]
+	add rsp, 16
+	sub rsp, 32
+	mov [rsp+24], rbx
+	movss [rsp+20], xmm0
+	mov rdi, 0x41
+	call IsKeyDown
+	mov [rsp+0], rax
+	mov rbx, [rsp+24]
+	movss xmm0, [rsp+20]
+	movzx rcx, BYTE [rsp+0]
+	add rsp, 32
+	sub rbx, rcx
+	cvtsi2ss xmm1, rbx
+	cvtsd2ss xmm2, [FP11]
+	mulss xmm1, xmm2
+	movss xmm2, [rbp+16]
+	mulss xmm1, xmm2
+	addss xmm0, xmm1
+	movss [Spaceship+20], xmm0
+	lea rbx, [Spaceship+0]
+	sub rsp, 32
+	mov [rsp+0], rbx
+	mov [rsp+24], rbx
+	lea rbx, [Spaceship+0]
+	mov [rsp+8], rbx
+	lea rbx, [rsp+16]
+	sub rsp, 32
+	mov [rsp+0], rbx
+	mov [rsp+24], rbx
+	lea rbx, [Spaceship+8]
+	mov [rsp+8], rbx
+	movss xmm0, [rbp+16]
+	movss [rsp+16], xmm0
+	call Vector2.__mul_float
+	mov rbx, [rsp+24]
+	add rsp, 32
+	call Vector2.__add_Vector2
+	mov rbx, [rsp+24]
+	add rsp, 32
+	movss xmm0, [Spaceship+16]
+	movss xmm1, [Spaceship+20]
+	movss xmm2, [rbp+16]
+	mulss xmm1, xmm2
+	addss xmm0, xmm1
+	movss [Spaceship+16], xmm0
+	lea rbx, [Spaceship+24]
+	sub rsp, 16
+	lea rcx, [rsp+0]
+	sub rsp, 16
+	mov [rsp+8], rcx
+	mov [rsp+0], rbx
+	movss xmm0, [Spaceship+16]
+	movss xmm1, xmm0
+	lea rbx, [__GP_TMP]
+	cvtsd2ss xmm0, [FP2]
+	movss [rbx+0], xmm0
+	cvtsd2ss xmm0, [FP12]
+	movss [rbx+4], xmm0
+	movsd xmm0, [__GP_TMP]
+	call Vector2Rotate
+	mov rcx, [rsp+0]
+	mov rcx, [rsp+8]
+	movsd [rcx], xmm0
+	mov rbx, [rsp+0]
+	add rsp, 16
+	sub rsp, 32
+	mov [rsp+0], rbx
+	mov [rsp+24], rbx
+	lea rbx, [rsp+32]
+	mov [rsp+8], rbx
+	lea rbx, [rsp+16]
+	lea r8, [Spaceship+0]
+	mov rdi, [r8]
+	mov [rbx], rdi
+	call Vector2.__add_Vector2
+	mov rbx, [rsp+24]
+	add rsp, 48
+	mov rbx, 0xfffffffffffffe70
+	cvtsi2sd xmm0, rbx
+	lea rbx, [Spaceship+0]
+	cvtss2sd xmm1, [rbx+0]
+	comisd xmm1, xmm0
+	setb bl
+	test bl, bl
+	je .L3
+	lea rbx, [Spaceship+0]
+	mov rcx, 0x190
+	cvtsi2ss xmm0, rcx
+	movss [rbx+0], xmm0
+	jmp .L4
+	.L3:
+	mov rbx, 0x190
+	cvtsi2sd xmm0, rbx
+	lea rbx, [Spaceship+0]
+	cvtss2sd xmm1, [rbx+0]
+	comisd xmm1, xmm0
+	seta bl
+	test bl, bl
+	je .L5
+	lea rbx, [Spaceship+0]
+	mov rcx, 0xfffffffffffffe70
+	cvtsi2ss xmm0, rcx
+	movss [rbx+0], xmm0
+	jmp .L4
+	.L5:
+	.L4:
+	mov rbx, 0xfffffffffffffe70
+	cvtsi2sd xmm0, rbx
+	lea rbx, [Spaceship+0]
+	cvtss2sd xmm1, [rbx+4]
+	comisd xmm1, xmm0
+	setb bl
+	test bl, bl
+	je .L6
+	lea rbx, [Spaceship+0]
+	mov rcx, 0x190
+	cvtsi2ss xmm0, rcx
+	movss [rbx+4], xmm0
+	jmp .L7
+	.L6:
+	mov rbx, 0x190
+	cvtsi2sd xmm0, rbx
+	lea rbx, [Spaceship+0]
+	cvtss2sd xmm1, [rbx+4]
+	comisd xmm1, xmm0
+	seta bl
+	test bl, bl
+	je .L8
+	lea rbx, [Spaceship+0]
+	mov rcx, 0xfffffffffffffe70
+	cvtsi2ss xmm0, rcx
+	movss [rbx+4], xmm0
+	jmp .L7
+	.L8:
+	.L7:
+	.L0:
+	leave
+	ret
+
+global Asteroids.init:function
+Asteroids.init:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 16
+	xor rbx, rbx
+	mov [rsp+8], rbx
+	.L1:
+	mov rbx, [rsp+8]
+	mov rcx, 0x10
+	cmp rbx, rcx
+	setl bl
+	test bl, bl
+	je .L3
+	lea rcx, [Asteroids+0]
+	mov rsi, [rsp+8]
+	mov rdi, rsi
+	shl rsi, 4
+	lea rsi, [rsi + rdi*4]
+	lea rbx, [rcx+rsi*8]
+	xor cl, cl
+	mov [rbx+154], cl
+	.L2:
+	mov rbx, [rsp+8]
+	inc QWORD [rsp+8]
+	jmp .L1
+	.L3:
+	add rsp, 16
+	sub rsp, 16
+	call GetTime
+	movsd [rsp+0], xmm0
+	movsd xmm0, [rsp+0]
+	add rsp, 16
+	movsd [Asteroids+2560], xmm0
+	.L0:
+	leave
+	ret
+
+global Asteroids.new:function
+Asteroids.new:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 16
+	mov rbx, [rbp+16]
+	sub rsp, 16
+	mov [rsp+8], rbx
+	call rand
+	mov [rsp+0], rax
+	mov rbx, [rsp+8]
+	mov rax, [rsp+0]
+	add rsp, 16
+	mov rcx, 0x32
+	xor rdx, rdx
+	idiv rcx
+	mov rax, rdx
+	add rax, 0x19
+	mov [rbx+156], eax
+	mov rbx, [rbp+16]
+	sub rsp, 16
+	mov [rsp+8], rbx
+	call rand
+	mov [rsp+0], rax
+	mov rbx, [rsp+8]
+	mov ax, [rsp+0]
+	add rsp, 16
+	mov cx, 0xa
+	xor rdx, rdx
+	div cx
+	mov ax, dx
+	add ax, 0x6
+	mov [rbx+152], ax
+	cvtsd2ss xmm0, [FP13]
+	mov rcx, [rbp+16]
+	movzx rbx, WORD [rcx+152]
+	cvtsi2ss xmm1, rbx
+	divss xmm0, xmm1
+	movss [rsp+12], xmm0
+	sub rsp, 16
+	xor rbx, rbx
+	mov [rsp+8], rbx
+	.L1:
+	mov rbx, [rsp+8]
+	mov rsi, [rbp+16]
+	movzx rcx, WORD [rsi+152]
+	cmp rbx, rcx
+	setb bl
+	test bl, bl
+	je .L3
+	mov rcx, [rbp+16]
+	lea rbx, [rcx+24]
+	mov rcx, [rsp+8]
+	lea rbx, [rbx+rcx*8]
+	sub rsp, 16
+	mov [rsp+8], rbx
+	movss xmm0, [rsp+44]
+	mov rbx, [rsp+24]
+	cvtsi2ss xmm1, rbx
+	mulss xmm0, xmm1
+	movss xmm1, xmm0
+	lea rbx, [__GP_TMP]
+	sub rsp, 16
+	lea rcx, [rsp+0]
+	cvtsd2ss xmm0, [FP2]
+	movss [rcx+0], xmm0
+	cvtsd2ss xmm0, [FP14]
+	movss [rcx+4], xmm0
+	sub rsp, 48
+	mov [rsp+0], rbx
+	mov [rsp+40], rbx
+	mov [rsp+32], rax
+	movss [rsp+28], xmm1
+	lea rbx, [rsp+48]
+	mov [rsp+8], rbx
+	sub rsp, 16
+	call rand
+	mov [rsp+0], rax
+	mov rax, [rsp+0]
+	add rsp, 16
+	mov rbx, 0xa
+	xor rdx, rdx
+	idiv rbx
+	mov rax, rdx
+	mov rcx, [rbp+16]
+	mov ebx, DWORD [rcx+156]
+	add rax, rbx
+	cvtsi2ss xmm0, rax
+	movss [rsp+16], xmm0
+	call Vector2.__mul_int
+	mov rbx, [rsp+40]
+	mov rax, [rsp+32]
+	movss xmm1, [rsp+28]
+	add rsp, 64
+	movsd xmm0, [__GP_TMP]
+	call Vector2Rotate
+	mov rbx, [rsp+0]
+	mov rbx, [rsp+8]
+	movsd [rbx], xmm0
+	add rsp, 16
+	.L2:
+	mov rbx, [rsp+8]
+	inc QWORD [rsp+8]
+	jmp .L1
+	.L3:
+	add rsp, 16
+	sub rsp, 16
+	call rand
+	mov [rsp+0], rax
+	mov rbx, [rsp+0]
+	add rsp, 16
+	and rbx, 0x3
+	mov [rsp+0], rbx
+	mov rbx, [rsp+0]
+	mov rcx, 0x1
+	cmp rbx, rcx
+	setle bl
+	test bl, bl
+	je .L4
+	mov rbx, [rbp+16]
+	sub rsp, 16
+	mov [rsp+8], rbx
+	call rand
+	mov [rsp+0], rax
+	mov rbx, [rsp+8]
+	mov rax, [rsp+0]
+	add rsp, 16
+	mov rcx, 0x320
+	xor rdx, rdx
+	idiv rcx
+	mov rax, rdx
+	sub rax, 0x190
+	cvtsi2ss xmm0, rax
+	movss [rbx+0], xmm0
+	mov rsi, [rsp+0]
+	xor rdi, rdi
+	cmp rsi, rdi
+	sete sil
+	test sil, sil
+	je .L6
+	mov rsi, [rbp+16]
+	mov ecx, DWORD [rsi+156]
+	neg rcx
+	add rcx, 0xfffffffffffffe70
+	jmp .L7
+	.L6:
+	mov rsi, [rbp+16]
+	mov ecx, DWORD [rsi+156]
+	add rcx, 0x190
+	.L7:
+	cvtsi2ss xmm0, rcx
+	movss [rbx+4], xmm0
+	jmp .L5
+	.L4:
+	mov rbx, [rbp+16]
+	mov rsi, [rsp+0]
+	mov rdi, 0x2
+	cmp rsi, rdi
+	sete sil
+	test sil, sil
+	je .L8
+	mov rsi, [rbp+16]
+	mov ecx, DWORD [rsi+156]
+	neg rcx
+	add rcx, 0xfffffffffffffe70
+	jmp .L9
+	.L8:
+	mov rsi, [rbp+16]
+	mov ecx, DWORD [rsi+156]
+	add rcx, 0x190
+	.L9:
+	cvtsi2ss xmm0, rcx
+	movss [rbx+0], xmm0
+	sub rsp, 16
+	mov [rsp+8], rbx
+	call rand
+	mov [rsp+0], rax
+	mov rbx, [rsp+8]
+	mov rax, [rsp+0]
+	add rsp, 16
+	mov rcx, 0x320
+	xor rdx, rdx
+	idiv rcx
+	mov rax, rdx
+	sub rax, 0x190
+	cvtsi2ss xmm0, rax
+	movss [rbx+4], xmm0
+	.L5:
+	mov rbx, [rbp+16]
+	lea rbx, [rbx+8]
+	sub rsp, 16
+	lea rcx, [rsp+0]
+	sub rsp, 16
+	mov [rsp+8], rcx
+	mov [rsp+0], rbx
+	sub rsp, 16
+	mov [rsp+8], rax
+	call rand
+	mov [rsp+0], rax
+	mov rax, [rsp+8]
+	mov rbx, [rsp+0]
+	add rsp, 16
+	mov rcx, 0x1e
+	mov rsi, rax
+	mov rax, rbx
+	xor rdx, rdx
+	idiv rcx
+	mov rax, rdx
+	mov rbx, rax
+	mov rax, rsi
+	sub rbx, 0xf
+	cvtsi2ss xmm0, rbx
+	cvtsd2ss xmm1, [FP15]
+	mulss xmm0, xmm1
+	movss xmm1, xmm0
+	lea rbx, [__GP_TMP]
+	sub rsp, 48
+	mov [rsp+0], rbx
+	mov [rsp+40], rbx
+	mov [rsp+32], rax
+	movss [rsp+28], xmm1
+	mov rbx, [rbp+16]
+	lea rbx, [rbx+0]
+	mov [rsp+8], rbx
+	call Vector2.normalized
+	mov rbx, [rsp+40]
+	mov rax, [rsp+32]
+	movss xmm1, [rsp+28]
+	add rsp, 48
+	movsd xmm0, [__GP_TMP]
+	call Vector2Rotate
+	mov rcx, [rsp+0]
+	mov rcx, [rsp+8]
+	movsd [rcx], xmm0
+	mov rbx, [rsp+0]
+	add rsp, 16
+	sub rsp, 32
+	mov [rsp+0], rbx
+	mov [rsp+24], rbx
+	lea rbx, [rsp+32]
+	mov [rsp+8], rbx
+	sub rsp, 16
+	call rand
+	mov [rsp+0], rax
+	mov rax, [rsp+0]
+	add rsp, 16
+	mov rbx, 0x32
+	xor rdx, rdx
+	idiv rbx
+	mov rax, rdx
+	add rax, 0x32
+	neg rax
+	cvtsi2ss xmm0, rax
+	movss [rsp+16], xmm0
+	call Vector2.__mul_int
+	mov rbx, [rsp+24]
+	add rsp, 48
+	mov rbx, [rbp+16]
+	sub rsp, 16
+	mov [rsp+8], rbx
+	call rand
+	mov [rsp+0], rax
+	mov rbx, [rsp+8]
+	mov rax, [rsp+0]
+	add rsp, 16
+	mov rcx, 0x168
+	xor rdx, rdx
+	idiv rcx
+	mov rax, rdx
+	cvtsi2ss xmm0, rax
+	cvtsd2ss xmm1, [FP15]
+	mulss xmm0, xmm1
+	movss [rbx+16], xmm0
+	mov rbx, [rbp+16]
+	sub rsp, 16
+	mov [rsp+8], rbx
+	call rand
+	mov [rsp+0], rax
+	mov rbx, [rsp+8]
+	mov rax, [rsp+0]
+	add rsp, 16
+	mov rcx, 0x168
+	xor rdx, rdx
+	idiv rcx
+	mov rax, rdx
+	sub rax, 0xb4
+	cvtsi2ss xmm0, rax
+	cvtsd2ss xmm1, [FP15]
+	mulss xmm0, xmm1
+	movss [rbx+20], xmm0
+	mov rbx, [rbp+16]
+	mov cl, 0x1
+	mov [rbx+154], cl
+	.L0:
+	leave
+	ret
+
+global Asteroids.spawn:function
+Asteroids.spawn:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 16
+	xor rbx, rbx
+	mov [rsp+8], rbx
+	.L1:
+	mov rbx, [rsp+8]
+	mov rcx, 0x10
+	cmp rbx, rcx
+	setl bl
+	test bl, bl
+	je .L3
+	lea rdi, [Asteroids+0]
+	mov r8, [rsp+8]
+	mov r9, r8
+	shl r8, 4
+	lea r8, [r8 + r9*4]
+	lea rsi, [rdi+r8*8]
+	mov cl, [rsi+154]
+	test cl, cl
+	sete bl
+	test bl, bl
+	je .L4
+	lea rbx, [Asteroids+0]
+	mov rcx, [rsp+8]
+	mov rsi, rcx
+	shl rcx, 4
+	lea rcx, [rcx + rsi*4]
+	lea rbx, [rbx+rcx*8]
+	sub rsp, 16
+	mov [rsp+0], rbx
+	mov [rsp+8], rbx
+	call Asteroids.new
+	mov rbx, [rsp+8]
+	add rsp, 16
+	jmp .L3
+	.L4:
+	.L5:
+	.L2:
+	mov rbx, [rsp+8]
+	inc QWORD [rsp+8]
+	jmp .L1
+	.L3:
+	add rsp, 16
+	.L0:
+	leave
+	ret
+
+global Asteroids.draw:function
+Asteroids.draw:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 16
+	xor rbx, rbx
+	mov [rsp+8], rbx
+	.L1:
+	mov rbx, [rsp+8]
+	mov rcx, 0x10
+	cmp rbx, rcx
+	setl bl
+	test bl, bl
+	je .L3
+	sub rsp, 16
+	lea rcx, [Asteroids+0]
+	mov rsi, [rsp+24]
+	mov rdi, rsi
+	shl rsi, 4
+	lea rsi, [rsi + rdi*4]
+	lea rbx, [rcx+rsi*8]
+	mov [rsp+0], rbx
+	call Asteroid.draw
+	add rsp, 16
+	.L2:
+	mov rbx, [rsp+8]
+	inc QWORD [rsp+8]
+	jmp .L1
+	.L3:
+	add rsp, 16
+	.L0:
+	leave
+	ret
+
+global Asteroids.update:function
+Asteroids.update:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 16
+	sub rsp, 16
+	call GetTime
+	movsd [rsp+0], xmm0
+	movsd xmm0, [rsp+0]
+	add rsp, 16
+	movsd [rsp+8], xmm0
+	movsd xmm0, [Asteroids+2568]
+	movsd xmm1, [rsp+8]
+	movsd xmm2, [Asteroids+2560]
+	subsd xmm1, xmm2
+	comisd xmm1, xmm0
+	seta bl
+	test bl, bl
+	je .L1
+	call Asteroids.spawn
+	movsd xmm0, [rsp+8]
+	movsd [Asteroids+2560], xmm0
+	sub rsp, 16
+	movsd xmm0, [FP16]
+	movsd xmm1, xmm0
+	movsd xmm0, [Asteroids+2568]
+	movsd xmm2, [FP17]
+	mulsd xmm0, xmm2
+	call fmax
+	movsd [rsp+0], xmm0
+	movsd xmm0, [rsp+0]
+	add rsp, 16
+	movsd [Asteroids+2568], xmm0
+	.L1:
+	.L2:
+	sub rsp, 16
+	xor rbx, rbx
+	mov [rsp+8], rbx
+	.L3:
+	mov rbx, [rsp+8]
+	mov rcx, 0x10
+	cmp rbx, rcx
+	setl bl
+	test bl, bl
+	je .L5
+	sub rsp, 16
+	lea rcx, [Asteroids+0]
+	mov rsi, [rsp+24]
+	mov rdi, rsi
+	shl rsi, 4
+	lea rsi, [rsi + rdi*4]
+	lea rbx, [rcx+rsi*8]
+	mov [rsp+0], rbx
+	movss xmm0, [rbp+16]
+	movss [rsp+8], xmm0
+	call Asteroid.update
+	add rsp, 16
+	.L4:
+	mov rbx, [rsp+8]
+	inc QWORD [rsp+8]
+	jmp .L3
+	.L5:
+	add rsp, 16
+	.L0:
+	leave
+	ret
+
+global Asteroid.colliding_with:function
+Asteroid.colliding_with:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 16
+	movss xmm0, [rbp+40]
+	movss xmm3, xmm0
+	lea rbx, [__GP_TMP]
+	mov rdi, [rbp+32]
+	mov [rbx], rdi
+	movsd xmm2, [__GP_TMP]
+	mov rcx, [rbp+24]
+	mov ebx, DWORD [rcx+156]
+	cvtsi2ss xmm0, rbx
+	movss xmm1, xmm0
+	lea rbx, [__GP_TMP]
+	mov r8, [rbp+24]
+	lea r8, [r8+0]
+	mov rdi, [r8]
+	mov [rbx], rdi
+	movsd xmm0, [__GP_TMP]
+	call CheckCollisionCircles
+	mov [rsp+0], rax
+	mov bl, [rsp+0]
+	add rsp, 16
+	mov [rbp+16], bl
+	jmp .L0
+	.L0:
+	leave
+	ret
+
+global Asteroid.draw:function
+Asteroid.draw:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 144
+	mov rsi, [rbp+16]
+	mov cl, [rsi+154]
+	test cl, cl
+	sete bl
+	test bl, bl
+	je .L1
+	jmp .L0
+	.L1:
+	.L2:
+	sub rsp, 16
+	xor rbx, rbx
+	mov [rsp+8], rbx
+	.L3:
+	mov rbx, [rsp+8]
+	mov rsi, [rbp+16]
+	movzx rcx, WORD [rsi+152]
+	cmp rbx, rcx
+	setb bl
+	test bl, bl
+	je .L5
+	lea rbx, [rsp+0]
+	mov rsi, [rbp+16]
+	lea rcx, [rsi+24]
+	mov rsi, [rsp+8]
+	mov rdi, [rcx+rsi*8]
+	mov [rbx], rdi
+	lea rbx, [rsp+24]
+	mov rcx, [rsp+8]
+	lea rbx, [rbx+rcx*8]
+	sub rsp, 16
+	lea rcx, [rsp+0]
+	sub rsp, 16
+	mov [rsp+8], rcx
+	mov [rsp+0], rbx
+	mov rbx, [rbp+16]
+	movss xmm0, [rbx+16]
+	movss xmm1, xmm0
+	lea rbx, [__GP_TMP]
+	mov rdi, [rsp+32]
+	mov [rbx], rdi
+	movsd xmm0, [__GP_TMP]
+	call Vector2Rotate
+	mov rcx, [rsp+0]
+	mov rcx, [rsp+8]
+	movsd [rcx], xmm0
+	mov rbx, [rsp+0]
+	add rsp, 16
+	sub rsp, 32
+	mov [rsp+0], rbx
+	mov [rsp+24], rbx
+	lea rbx, [rsp+32]
+	mov [rsp+8], rbx
+	lea rbx, [rsp+16]
+	mov r8, [rbp+16]
+	lea r8, [r8+0]
+	mov rdi, [r8]
+	mov [rbx], rdi
+	call Vector2.__add_Vector2
+	mov rbx, [rsp+24]
+	add rsp, 48
+	.L4:
+	mov rbx, [rsp+8]
+	inc QWORD [rsp+8]
+	jmp .L3
+	.L5:
+	add rsp, 16
+	lea rbx, [rsp+8]
+	mov rsi, [rbp+16]
+	movzx rcx, WORD [rsi+152]
+	lea rbx, [rbx+rcx*8]
+	lea rcx, [rsp+8]
+	xor rsi, rsi
+	mov rdi, [rcx+rsi*8]
+	mov [rbx], rdi
+	lea rbx, [__GP_TMP]
+	mov cl, 0xe6
+	mov [rbx+0], cl
+	mov cl, 0x29
+	mov [rbx+1], cl
+	mov cl, 0x37
+	mov [rbx+2], cl
+	mov cl, 0xff
+	mov [rbx+3], cl
+	mov rdx, QWORD [__GP_TMP+0]
+	mov rcx, [rbp+16]
+	mov ebx, DWORD [rcx+156]
+	cvtsi2ss xmm0, rbx
+	mov rbx, [rbp+16]
+	lea rbx, [rbx+0]
+	movss xmm1, [rbx+4]
+	cvttss2si rsi, xmm1
+	mov rbx, [rbp+16]
+	lea rbx, [rbx+0]
+	movss xmm1, [rbx+0]
+	cvttss2si rdi, xmm1
+	call DrawCircleLines
+	lea rbx, [__GP_TMP]
+	mov cl, 0xff
+	mov [rbx+0], cl
+	mov cl, 0xff
+	mov [rbx+1], cl
+	mov cl, 0xff
+	mov [rbx+2], cl
+	mov cl, 0xff
+	mov [rbx+3], cl
+	mov rdx, QWORD [__GP_TMP+0]
+	mov rbx, [rbp+16]
+	movzx rsi, WORD [rbx+152]
+	inc rsi
+	lea rdi, [rsp+8]
+	call DrawLineStrip
+	.L0:
+	leave
+	ret
+
+global Asteroid.update:function
+Asteroid.update:
+	push rbp
+	mov rbp, rsp
+	mov rsi, [rbp+16]
+	mov cl, [rsi+154]
+	test cl, cl
+	sete bl
+	test bl, bl
+	je .L1
+	jmp .L0
+	.L1:
+	.L2:
+	mov rbx, [rbp+16]
+	sub rsp, 32
+	mov [rsp+0], rbx
+	mov [rsp+24], rbx
+	mov rbx, [rbp+16]
+	lea rbx, [rbx+0]
+	mov [rsp+8], rbx
+	lea rbx, [rsp+16]
+	sub rsp, 32
+	mov [rsp+0], rbx
+	mov [rsp+24], rbx
+	mov rbx, [rbp+16]
+	lea rbx, [rbx+8]
+	mov [rsp+8], rbx
+	movss xmm0, [rbp+24]
+	movss [rsp+16], xmm0
+	call Vector2.__mul_float
+	mov rbx, [rsp+24]
+	add rsp, 32
+	call Vector2.__add_Vector2
+	mov rbx, [rsp+24]
+	add rsp, 32
+	mov rbx, [rbp+16]
+	mov rcx, [rbp+16]
+	movss xmm0, [rcx+16]
+	mov rcx, [rbp+16]
+	movss xmm1, [rcx+20]
+	movss xmm2, [rbp+24]
+	mulss xmm1, xmm2
+	addss xmm0, xmm1
+	movss [rbx+16], xmm0
+	mov rcx, [rbp+16]
+	mov ebx, DWORD [rcx+156]
+	add rbx, 0x190
+	cvtsi2sd xmm0, rbx
+	movsd xmm1, [FP18]
+	addsd xmm0, xmm1
+	sub rsp, 16
+	movsd [rsp+8], xmm0
+	mov rbx, [rbp+16]
+	lea rbx, [rbx+0]
+	movss xmm0, [rbx+0]
+	call fabsf
+	movss [rsp+0], xmm0
+	movsd xmm0, [rsp+8]
+	cvtss2sd xmm1, [rsp+0]
+	add rsp, 16
+	comisd xmm1, xmm0
+	seta bl
+	test bl, bl
+	jne .L5
+	mov rsi, [rbp+16]
+	mov ecx, DWORD [rsi+156]
+	add rcx, 0x190
+	cvtsi2sd xmm0, rcx
+	movsd xmm1, [FP18]
+	addsd xmm0, xmm1
+	sub rsp, 32
+	mov [rsp+31], bl
+	movsd [rsp+16], xmm0
+	mov rbx, [rbp+16]
+	lea rbx, [rbx+0]
+	movss xmm0, [rbx+4]
+	call fabsf
+	movss [rsp+0], xmm0
+	mov bl, [rsp+31]
+	movsd xmm0, [rsp+16]
+	cvtss2sd xmm1, [rsp+0]
+	add rsp, 32
+	comisd xmm1, xmm0
+	seta bl
+	.L5:
+	test bl, bl
+	je .L3
+	mov rbx, [rbp+16]
+	xor cl, cl
+	mov [rbx+154], cl
+	.L3:
+	.L4:
+	sub rsp, 16
+	xor rbx, rbx
+	mov [rsp+8], rbx
+	.L6:
+	mov rbx, [rsp+8]
+	mov rcx, 0x10
+	cmp rbx, rcx
+	setl bl
+	test bl, bl
+	je .L8
+	lea rcx, [Missiles+0]
+	mov rsi, [rsp+8]
+	lea rsi, [rsi+rsi*2]
+	lea rbx, [rcx+rsi*8]
+	mov [rsp+0], rbx
+	mov rcx, [rsp+0]
+	mov bl, [rcx+16]
+	test bl, bl
+	je .L11
+	sub rsp, 32
+	mov rbx, [rbp+16]
+	mov [rsp+8], rbx
+	lea rbx, [rsp+16]
+	mov r8, [rsp+32]
+	lea r8, [r8+0]
+	mov rdi, [r8]
+	mov [rbx], rdi
+	cvtsd2ss xmm0, [FP1]
+	movss [rsp+24], xmm0
+	call Asteroid.colliding_with
+	mov bl, [rsp+0]
+	add rsp, 32
+	.L11:
+	test bl, bl
+	je .L9
+	mov rbx, [rbp+16]
+	xor cl, cl
+	mov [rbx+154], cl
+	mov rbx, [rsp+0]
+	xor cl, cl
+	mov [rbx+16], cl
+	mov rbx, QWORD [Game+8]
+	inc rbx
+	mov [Game+8], rbx
+	mov rbx, QWORD [Game+8]
+	mov rcx, QWORD [Game+16]
+	cmp rbx, rcx
+	seta bl
+	test bl, bl
+	je .L12
+	mov rbx, QWORD [Game+8]
+	mov [Game+16], rbx
+	.L12:
+	.L13:
+	jmp .L0
+	.L9:
+	.L10:
+	.L7:
+	mov rbx, [rsp+8]
+	inc QWORD [rsp+8]
+	jmp .L6
+	.L8:
+	add rsp, 16
+	sub rsp, 32
+	mov rbx, [rbp+16]
+	mov [rsp+8], rbx
+	lea rbx, [rsp+16]
+	lea r8, [Spaceship+24]
+	mov rdi, [r8]
+	mov [rbx], rdi
+	cvtsd2ss xmm0, [FP9]
+	movss [rsp+24], xmm0
+	call Asteroid.colliding_with
+	mov bl, [rsp+0]
+	add rsp, 32
+	test bl, bl
+	je .L14
+	call Spaceship.damage
+	mov rbx, [rbp+16]
+	xor cl, cl
+	mov [rbx+154], cl
+	jmp .L0
+	.L14:
+	.L15:
 	.L0:
 	leave
 	ret
@@ -1803,79 +3511,32 @@ global main:function
 main:
 	push rbp
 	mov rbp, rsp
-	sub rsp, 208
+	sub rsp, 32
+	mov rdi, [rbp+32]
+	call srand
 	mov rdx, STR0
-	mov rsi, 0x1f4
-	mov rdi, 0x1f4
+	mov rsi, 0x320
+	mov rdi, 0x320
 	call InitWindow
 	mov rdi, 0x3c
 	call SetTargetFPS
-	lea rbx, [rsp+164]
+	lea rbx, [rsp+8]
 	lea r8, [rbx+0]
-	cvtsd2ss xmm0, [FP1]
+	mov rcx, 0x190
+	cvtsi2ss xmm0, rcx
 	movss [r8+0], xmm0
-	cvtsd2ss xmm0, [FP5]
+	mov rcx, 0x190
+	cvtsi2ss xmm0, rcx
 	movss [r8+4], xmm0
-	cvtsd2ss xmm0, [FP6]
-	movss [r8+8], xmm0
-	lea r8, [rbx+12]
-	cvtsd2ss xmm0, [FP1]
+	lea r8, [rbx+8]
+	cvtsd2ss xmm0, [FP2]
 	movss [r8+0], xmm0
-	cvtsd2ss xmm0, [FP1]
+	cvtsd2ss xmm0, [FP2]
 	movss [r8+4], xmm0
-	cvtsd2ss xmm0, [FP7]
-	movss [r8+8], xmm0
-	lea r8, [rbx+24]
-	cvtsd2ss xmm0, [FP1]
-	movss [r8+0], xmm0
+	cvtsd2ss xmm0, [FP2]
+	movss [rbx+16], xmm0
 	cvtsd2ss xmm0, [FP0]
-	movss [r8+4], xmm0
-	cvtsd2ss xmm0, [FP1]
-	movss [r8+8], xmm0
-	cvtsd2ss xmm0, [FP8]
-	movss [rbx+36], xmm0
-	xor ecx, ecx
-	mov [rbx+40], ecx
-	lea rbx, [rsp+152]
-	cvtsd2ss xmm0, [FP1]
-	movss [rbx+0], xmm0
-	cvtsd2ss xmm0, [FP1]
-	movss [rbx+4], xmm0
-	cvtsd2ss xmm0, [FP1]
-	movss [rbx+8], xmm0
-	lea rbx, [rsp+136]
-	sub rsp, 16
-	mov [rsp+8], rbx
-	movss xmm0, [rsp+176]
-	movss xmm2, xmm0
-	movss xmm0, [rsp+172]
-	movss xmm1, xmm0
-	movss xmm0, [rsp+168]
-	call QuaternionFromEuler
-	mov rbx, [rsp+0]
-	mov rbx, [rsp+8]
-	movsd [rbx], xmm0
-	movsd [rbx+8], xmm1
-	add rsp, 16
-	lea rbx, [rsp+16]
-	sub rsp, 16
-	mov [rsp+8], rbx
-	mov rdi, rbx
-	mov rsi, STR1
-	call LoadModel
-	mov rbx, [rsp+0]
-	add rsp, 16
-	lea rbx, [rsp+16]
-	sub rsp, 16
-	mov [rsp+8], rbx
-	mov rdi, rbx
-	cvtsd2ss xmm0, [FP9]
-	call MatrixRotateY
-	mov rbx, [rsp+0]
-	add rsp, 16
-	cvtsd2ss xmm0, [FP4]
-	movss [rsp+12], xmm0
-	sub rsp, 64
+	movss [rbx+20], xmm0
 	.L1:
 	sub rsp, 16
 	call WindowShouldClose
@@ -1887,349 +3548,7 @@ main:
 	jmp .L2
 	.L3:
 	.L4:
-	sub rsp, 16
-	call GetFrameTime
-	movss [rsp+0], xmm0
-	movss xmm0, [rsp+0]
-	add rsp, 16
-	movss [rsp+60], xmm0
-	sub rsp, 16
-	mov rdi, 0x1
-	call IsMouseButtonDown
-	mov [rsp+0], rax
-	mov bl, [rsp+0]
-	add rsp, 16
-	test bl, bl
-	je .L5
-	sub rsp, 16
-	lea rbx, [rsp+8]
-	sub rsp, 16
-	mov [rsp+8], rbx
-	call GetMouseDelta
-	mov rbx, [rsp+0]
-	mov rbx, [rsp+8]
-	movsd [rbx], xmm0
-	add rsp, 16
-	lea rbx, [rsp+232]
-	sub rsp, 48
-	mov [rsp+0], rbx
-	mov [rsp+40], rbx
-	lea rbx, [rsp+280]
-	mov [rsp+8], rbx
-	lea rbx, [rsp+16]
-	movss xmm0, [rsp+60]
-	xorps xmm0, [__FNEG_MASKs]
-	cvtsd2ss xmm1, [FP10]
-	mulss xmm0, xmm1
-	movss [rbx+0], xmm0
-	movss xmm0, [rsp+56]
-	xorps xmm0, [__FNEG_MASKs]
-	cvtsd2ss xmm1, [FP10]
-	mulss xmm0, xmm1
-	movss [rbx+4], xmm0
-	cvtsd2ss xmm0, [FP1]
-	movss [rbx+8], xmm0
-	call Vector3.__add_Vector3
-	mov rbx, [rsp+40]
-	add rsp, 48
-	sub rsp, 16
-	movss xmm0, [rsp+248]
-	movss [rsp+4], xmm0
-	cvtsd2ss xmm0, [FP11]
-	movss [rsp+8], xmm0
-	cvtsd2ss xmm0, [FP12]
-	movss [rsp+12], xmm0
-	call clampf
-	movss xmm0, [rsp+0]
-	add rsp, 16
-	movss [rsp+232], xmm0
-	lea rbx, [rsp+216]
-	sub rsp, 16
-	mov [rsp+8], rbx
-	movss xmm0, [rsp+256]
-	movss xmm2, xmm0
-	movss xmm0, [rsp+252]
-	movss xmm1, xmm0
-	movss xmm0, [rsp+248]
-	call QuaternionFromEuler
-	mov rbx, [rsp+0]
-	mov rbx, [rsp+8]
-	movsd [rbx], xmm0
-	movsd [rbx+8], xmm1
-	add rsp, 16
-	lea rbx, [rsp+244]
-	sub rsp, 16
-	mov [rsp+8], rbx
-	lea rbx, [__GP_TMP]
-	cld
-	lea rdi, [rbx]
-	lea rsi, [rsp+232]
-	mov rcx, 2
-	rep movsq
-	movsd xmm3, [__GP_TMP+8]
-	movsd xmm2, [__GP_TMP]
-	lea rbx, [__GP_TMP]
-	cvtsd2ss xmm0, [FP1]
-	movss [rbx+0], xmm0
-	cvtsd2ss xmm0, [FP1]
-	movss [rbx+4], xmm0
-	cvtsd2ss xmm0, [FP7]
-	movss [rbx+8], xmm0
-	movss xmm1, [__GP_TMP+8]
-	movsd xmm0, [__GP_TMP]
-	call Vector3RotateByQuaternion
-	mov rbx, [rsp+0]
-	mov rbx, [rsp+8]
-	movsd [rbx], xmm0
-	movss [rbx+8], xmm1
-	add rsp, 16
-	lea rbx, [rsp+244]
-	sub rsp, 48
-	mov [rsp+0], rbx
-	mov [rsp+40], rbx
-	lea rbx, [rsp+292]
-	lea rbx, [rbx+0]
-	mov [rsp+8], rbx
-	lea rbx, [rsp+16]
-	lea r8, [rsp+292]
-	lea r8, [r8+12]
-	cld
-	lea rdi, [rbx]
-	lea rsi, [r8]
-	mov rcx, 3
-	rep movsd
-	call Vector3.__add_Vector3
-	mov rbx, [rsp+40]
-	add rsp, 48
-	lea rbx, [rsp+96]
-	sub rsp, 64
-	lea rcx, [rsp+0]
-	sub rsp, 64
-	lea rsi, [rsp+0]
-	sub rsp, 32
-	mov [rsp+24], rsi
-	mov [rsp+16], rbx
-	mov [rsp+8], rcx
-	mov rdi, rsi
-	cvtsd2ss xmm0, [FP9]
-	call MatrixRotateY
-	mov rsi, [rsp+0]
-	mov rbx, [rsp+16]
-	mov rcx, [rsp+8]
-	add rsp, 32
-	sub rsp, 96
-	mov [rsp+0], rcx
-	mov [rsp+88], rbx
-	mov [rsp+80], rcx
-	lea rbx, [rsp+96]
-	mov [rsp+8], rbx
-	lea rbx, [rsp+16]
-	sub rsp, 16
-	mov [rsp+8], rbx
-	mov rdi, rbx
-	movss xmm0, [rsp+472]
-	call MatrixRotateX
-	mov rbx, [rsp+0]
-	add rsp, 16
-	call Matrix.__mul_Matrix
-	mov rbx, [rsp+88]
-	mov rcx, [rsp+80]
-	add rsp, 160
-	sub rsp, 96
-	mov [rsp+0], rbx
-	mov [rsp+88], rbx
-	lea rbx, [rsp+96]
-	mov [rsp+8], rbx
-	lea rbx, [rsp+16]
-	sub rsp, 16
-	mov [rsp+8], rbx
-	mov rdi, rbx
-	movss xmm0, [rsp+412]
-	call MatrixRotateY
-	mov rbx, [rsp+0]
-	add rsp, 16
-	call Matrix.__mul_Matrix
-	mov rbx, [rsp+88]
-	add rsp, 160
-	add rsp, 16
-	.L5:
-	.L6:
-	sub rsp, 16
-	xor rdi, rdi
-	call IsMouseButtonPressed
-	mov [rsp+0], rax
-	mov bl, [rsp+0]
-	add rsp, 16
-	test bl, bl
-	je .L7
-	sub rsp, 32
-	lea rbx, [rsp+0]
-	lea r8, [rsp+260]
-	lea r8, [r8+12]
-	cld
-	lea rdi, [rbx]
-	lea rsi, [r8]
-	mov rcx, 3
-	rep movsd
-	lea rbx, [rsp+12]
-	cld
-	lea rdi, [rbx]
-	lea rsi, [rsp+232]
-	mov rcx, 2
-	rep movsq
-	call Balls.new
-	add rsp, 32
-	.L7:
-	.L8:
-	lea rbx, [rsp+48]
-	sub rsp, 16
-	mov [rsp+8], rbx
-	mov rdi, 0x44
-	call IsKeyDown
-	mov [rsp+0], rax
-	mov rbx, [rsp+8]
-	movzx rcx, BYTE [rsp+0]
-	add rsp, 16
-	sub rsp, 32
-	mov [rsp+24], rbx
-	mov [rsp+16], rcx
-	mov rdi, 0x41
-	call IsKeyDown
-	mov [rsp+0], rax
-	mov rbx, [rsp+24]
-	mov rcx, [rsp+16]
-	movzx rsi, BYTE [rsp+0]
-	add rsp, 32
-	sub rcx, rsi
-	cvtsi2ss xmm0, rcx
-	movss [rbx+0], xmm0
-	sub rsp, 16
-	mov [rsp+8], rbx
-	mov rdi, 0x20
-	call IsKeyDown
-	mov [rsp+0], rax
-	mov rbx, [rsp+8]
-	movzx rcx, BYTE [rsp+0]
-	add rsp, 16
-	sub rsp, 32
-	mov [rsp+24], rbx
-	mov [rsp+16], rcx
-	mov rdi, 0x43
-	call IsKeyDown
-	mov [rsp+0], rax
-	mov rbx, [rsp+24]
-	mov rcx, [rsp+16]
-	movzx rsi, BYTE [rsp+0]
-	add rsp, 32
-	sub rcx, rsi
-	cvtsi2ss xmm0, rcx
-	movss [rbx+4], xmm0
-	sub rsp, 16
-	mov [rsp+8], rbx
-	mov rdi, 0x53
-	call IsKeyDown
-	mov [rsp+0], rax
-	mov rbx, [rsp+8]
-	movzx rcx, BYTE [rsp+0]
-	add rsp, 16
-	sub rsp, 32
-	mov [rsp+24], rbx
-	mov [rsp+16], rcx
-	mov rdi, 0x57
-	call IsKeyDown
-	mov [rsp+0], rax
-	mov rbx, [rsp+24]
-	mov rcx, [rsp+16]
-	movzx rsi, BYTE [rsp+0]
-	add rsp, 32
-	sub rcx, rsi
-	cvtsi2ss xmm0, rcx
-	movss [rbx+8], xmm0
-	lea rbx, [rsp+48]
-	sub rsp, 16
-	lea rcx, [rsp+0]
-	sub rsp, 32
-	mov [rsp+0], rcx
-	mov [rsp+24], rbx
-	mov [rsp+16], rcx
-	lea rbx, [rsp+96]
-	mov [rsp+8], rbx
-	call Vector3.normalized
-	mov rbx, [rsp+24]
-	mov rcx, [rsp+16]
-	add rsp, 32
-	sub rsp, 32
-	mov [rsp+0], rbx
-	mov [rsp+24], rbx
-	lea rbx, [rsp+32]
-	mov [rsp+8], rbx
-	movss xmm0, [rsp+108]
-	cvtsd2ss xmm1, [FP7]
-	mulss xmm0, xmm1
-	movss [rsp+16], xmm0
-	call Vector3.__mul_float
-	mov rbx, [rsp+24]
-	add rsp, 48
-	lea rbx, [rsp+48]
-	sub rsp, 16
-	mov [rsp+8], rbx
-	movss xmm0, [rsp+236]
-	movss xmm4, xmm0
-	lea rbx, [__GP_TMP]
-	cvtsd2ss xmm0, [FP1]
-	movss [rbx+0], xmm0
-	cvtsd2ss xmm0, [FP0]
-	movss [rbx+4], xmm0
-	cvtsd2ss xmm0, [FP1]
-	movss [rbx+8], xmm0
-	movss xmm3, [__GP_TMP+8]
-	movsd xmm2, [__GP_TMP]
-	lea rbx, [__GP_TMP]
-	cld
-	lea rdi, [rbx]
-	lea rsi, [rsp+64]
-	mov rcx, 3
-	rep movsd
-	movss xmm1, [__GP_TMP+8]
-	movsd xmm0, [__GP_TMP]
-	call Vector3RotateByAxisAngle
-	mov rbx, [rsp+0]
-	mov rbx, [rsp+8]
-	movsd [rbx], xmm0
-	movss [rbx+8], xmm1
-	add rsp, 16
-	lea rbx, [rsp+240]
-	sub rsp, 48
-	mov [rsp+0], rbx
-	mov [rsp+40], rbx
-	lea rbx, [rsp+276]
-	lea rbx, [rbx+12]
-	mov [rsp+8], rbx
-	lea rbx, [rsp+16]
-	cld
-	lea rdi, [rbx]
-	lea rsi, [rsp+96]
-	mov rcx, 3
-	rep movsd
-	call Vector3.__add_Vector3
-	mov rbx, [rsp+40]
-	add rsp, 48
-	lea rbx, [rsp+228]
-	sub rsp, 48
-	mov [rsp+0], rbx
-	mov [rsp+40], rbx
-	lea rbx, [rsp+276]
-	lea rbx, [rbx+0]
-	mov [rsp+8], rbx
-	lea rbx, [rsp+16]
-	cld
-	lea rdi, [rbx]
-	lea rsi, [rsp+96]
-	mov rcx, 3
-	rep movsd
-	call Vector3.__add_Vector3
-	mov rbx, [rsp+40]
-	add rsp, 48
+	call PollInputEvents
 	call BeginDrawing
 	lea rbx, [__GP_TMP]
 	xor cl, cl
@@ -2242,351 +3561,497 @@ main:
 	mov [rbx+3], cl
 	mov rdi, QWORD [__GP_TMP+0]
 	call ClearBackground
-	sub rsp, 48
-	lea rbx, [rsp+0]
-	cld
-	lea rdi, [rbx]
-	lea rsi, [rsp+276]
-	mov rcx, 11
-	rep movsd
-	call BeginMode3D
-	add rsp, 48
-	sub rsp, 128
-	lea rbx, [__GP_TMP]
-	mov cl, 0xff
-	mov [rbx+0], cl
-	mov cl, 0xff
-	mov [rbx+1], cl
-	mov cl, 0xff
-	mov [rbx+2], cl
-	mov cl, 0xff
-	mov [rbx+3], cl
-	mov rdi, QWORD [__GP_TMP+0]
-	cvtsd2ss xmm0, [FP3]
-	movss xmm2, xmm0
-	lea rbx, [__GP_TMP]
-	lea r8, [rsp+356]
-	lea r8, [r8+12]
-	mov r9, rdi
-	cld
-	lea rdi, [rbx]
-	lea rsi, [r8]
-	mov rcx, 3
-	rep movsd
-	mov rdi, r9
-	movss xmm1, [__GP_TMP+8]
-	movsd xmm0, [__GP_TMP]
-	lea rbx, [rsp+0]
-	mov r8, rdi
-	cld
-	lea rdi, [rbx]
-	lea rsi, [rsp+208]
-	mov rcx, 15
-	rep movsq
-	mov rdi, r8
-	call DrawModel
-	add rsp, 128
-	lea rbx, [__GP_TMP]
-	mov cl, 0x82
-	mov [rbx+0], cl
-	mov cl, 0x82
-	mov [rbx+1], cl
-	mov cl, 0x82
-	mov [rbx+2], cl
-	mov cl, 0xff
-	mov [rbx+3], cl
-	mov rsi, QWORD [__GP_TMP+0]
-	mov rdi, 0x10
-	cvtsd2ss xmm0, [FP0]
-	movss xmm4, xmm0
-	cvtsd2ss xmm0, [FP4]
-	movss xmm3, xmm0
-	cvtsd2ss xmm0, [FP3]
-	movss xmm2, xmm0
-	lea rbx, [__GP_TMP]
-	cvtsd2ss xmm0, [FP1]
-	movss [rbx+0], xmm0
-	cvtsd2ss xmm0, [FP1]
-	movss [rbx+4], xmm0
-	cvtsd2ss xmm0, [FP1]
-	movss [rbx+8], xmm0
-	movss xmm1, [__GP_TMP+8]
-	movsd xmm0, [__GP_TMP]
-	call DrawCylinder
-	lea rbx, [rsp+36]
-	cvtsd2ss xmm0, [FP1]
-	movss [rbx+0], xmm0
-	sub rsp, 16
-	mov [rsp+8], rbx
-	cvtsd2ss xmm0, [FP13]
-	sub rsp, 32
-	mov [rsp+24], rax
-	movss [rsp+20], xmm0
-	call GetTime
-	movsd [rsp+0], xmm0
-	mov rax, [rsp+24]
-	movss xmm0, [rsp+20]
-	cvtsd2ss xmm1, [rsp+0]
-	add rsp, 32
-	mulss xmm0, xmm1
-	call sinf
-	movss [rsp+0], xmm0
-	mov rbx, [rsp+8]
-	movss xmm0, [rsp+0]
-	add rsp, 16
-	cvtsd2ss xmm1, [FP14]
-	mulss xmm0, xmm1
-	cvtsd2ss xmm1, [FP15]
-	addss xmm0, xmm1
-	movss [rbx+4], xmm0
-	cvtsd2ss xmm0, [FP1]
-	movss [rbx+8], xmm0
-	lea rbx, [__GP_TMP]
+	mov rbx, QWORD [Game+0]
+	xor rcx, rcx
+	cmp rbx, rcx
+	sete bl
+	test bl, bl
+	je .L5
+	sub rsp, 64
+	lea rbx, [rsp+32]
+	mov ecx, 0x190
+	mov [rbx+0], ecx
+	mov ecx, 0x190
+	mov [rbx+4], ecx
+	mov rcx, STR1
+	mov [rbx+8], rcx
+	lea r8, [rbx+16]
 	xor cl, cl
-	mov [rbx+0], cl
-	mov cl, 0x75
-	mov [rbx+1], cl
-	mov cl, 0x2c
-	mov [rbx+2], cl
-	mov cl, 0xff
-	mov [rbx+3], cl
-	mov rdx, QWORD [__GP_TMP+0]
-	mov rsi, 0x8
-	mov rdi, 0x8
-	cvtsd2ss xmm0, [FP3]
-	movss xmm2, xmm0
-	lea rbx, [__GP_TMP]
-	mov r8, rdi
-	mov r8, rsi
-	cld
-	lea rdi, [rbx]
-	lea rsi, [rsp+36]
-	mov rcx, 3
-	rep movsd
-	mov rsi, r8
-	mov rdi, r8
-	movss xmm1, [__GP_TMP+8]
-	movsd xmm0, [__GP_TMP]
-	call DrawSphereWires
-	lea rbx, [__GP_TMP]
-	xor cl, cl
-	mov [rbx+0], cl
+	mov [r8+0], cl
 	mov cl, 0xe4
-	mov [rbx+1], cl
+	mov [r8+1], cl
 	mov cl, 0x30
-	mov [rbx+2], cl
+	mov [r8+2], cl
 	mov cl, 0xff
-	mov [rbx+3], cl
-	mov rdi, QWORD [__GP_TMP+0]
-	cvtsd2ss xmm0, [FP16]
-	movss xmm2, xmm0
-	lea rbx, [__GP_TMP]
-	mov r8, rdi
-	cld
-	lea rdi, [rbx]
-	lea rsi, [rsp+36]
-	mov rcx, 3
-	rep movsd
-	mov rdi, r8
-	movss xmm1, [__GP_TMP+8]
-	movsd xmm0, [__GP_TMP]
-	call DrawSphere
-	cvtsd2ss xmm0, [FP17]
-	mov rdi, 0x20
-	call DrawGrid
-	lea rbx, [__GP_TMP]
-	mov cl, 0xff
-	mov [rbx+0], cl
-	mov cl, 0xff
-	mov [rbx+1], cl
-	mov cl, 0xff
-	mov [rbx+2], cl
-	mov cl, 0xff
-	mov [rbx+3], cl
-	mov rdx, QWORD [__GP_TMP+0]
-	mov rsi, 0x4
-	mov rdi, 0x1
-	cvtsd2ss xmm0, [FP17]
-	movss xmm2, xmm0
-	lea rbx, [__GP_TMP]
-	cvtsd2ss xmm0, [FP1]
-	movss [rbx+0], xmm0
-	cvtsd2ss xmm0, [FP1]
-	movss [rbx+4], xmm0
-	cvtsd2ss xmm0, [FP1]
-	movss [rbx+8], xmm0
-	movss xmm1, [__GP_TMP+8]
-	movsd xmm0, [__GP_TMP]
-	call DrawSphereWires
-	lea rbx, [rsp+20]
-	sub rsp, 16
-	mov [rsp+8], rbx
-	cvtsd2ss xmm0, [FP1]
-	movss xmm2, xmm0
-	movss xmm0, [rsp+92]
-	movss xmm1, xmm0
-	sub rsp, 32
-	mov [rsp+24], rax
-	movss [rsp+20], xmm1
-	movss [rsp+16], xmm2
-	movss xmm0, [rsp+124]
-	cvtsd2ss xmm1, [FP14]
-	mulss xmm0, xmm1
-	call cosf
-	movss [rsp+0], xmm0
-	mov rax, [rsp+24]
-	movss xmm1, [rsp+20]
-	movss xmm2, [rsp+16]
-	movss xmm0, [rsp+0]
-	add rsp, 32
-	cvtsd2ss xmm3, [FP18]
-	mulss xmm0, xmm3
-	cvtsd2ss xmm3, [FP4]
-	mulss xmm0, xmm3
-	call QuaternionFromEuler
-	mov rbx, [rsp+0]
-	mov rbx, [rsp+8]
-	movsd [rbx], xmm0
-	movsd [rbx+8], xmm1
-	add rsp, 16
-	lea rbx, [rsp+8]
-	sub rsp, 16
-	mov [rsp+8], rbx
-	lea rbx, [__GP_TMP]
-	cld
-	lea rdi, [rbx]
-	lea rsi, [rsp+36]
-	mov rcx, 2
-	rep movsq
-	movsd xmm3, [__GP_TMP+8]
-	movsd xmm2, [__GP_TMP]
-	lea rbx, [__GP_TMP]
-	cvtsd2ss xmm0, [FP1]
-	movss [rbx+0], xmm0
-	cvtsd2ss xmm0, [FP1]
-	movss [rbx+4], xmm0
-	cvtsd2ss xmm0, [FP17]
-	movss [rbx+8], xmm0
-	movss xmm1, [__GP_TMP+8]
-	movsd xmm0, [__GP_TMP]
-	call Vector3RotateByQuaternion
-	mov rbx, [rsp+0]
-	mov rbx, [rsp+8]
-	movsd [rbx], xmm0
-	movss [rbx+8], xmm1
-	add rsp, 16
-	lea rbx, [__GP_TMP]
+	mov [r8+3], cl
+	mov ecx, 0x1a
+	mov [rbx+20], ecx
 	xor cl, cl
-	mov [rbx+0], cl
-	mov cl, 0x79
-	mov [rbx+1], cl
-	mov cl, 0xf1
-	mov [rbx+2], cl
+	mov [rbx+24], cl
+	xor cl, cl
+	mov [rbx+25], cl
+	lea rbx, [rsp+0]
+	mov ecx, 0x190
+	mov [rbx+0], ecx
+	mov ecx, 0x230
+	mov [rbx+4], ecx
+	mov rcx, STR2
+	mov [rbx+8], rcx
+	lea r8, [rbx+16]
+	mov cl, 0x82
+	mov [r8+0], cl
+	mov cl, 0x82
+	mov [r8+1], cl
+	mov cl, 0x82
+	mov [r8+2], cl
 	mov cl, 0xff
-	mov [rbx+3], cl
-	mov rdi, QWORD [__GP_TMP+0]
-	cvtsd2ss xmm0, [FP19]
-	movss xmm5, xmm0
-	lea rbx, [__GP_TMP]
-	cvtsd2ss xmm0, [FP0]
-	movss [rbx+0], xmm0
-	cvtsd2ss xmm0, [FP1]
-	movss [rbx+4], xmm0
-	cvtsd2ss xmm0, [FP1]
-	movss [rbx+8], xmm0
-	movss xmm4, [__GP_TMP+8]
-	movsd xmm3, [__GP_TMP]
-	sub rsp, 48
-	mov [rsp+40], rdi
-	mov [rsp+32], rax
-	movsd [rsp+24], xmm3
-	movss [rsp+20], xmm4
-	movss [rsp+16], xmm5
-	movss xmm0, [rsp+56]
-	movss xmm1, [rsp+56]
-	mulss xmm0, xmm1
-	movss xmm1, [rsp+64]
-	movss xmm2, [rsp+64]
-	mulss xmm1, xmm2
-	addss xmm0, xmm1
-	call sqrtf
-	movss [rsp+0], xmm0
-	mov rdi, [rsp+40]
-	mov rax, [rsp+32]
-	movsd xmm3, [rsp+24]
-	movss xmm4, [rsp+20]
-	movss xmm5, [rsp+16]
-	movss xmm0, [rsp+0]
-	add rsp, 48
-	movss xmm2, xmm0
-	lea rbx, [__GP_TMP]
-	cvtsd2ss xmm0, [FP1]
-	movss [rbx+0], xmm0
-	movss xmm0, [rsp+12]
-	movss [rbx+4], xmm0
-	cvtsd2ss xmm0, [FP1]
-	movss [rbx+8], xmm0
-	movss xmm1, [__GP_TMP+8]
-	movsd xmm0, [__GP_TMP]
-	call DrawCircle3D
+	mov [r8+3], cl
+	mov ecx, 0x1a
+	mov [rbx+20], ecx
+	xor cl, cl
+	mov [rbx+24], cl
+	xor cl, cl
+	mov [rbx+25], cl
 	sub rsp, 16
-	movss xmm0, [rsp+76]
-	movss [rsp+0], xmm0
-	call Balls.update
+	lea rbx, [rsp+48]
+	mov [rsp+0], rbx
+	call Button.update
 	add rsp, 16
-	cvtss2sd xmm0, [rsp+76]
-	movsd xmm1, [FP7]
-	cvtss2sd xmm2, [rsp+60]
-	mulsd xmm1, xmm2
-	addsd xmm0, xmm1
-	cvtsd2ss xmm0, xmm0
-	movss [rsp+76], xmm0
+	sub rsp, 16
+	lea rbx, [rsp+16]
+	mov [rsp+0], rbx
+	call Button.update
+	add rsp, 16
+	mov bl, [rsp+57]
+	test bl, bl
+	je .L7
+	xor rbx, rbx
+	mov [Game+8], rbx
+	call Spaceship.init
+	call Asteroids.init
+	call Missiles.init
+	mov rbx, 0x1
+	mov [Game+0], rbx
+	.L7:
+	.L8:
+	mov bl, [rsp+25]
+	test bl, bl
+	je .L9
+	mov rbx, 0x3
+	mov [Game+0], rbx
+	.L9:
+	.L10:
 	lea rbx, [__GP_TMP]
-	xor cl, cl
-	mov [rbx+0], cl
-	mov cl, 0x79
-	mov [rbx+1], cl
-	mov cl, 0xf1
-	mov [rbx+2], cl
 	mov cl, 0xff
-	mov [rbx+3], cl
-	mov rdi, QWORD [__GP_TMP+0]
-	cvtsd2ss xmm0, [FP3]
-	movss xmm2, xmm0
-	lea rbx, [__GP_TMP]
-	mov r8, rdi
-	cld
-	lea rdi, [rbx]
-	lea rsi, [rsp+8]
-	mov rcx, 3
-	rep movsd
-	mov rdi, r8
-	movss xmm1, [__GP_TMP+8]
-	movsd xmm0, [__GP_TMP]
-	call DrawSphere
-	call EndMode3D
-	xor rsi, rsi
-	xor rdi, rdi
-	call DrawFPS
-	lea rbx, [__GP_TMP]
-	xor cl, cl
 	mov [rbx+0], cl
-	mov cl, 0xe4
+	mov cl, 0xff
 	mov [rbx+1], cl
-	mov cl, 0x30
+	mov cl, 0xff
 	mov [rbx+2], cl
 	mov cl, 0xff
 	mov [rbx+3], cl
 	mov r8, QWORD [__GP_TMP+0]
-	mov rcx, 0x10
-	mov rdx, 0x14
-	xor rsi, rsi
-	mov rdi, STR2
+	mov rcx, 0x1e
+	mov rdx, 0x10a
+	sub rsp, 48
+	mov [rsp+40], rcx
+	mov [rsp+32], r8
+	mov [rsp+24], rax
+	mov [rsp+16], rdx
+	mov rsi, 0x1e
+	mov rdi, STR0
+	call MeasureText
+	mov [rsp+0], rax
+	mov rcx, [rsp+40]
+	mov r8, [rsp+32]
+	mov rax, [rsp+24]
+	mov rdx, [rsp+16]
+	movsxd rsi, DWORD [rsp+0]
+	add rsp, 48
+	sar rsi, 1
+	neg rsi
+	add rsi, 0x190
+	mov rdi, STR0
 	call DrawText
+	sub rsp, 16
+	lea rbx, [rsp+48]
+	mov [rsp+0], rbx
+	call Button.draw
+	add rsp, 16
+	sub rsp, 16
+	lea rbx, [rsp+16]
+	mov [rsp+0], rbx
+	call Button.draw
+	add rsp, 16
+	add rsp, 64
+	jmp .L6
+	.L5:
+	mov rbx, QWORD [Game+0]
+	mov rcx, 0x1
+	cmp rbx, rcx
+	sete bl
+	test bl, bl
+	je .L11
+	sub rsp, 48
+	lea rbx, [rsp+16]
+	mov ecx, 0x190
+	mov [rbx+0], ecx
+	mov ecx, 0xa
+	mov [rbx+4], ecx
+	mov rcx, STR3
+	mov [rbx+8], rcx
+	lea r8, [rbx+16]
+	mov cl, 0xe6
+	mov [r8+0], cl
+	mov cl, 0x29
+	mov [r8+1], cl
+	mov cl, 0x37
+	mov [r8+2], cl
+	mov cl, 0xff
+	mov [r8+3], cl
+	mov ecx, 0x10
+	mov [rbx+20], ecx
+	xor cl, cl
+	mov [rbx+24], cl
+	xor cl, cl
+	mov [rbx+25], cl
+	sub rsp, 16
+	lea rbx, [rsp+32]
+	mov [rsp+0], rbx
+	call Button.update
+	add rsp, 16
+	mov bl, [rsp+41]
+	test bl, bl
+	je .L12
+	xor rbx, rbx
+	mov [Game+0], rbx
+	.L12:
+	.L13:
+	lea rbx, [__GP_TMP]
+	mov cl, 0xff
+	mov [rbx+0], cl
+	mov cl, 0xff
+	mov [rbx+1], cl
+	mov cl, 0xff
+	mov [rbx+2], cl
+	mov cl, 0xff
+	mov [rbx+3], cl
+	mov r8, QWORD [__GP_TMP+0]
+	mov rcx, 0x18
+	xor rdx, rdx
+	xor rsi, rsi
+	sub rsp, 48
+	mov [rsp+40], rcx
+	mov [rsp+32], rsi
+	mov [rsp+24], r8
+	mov [rsp+16], rax
+	mov [rsp+8], rdx
+	xor rax, rax
+	mov rdx, QWORD [Spaceship+40]
+	mov rsi, QWORD [Game+8]
+	mov rdi, STR4
+	call TextFormat
+	mov [rsp+0], rax
+	mov rcx, [rsp+40]
+	mov rsi, [rsp+32]
+	mov r8, [rsp+24]
+	mov rax, [rsp+16]
+	mov rdx, [rsp+8]
+	mov rdi, [rsp+0]
+	add rsp, 48
+	call DrawText
+	sub rsp, 16
+	xor rax, rax
+	mov rsi, QWORD [Game+16]
+	mov rdi, STR5
+	call TextFormat
+	mov [rsp+0], rax
+	mov rbx, [rsp+0]
+	add rsp, 16
+	mov [rsp+8], rbx
+	lea rbx, [__GP_TMP]
+	mov cl, 0xff
+	mov [rbx+0], cl
+	mov cl, 0xff
+	mov [rbx+1], cl
+	mov cl, 0xff
+	mov [rbx+2], cl
+	mov cl, 0xff
+	mov [rbx+3], cl
+	mov r8, QWORD [__GP_TMP+0]
+	mov rcx, 0x18
+	xor rdx, rdx
+	sub rsp, 48
+	mov [rsp+40], rcx
+	mov [rsp+32], r8
+	mov [rsp+24], rax
+	mov [rsp+16], rdx
+	mov rsi, 0x18
+	mov rdi, [rsp+56]
+	call MeasureText
+	mov [rsp+0], rax
+	mov rcx, [rsp+40]
+	mov r8, [rsp+32]
+	mov rax, [rsp+24]
+	mov rdx, [rsp+16]
+	movsxd rsi, DWORD [rsp+0]
+	add rsp, 48
+	neg rsi
+	add rsi, 0x320
+	mov rdi, [rsp+8]
+	call DrawText
+	sub rsp, 16
+	call GetFrameTime
+	movss [rsp+0], xmm0
+	movss xmm0, [rsp+0]
+	add rsp, 16
+	movss [rsp+4], xmm0
+	sub rsp, 16
+	movss xmm0, [rsp+20]
+	movss [rsp+0], xmm0
+	call Spaceship.update
+	add rsp, 16
+	sub rsp, 16
+	movss xmm0, [rsp+20]
+	movss [rsp+0], xmm0
+	call Asteroids.update
+	add rsp, 16
+	sub rsp, 16
+	movss xmm0, [rsp+20]
+	movss [rsp+0], xmm0
+	call Missiles.update
+	add rsp, 16
+	sub rsp, 16
+	lea rbx, [rsp+32]
+	mov [rsp+0], rbx
+	call Button.draw
+	add rsp, 16
+	sub rsp, 32
+	lea rbx, [rsp+0]
+	cld
+	lea rdi, [rbx]
+	lea rsi, [rsp+88]
+	mov rcx, 3
+	rep movsq
+	call BeginMode2D
+	add rsp, 32
+	call Spaceship.draw
+	call Asteroids.draw
+	call Missiles.draw
+	call EndMode2D
+	add rsp, 48
+	jmp .L6
+	.L11:
+	mov rbx, QWORD [Game+0]
+	mov rcx, 0x2
+	cmp rbx, rcx
+	sete bl
+	test bl, bl
+	je .L14
+	sub rsp, 48
+	lea rbx, [rsp+16]
+	mov ecx, 0x190
+	mov [rbx+0], ecx
+	mov ecx, 0x2ee
+	mov [rbx+4], ecx
+	mov rcx, STR6
+	mov [rbx+8], rcx
+	lea r8, [rbx+16]
+	mov cl, 0x50
+	mov [r8+0], cl
+	mov cl, 0x50
+	mov [r8+1], cl
+	mov cl, 0x50
+	mov [r8+2], cl
+	mov cl, 0xff
+	mov [r8+3], cl
+	mov ecx, 0x1a
+	mov [rbx+20], ecx
+	xor cl, cl
+	mov [rbx+24], cl
+	xor cl, cl
+	mov [rbx+25], cl
+	sub rsp, 16
+	lea rbx, [rsp+32]
+	mov [rsp+0], rbx
+	call Button.update
+	add rsp, 16
+	mov bl, [rsp+41]
+	test bl, bl
+	je .L15
+	xor rbx, rbx
+	mov [Game+0], rbx
+	.L15:
+	.L16:
+	lea rbx, [__GP_TMP]
+	mov cl, 0xe6
+	mov [rbx+0], cl
+	mov cl, 0x29
+	mov [rbx+1], cl
+	mov cl, 0x37
+	mov [rbx+2], cl
+	mov cl, 0xff
+	mov [rbx+3], cl
+	mov r8, QWORD [__GP_TMP+0]
+	mov rcx, 0x1e
+	mov rdx, 0x10a
+	sub rsp, 48
+	mov [rsp+40], rcx
+	mov [rsp+32], r8
+	mov [rsp+24], rax
+	mov [rsp+16], rdx
+	mov rsi, 0x1e
+	mov rdi, STR7
+	call MeasureText
+	mov [rsp+0], rax
+	mov rcx, [rsp+40]
+	mov r8, [rsp+32]
+	mov rax, [rsp+24]
+	mov rdx, [rsp+16]
+	movsxd rsi, DWORD [rsp+0]
+	add rsp, 48
+	sar rsi, 1
+	neg rsi
+	add rsi, 0x190
+	mov rdi, STR8
+	call DrawText
+	sub rsp, 16
+	xor rax, rax
+	mov rdx, QWORD [Game+16]
+	mov rsi, QWORD [Game+8]
+	mov rdi, STR9
+	call TextFormat
+	mov [rsp+0], rax
+	mov rbx, [rsp+0]
+	add rsp, 16
+	mov [rsp+8], rbx
+	lea rbx, [__GP_TMP]
+	mov cl, 0xe6
+	mov [rbx+0], cl
+	mov cl, 0x29
+	mov [rbx+1], cl
+	mov cl, 0x37
+	mov [rbx+2], cl
+	mov cl, 0xff
+	mov [rbx+3], cl
+	mov r8, QWORD [__GP_TMP+0]
+	mov rcx, 0x1e
+	mov rdx, 0x190
+	sub rsp, 48
+	mov [rsp+40], rcx
+	mov [rsp+32], r8
+	mov [rsp+24], rax
+	mov [rsp+16], rdx
+	mov rsi, 0x1e
+	mov rdi, [rsp+56]
+	call MeasureText
+	mov [rsp+0], rax
+	mov rcx, [rsp+40]
+	mov r8, [rsp+32]
+	mov rax, [rsp+24]
+	mov rdx, [rsp+16]
+	movsxd rsi, DWORD [rsp+0]
+	add rsp, 48
+	sar rsi, 1
+	neg rsi
+	add rsi, 0x190
+	mov rdi, [rsp+8]
+	call DrawText
+	sub rsp, 16
+	lea rbx, [rsp+32]
+	mov [rsp+0], rbx
+	call Button.draw
+	add rsp, 16
+	add rsp, 48
+	jmp .L6
+	.L14:
+	mov rbx, QWORD [Game+0]
+	mov rcx, 0x3
+	cmp rbx, rcx
+	sete bl
+	test bl, bl
+	je .L17
+	sub rsp, 48
+	lea rbx, [rsp+16]
+	mov ecx, 0x190
+	mov [rbx+0], ecx
+	mov ecx, 0x2ee
+	mov [rbx+4], ecx
+	mov rcx, STR6
+	mov [rbx+8], rcx
+	lea r8, [rbx+16]
+	mov cl, 0x50
+	mov [r8+0], cl
+	mov cl, 0x50
+	mov [r8+1], cl
+	mov cl, 0x50
+	mov [r8+2], cl
+	mov cl, 0xff
+	mov [r8+3], cl
+	mov ecx, 0x1a
+	mov [rbx+20], ecx
+	xor cl, cl
+	mov [rbx+24], cl
+	xor cl, cl
+	mov [rbx+25], cl
+	mov rbx, STR10
+	mov [rsp+8], rbx
+	lea rbx, [__GP_TMP]
+	mov cl, 0xe6
+	mov [rbx+0], cl
+	mov cl, 0x29
+	mov [rbx+1], cl
+	mov cl, 0x37
+	mov [rbx+2], cl
+	mov cl, 0xff
+	mov [rbx+3], cl
+	mov r8, QWORD [__GP_TMP+0]
+	mov rcx, 0x1e
+	mov rdx, 0x32
+	sub rsp, 48
+	mov [rsp+40], rcx
+	mov [rsp+32], r8
+	mov [rsp+24], rax
+	mov [rsp+16], rdx
+	mov rsi, 0x1e
+	mov rdi, [rsp+56]
+	call MeasureText
+	mov [rsp+0], rax
+	mov rcx, [rsp+40]
+	mov r8, [rsp+32]
+	mov rax, [rsp+24]
+	mov rdx, [rsp+16]
+	movsxd rsi, DWORD [rsp+0]
+	add rsp, 48
+	sar rsi, 1
+	neg rsi
+	add rsi, 0x190
+	mov rdi, [rsp+8]
+	call DrawText
+	sub rsp, 16
+	lea rbx, [rsp+32]
+	mov [rsp+0], rbx
+	call Button.update
+	add rsp, 16
+	mov bl, [rsp+41]
+	test bl, bl
+	je .L18
+	xor rbx, rbx
+	mov [Game+0], rbx
+	.L18:
+	.L19:
+	sub rsp, 16
+	lea rbx, [rsp+32]
+	mov [rsp+0], rbx
+	call Button.draw
+	add rsp, 16
+	add rsp, 48
+	jmp .L6
+	.L17:
+	.L6:
 	call EndDrawing
 	jmp .L1
 	.L2:
-	add rsp, 64
 	call CloseWindow
 	.L0:
 	leave
@@ -3429,11 +4894,30 @@ extern stderr:data
 global FP_PRECISION:data
 FP_PRECISION:
 dq 0.0000010000
-global Balls:data
-Balls:
+global Game:data
+Game:
+dq 0
+dq 0
+dq 0
+extern Missile:data
+global Missiles:data
+Missiles:
 times 384 db 0
+global Spaceship:data
+Spaceship:
 dq 0
 dq 0
+dd 0
+dd 0
+dq 0
+dq 0
+dq 0
+extern Asteroid:data
+global Asteroids:data
+Asteroids:
+times 2560 db 0
+dq 0.0000000000
+dq 3.0000000000
 
 
 section .rodata align=16
@@ -3442,51 +4926,72 @@ __FABS_MASKs: dd 0x7FFFFFFF, 0, 0, 0
 __FNEG_MASKd: dq 0x8000000000000000, 0
 __FNEG_MASKs: dd 0x80000000, 0, 0, 0
 STR0:
-db "Hello world!",0
-db 0
+db "Asteroids",0
+dd 0
 STR1:
-db "programs/assets/cessna.glb",0
-times 3 db 0
-STR2:
-db "WASD to move, Space and C to go up and down",10,"Drag right click to unlock and move camera",10,"Left click to shoot red balls",0
+db "PLAY",0
 db 0
+STR2:
+db "Controls",0
+times 5 db 0
+STR3:
+db "Quit",0
+db 0
+STR4:
+db "SCORE: %d",10,"HEALTH: %d",0
+db 0
+STR5:
+db "HIGHSCORE: %d",0
+STR6:
+db "Return to main menu",0
+dw 0
+STR7:
+db "Game over",0
+dd 0
+STR8:
+db "Game over!",0
+times 3 db 0
+STR9:
+db "SCORE: %d",10,"HIGHSCORE: %d",0
+times 6 db 0
+STR10:
+db "W / D : Move forwards / backwards",10,"A / D : Turn left / right",10,"SPACE : Shoot missiles",10,"",10,"Avoid missiles and shoot them to get points!",0
+times 5 db 0
 FP0:
 dq 1.0000000000
 FP1:
-dq 0.0000000000
-FP2:
-dq -5.0000000000
-FP3:
-dq 0.2500000000
-FP4:
-dq 0.5000000000
-FP5:
-dq 2.5000000000
-FP6:
-dq 10.0000000000
-FP7:
 dq 5.0000000000
+FP2:
+dq 0.0000000000
+FP3:
+dq 0.5000000000
+FP4:
+dq -500.0000000000
+FP5:
+dq 25.0000000000
+FP6:
+dq 21.2500000000
+FP7:
+dq -25.0000000000
 FP8:
-dq 60.0000000000
+dq -21.2500000000
 FP9:
-dq 1.5707963268
+dq 18.7500000000
 FP10:
-dq 0.0050000000
+dq -90.0000000000
 FP11:
-dq -1.5607963268
-FP12:
-dq 1.5607963268
-FP13:
 dq 2.0000000000
+FP12:
+dq 8.3333333333
+FP13:
+dq 6.2831853072
 FP14:
-dq 0.1000000000
+dq -1.0000000000
 FP15:
-dq 1.5000000000
+dq 0.0174532925
 FP16:
-dq 0.0500000000
+dq 0.2500000000
 FP17:
-dq 3.0000000000
+dq 0.9950000000
 FP18:
-dq 3.1415926536
-FP19:
-dq 90.0000000000
+dq 0.0100000000

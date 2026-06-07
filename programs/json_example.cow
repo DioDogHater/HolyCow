@@ -21,7 +21,7 @@ int main(uint argc, char** argv){
     {
         // For spacing to work, you must provide a line buffered file
         char buffer[256];
-        File* f = File.open("programs/assets/output.json", File.append);
+        File* f = File.open("programs/assets/output.json", File.write);
         f.set_buffer(buffer, 256);
         f.set_buffering(Buffering.line);
         obj.print(JSON.spaced, f);

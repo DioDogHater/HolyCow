@@ -20,7 +20,7 @@ HCC_FLAGS := -d --silent
 
 # Add your own projects here to compile
 stdlib_projects = helloworld test fibonacci tictactoe breakout snake json_example calculator
-raylib_projects = test3d
+raylib_projects = test3d asteroids
 
 build := programs/build
 src := programs

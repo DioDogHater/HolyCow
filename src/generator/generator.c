@@ -943,6 +943,7 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
     freg_t* used_fregs[MAX_FREGS];
 
     // Get the function
+    bool super = false;
     type_t method = INVALID_TYPE;
     module_t* module = NULL;
     func_t* func = NULL;
@@ -975,6 +976,11 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
             if(t.data != DATA_STRUCT || t.ptr_depth > 1){
                 print_context("Expected class to call method", expr->func.func->access.member);
                 fail_gen_expr(fptr);
+            }
+            if(obj->type == tk_identifier){
+                var_t* v = get_var(obj->term.str, obj->term.strlen);
+                if(v)
+                    super = (v->flags & FLAG_INHERITED);
             }
             method = t;
             struct_t* stru = get_struct_tk(t.repr);
@@ -1179,7 +1185,7 @@ size_t generate_func_call(HC_FILE fptr, node_expr* expr, func_t** ret_func, reg_
     // Call the function
     if(func->flags & FLAG_EXTERN)
         gen_call_extern_func(fptr, func->str, func->strlen);
-    else if(method.data && func->flags & FLAG_VIRTUAL)
+    else if(method.data && func->flags & FLAG_VIRTUAL && !super)
         gen_call_virtual_method(fptr,
             (func->type.ptr_depth || func->type.data == DATA_STRUCT || func->type.data == DATA_UNION) ? target_address_size : func->type.size,
             get_virtual_method(get_struct_tk(method.repr), func)
@@ -1382,7 +1388,11 @@ reg_t* generate_expr(HC_FILE fptr, node_expr* expr, type_t target_type, reg_t* p
             reg_t* tmp = generate_expr(fptr, c, target_type, prefered);\
             if(cexpr == 1 && (n == tk_add || n == tk_sub)) (n == tk_sub) ? gen_dec_reg(fptr, tmp) : gen_inc_reg(fptr, tmp);\
             else if(cexpr == -1 && (n == tk_add || n == tk_sub)) (n == tk_add) ? gen_dec_reg(fptr, tmp) : gen_inc_reg(fptr, tmp);\
-            else gen_##m##_reg(fptr, tmp, cexpr);\
+            else if(rc || n != tk_sub) gen_##m##_reg(fptr, tmp, cexpr);\
+            else{\
+                gen_neg_reg(fptr, tmp);\
+                gen_add_reg(fptr, tmp, cexpr);\
+            }\
             return tmp;\
         }\
         reg_t* tmp1 = generate_expr(fptr, expr->bin_op.lhs, target_type,\
@@ -2160,15 +2170,16 @@ freg_t* generate_fexpr(HC_FILE fptr, node_expr* expr, bool dp){
                 var_t* var = get_module_var(mod, expr->access.member->str, expr->access.member->strlen);
                 if(!var){
                     print_context("Unknown variable in module", expr->access.member);
-                    return false;
+                    fail_gen_expr(fptr);
                 }
                 if(var->location != VAR_STACK){
                     print_context("Cannot give value to array, array is the address itself", expr->access.member);
-                    return false;
+                    fail_gen_expr(fptr);
                 }
                 if(!check_module_private(var->flags, mod, expr->access.member, true))
-                    return false;
+                    fail_gen_expr(fptr);
                 gen_loadf_global_offset(fptr, freg, mod->str, mod->strlen, var->stack_ptr, var->type.size == 8);
+                return freg;
             }
         }
 
@@ -2427,12 +2438,12 @@ bool generate_func(HC_FILE fptr, func_t* target, node_stmt* stmt, token_t* paren
             super_repr = (token_t){DATA_STRUCT, parent->str, parent->strlen, NULL};
             var_t super_var = (var_t){
                 "super", 5,
-                this_var.stack_ptr, VAR_ARG, FLAG_NONE,
+                this_var.stack_ptr, VAR_ARG, FLAG_INHERITED,
                 (type_t){target_address_size, &super_repr, false, DATA_STRUCT, target_address_size, 1}
             };
             // Custom behavior in case parent is not virtual but child is
             if(stru->is_virtual && !parent->is_virtual)
-                super_var.flags = FLAG_VIRTUAL;
+                super_var.flags |= FLAG_VIRTUAL;
             vector_append(vars, &super_var);
         }
     }

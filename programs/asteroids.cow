@@ -1,0 +1,435 @@
+#include "../libc/stdio.hcw"
+#include "../libc/stdlib.hcw"
+#include "../libc/math.hcw"
+#include "raylib/raylib.hcw"
+#include "raylib/raymath.hcw"
+
+double FP_PRECISION = EPSILON;
+
+enum Window {
+    width = 800,
+    height = 800
+}
+
+enum Game {
+    menu = 0,
+    play = 1,
+    over = 2,
+    controls = 3
+}
+
+module Game {
+    uint state = Game.menu;
+    uint score = 0;
+    uint highscore = 0;
+}
+
+class Button {
+    int32 x;
+    int32 y;
+    char* text;
+    Color color;
+    int32 font_size = 26;
+    bool hovered = false;
+    bool pressed = false;
+
+    int32 width(){ @return = MeasureText(this.text, this.font_size); }
+    int32 height(){ @return = this.font_size; }
+
+    void draw(){
+        int32 w = this.width();
+        Color c = this.color;
+        if(this.pressed)
+            c = Color{c.r / 2, c.g / 2, c.b / 2, 255};
+        else if(this.hovered)
+            c = Color{(int)(c.r * 2 / 3), (int)(c.g * 2 / 3), (int)(c.b * 2 / 3), 255};
+        DrawRectangle(this.x - w / 2 - 10, this.y - this.height() / 2 - 5, w + 20, this.height() + 10, c);
+        DrawText(this.text, this.x - w / 2, this.y - this.height() / 2, this.font_size, WHITE);
+    }
+
+    void update(){
+        this.hovered = false;
+        this.pressed = false;
+
+        int32 w = this.width();
+        int32 mouse[2] = [GetMouseX(), GetMouseY()];
+        if(mouse[0] >= this.x - w / 2 - 10 and mouse[0] <= this.x + w / 2 + 10 and
+           mouse[1] >= this.y - this.height() / 2 - 5 and mouse[1] <= this.y + this.height() / 2 + 5){
+            if(IsMouseButtonDown(MouseButton.LEFT))
+                this.pressed = true;
+            this.hovered = true;
+        }
+    }
+}
+
+module Missile {
+    constexpr float radius = 5.0;
+    constexpr float speed = 500.0;
+}
+
+class Missile {
+    Vector2 position;
+    Vector2 linear_vel;
+    bool active = true;
+    float spawn_time = GetTime();
+
+    void draw(){
+        if(not this.active)
+            return;
+
+        DrawCircleLines(this.position.x, this.position.y, Missile.radius, RED);
+    }
+
+    void update(float delta){
+        if(not this.active)
+            return;
+
+        this.position += this.linear_vel * delta;
+
+        if(fabsf(this.position.x) > Window.width / 2 or fabsf(this.position.y) > Window.height / 2)
+            this.active = false;
+        if(GetTime() - this.spawn_time > 5.0)
+            this.active = false;
+    }
+}
+
+module Missiles {
+    constexpr int MAX_MISSILES = 16;
+    Missile arr[Missiles.MAX_MISSILES];
+
+    void init(){
+        for(uint i = 0; i < Missiles.MAX_MISSILES; i++){
+            Missiles.arr[i].active = false;
+        }
+    }
+
+    void new(Vector2 pos, Vector2 vel){
+        for(uint i = 0; i < Missiles.MAX_MISSILES; i++){
+            if(not Missiles.arr[i].active){
+                Missiles.arr[i] = Missile{pos, vel};
+                break;
+            }
+        }
+    }
+
+    void draw(){
+        for(uint i = 0; i < Missiles.MAX_MISSILES; i++){ Missiles.arr[i].draw(); }
+    }
+
+    void update(float delta){
+        for(uint i = 0; i < Missiles.MAX_MISSILES; i++){ Missiles.arr[i].update(delta); }
+    }
+}
+
+module Spaceship {
+    Vector2 position;
+    Vector2 linear_vel;
+
+    float angle;
+    float angular_vel;
+
+    constexpr float scale = 25.0;
+    constexpr float move_speed = 90.0;
+    constexpr float turn_speed = 2.0;
+
+    Vector2 collider;
+    constexpr float collider_radius = Spaceship.scale * 0.75;
+
+    double last_shoot;
+    constexpr float shoot_rate = 0.5;
+
+    int health;
+    constexpr int start_health = 100;
+
+    void init(){
+        Spaceship.position = Vector2_ZERO;
+        Spaceship.linear_vel = Vector2_ZERO;
+        Spaceship.angle = 0.0;
+        Spaceship.angular_vel = 0.0;
+        Spaceship.last_shoot = 0.0;
+        Spaceship.health = Spaceship.start_health;
+    }
+
+    void shoot(){
+        double now = GetTime();
+        if(now - Spaceship.last_shoot >= Spaceship.shoot_rate){
+            Vector2 vel = Vector2Rotate(Vector2{0.0, -Missile.speed}, Spaceship.angle) + Spaceship.linear_vel;
+            Vector2 pos = Spaceship.position + vel.normalized() * Spaceship.scale;
+            Missiles.new(pos, vel);
+            Spaceship.last_shoot = now;
+        }
+    }
+
+    void damage(){
+        Spaceship.health -= 10;
+        if(Spaceship.health <= 0)
+            Game.state = Game.over;
+    }
+
+    void draw(){
+        Vector2 v1 = Vector2Rotate(Vector2{Spaceship.scale * 0.85, Spaceship.scale}, Spaceship.angle) + Spaceship.position;
+        Vector2 v2 = Vector2Rotate(Vector2{0.0, -Spaceship.scale}, Spaceship.angle) + Spaceship.position;
+        Vector2 v3 = Vector2Rotate(Vector2{-Spaceship.scale * 0.85, Spaceship.scale}, Spaceship.angle) + Spaceship.position;
+        DrawTriangleLines(v1, v2, v3, RAYWHITE);
+
+        DrawCircleLines(Spaceship.collider.x, Spaceship.collider.y, Spaceship.collider_radius, RED);
+    }
+
+    void update(float delta){
+        if(IsKeyDown(Key.SPACE))
+            Spaceship.shoot();
+
+        // Propulsion
+        float propulsion = (int)(IsKeyDown(Key.W) - IsKeyDown(Key.S));
+        Spaceship.linear_vel += Vector2Rotate(Vector2{0.0, -Spaceship.move_speed * delta * propulsion}, Spaceship.angle);
+
+        // Turning
+        Spaceship.angular_vel += (int)(IsKeyDown(Key.D) - IsKeyDown(Key.A)) * Spaceship.turn_speed * delta;
+
+        // Update position and angle
+        Spaceship.position += Spaceship.linear_vel * delta;
+        Spaceship.angle += Spaceship.angular_vel * delta;
+        Spaceship.collider = Vector2Rotate(Vector2{0.0, Spaceship.scale / 3}, Spaceship.angle) + Spaceship.position;
+
+        // Loop around the screen
+        if(Spaceship.position.x < -Window.width / 2)
+            Spaceship.position.x = Window.width / 2;
+
+        else if(Spaceship.position.x > Window.width / 2)
+            Spaceship.position.x = -Window.width / 2;
+
+        if(Spaceship.position.y < -Window.height / 2)
+            Spaceship.position.y = Window.height / 2;
+
+        else if(Spaceship.position.y > Window.height / 2)
+            Spaceship.position.y = -Window.height / 2;
+    }
+}
+
+module Asteroid {
+    constexpr int MAX_VERTS = 16;
+    constexpr int MIN_RADIUS = 25;
+    constexpr int MAX_RADIUS = 75;
+    constexpr int MIN_SPEED = 50;
+    constexpr int MAX_SPEED = 100;
+}
+
+class Asteroid {
+    Vector2 position;
+    Vector2 linear_vel;
+
+    float angle;
+    float angular_vel;
+
+    Vector2 verts[Asteroid.MAX_VERTS];
+    uint16 vert_count;
+    bool active;
+
+    uint32 radius;
+
+    void draw();
+    void update(float delta);
+}
+
+module Asteroids {
+    constexpr int MAX_ASTEROIDS = 16;
+    Asteroid arr[Asteroids.MAX_ASTEROIDS];
+
+    double last_spawn = 0.0;
+    double spawn_delay = 3.0;
+
+    void init(){
+        for(uint i = 0; i < Asteroids.MAX_ASTEROIDS; i++){
+            Asteroids.arr[i].active = false;
+        }
+        Asteroids.last_spawn = GetTime();
+    }
+
+    Asteroid new(){
+        @return.radius = (int)(rand() % (Asteroid.MAX_RADIUS - Asteroid.MIN_RADIUS) + Asteroid.MIN_RADIUS);
+        @return.vert_count = rand() % (Asteroid.MAX_VERTS - 6) + 6;
+        float angle = 2.0 * PI / @return.vert_count;
+        for(uint i = 0; i < @return.vert_count; i++){
+            @return.verts[i] = Vector2Rotate(Vector2{0.0, -1.0} * (int)(rand() % 10 + @return.radius), angle * i);
+        }
+
+        int rnd = rand() % 4;
+        if(rnd <= 1)
+            @return.position = Vector2{(int)(rand() % Window.width - Window.width / 2),
+                                        (rnd == 0) ? -Window.height / 2 - @return.radius : Window.height / 2 + @return.radius};
+        else
+            @return.position = Vector2{(rnd == 2) ? -Window.width / 2 - @return.radius : Window.width / 2 + @return.radius,
+                                        (int)(rand() % Window.height - Window.height / 2)};
+
+        @return.linear_vel = Vector2Rotate(@return.position.normalized(), (int)(rand() % 30 - 15) * DEG2RAD)
+                                * -(int)(rand() % (Asteroid.MAX_SPEED - Asteroid.MIN_SPEED) + Asteroid.MIN_SPEED);
+        @return.angle = (int)(rand() % 360) * DEG2RAD;
+        @return.angular_vel = (int)(rand() % 360 - 180) * DEG2RAD;
+        @return.active = true;
+    }
+
+    void spawn(){
+        for(uint i = 0; i < Asteroids.MAX_ASTEROIDS; i++){
+            if(not Asteroids.arr[i].active){
+                Asteroids.arr[i] = Asteroids.new();
+                break;
+            }
+        }
+    }
+
+    void draw(){
+        for(uint i = 0; i < Asteroids.MAX_ASTEROIDS; i++){ Asteroids.arr[i].draw(); }
+    }
+
+    void update(float delta){
+        double now = GetTime();
+        if(now - Asteroids.last_spawn > Asteroids.spawn_delay){
+            Asteroids.spawn();
+            Asteroids.last_spawn = now;
+            Asteroids.spawn_delay = fmax(Asteroids.spawn_delay * 0.995, 0.25);
+        }
+        for(uint i = 0; i < Asteroids.MAX_ASTEROIDS; i++){ Asteroids.arr[i].update(delta); }
+    }
+}
+
+class Asteroid {
+    bool colliding_with(Vector2 pos, float radius){
+        return CheckCollisionCircles(this.position, this.radius, pos, radius);
+    }
+
+    void draw(){
+        if(not this.active)
+            return;
+
+        Vector2 verts[Asteroid.MAX_VERTS + 1];
+        for(uint i = 0; i < this.vert_count; i++){
+            Vector2 v = this.verts[i];
+            verts[i] = Vector2Rotate(v, this.angle) + this.position;
+        }
+        verts[this.vert_count] = verts[0];
+        DrawCircleLines(this.position.x, this.position.y, this.radius, RED);
+        DrawLineStrip(verts, this.vert_count + 1, WHITE);
+    }
+
+    void update(float delta){
+        if(not this.active)
+            return;
+
+        this.position += this.linear_vel * delta;
+        this.angle += this.angular_vel * delta;
+
+        if(fabsf(this.position.x) > Window.width / 2 + this.radius + 0.01 or
+           fabsf(this.position.y) > Window.height / 2 + this.radius + 0.01)
+            this.active = false;
+
+        for(uint i = 0; i < Missiles.MAX_MISSILES; i++){
+            Missile* m = &Missiles.arr[i];
+            if(m.active && this.colliding_with(m.position, Missile.radius)){
+                this.active = false;
+                m.active = false;
+                Game.score += 1;
+                if(Game.score > Game.highscore)
+                    Game.highscore = Game.score;
+                return;
+            }
+        }
+
+        if(this.colliding_with(Spaceship.collider, Spaceship.collider_radius)){
+            Spaceship.damage();
+            this.active = false;
+            return;
+        }
+    }
+}
+
+int main(uint argc, char** argv){
+    srand((int)argv);
+    InitWindow(Window.width, Window.height, "Asteroids");
+
+    SetTargetFPS(60);
+
+    Camera2D cam = Camera2D{Vector2{Window.width / 2, Window.height / 2}, Vector2_ZERO, 0.0, 1.0};
+
+    forever{
+        if(WindowShouldClose())
+            break;
+
+        PollInputEvents();
+
+        BeginDrawing();
+        ClearBackground(BLACK);
+
+        if(Game.state == Game.menu){
+            Button b1 = Button{Window.width / 2, Window.height / 2, "PLAY", GREEN};
+            Button b2 = Button{Window.width / 2, Window.height * 7 / 10, "Controls", GRAY};
+
+            b1.update();
+            b2.update();
+
+            if(b1.pressed){
+                Game.score = 0;
+                Spaceship.init();
+                Asteroids.init();
+                Missiles.init();
+                Game.state = Game.play;
+            }
+
+            if(b2.pressed)
+                Game.state = Game.controls;
+
+            DrawText("Asteroids", Window.width / 2 - MeasureText("Asteroids", 30) / 2, Window.height / 3, 30, WHITE);
+            b1.draw();
+            b2.draw();
+        }else if(Game.state == Game.play){
+            Button b = Button{Window.width / 2, 10, "Quit", RED, 16};
+            b.update();
+
+            if(b.pressed)
+                Game.state = Game.menu;
+
+            DrawText(TextFormat("SCORE: %d\nHEALTH: %d", Game.score, Spaceship.health), 0, 0, 24, WHITE);
+            char* text = TextFormat("HIGHSCORE: %d", Game.highscore);
+            DrawText(text, Window.width - MeasureText(text, 24), 0, 24, WHITE);
+
+            float delta = GetFrameTime();
+            Spaceship.update(delta);
+            Asteroids.update(delta);
+            Missiles.update(delta);
+
+            b.draw();
+
+            BeginMode2D(cam);
+                Spaceship.draw();
+                Asteroids.draw();
+                Missiles.draw();
+            EndMode2D();
+        }else if(Game.state == Game.over){
+            Button b = Button{Window.width / 2, Window.height - 50, "Return to main menu", DARKGRAY};
+
+            b.update();
+
+            if(b.pressed)
+                Game.state = Game.menu;
+
+            DrawText("Game over!", Window.width / 2 - MeasureText("Game over", 30) / 2, Window.height / 3, 30, RED);
+            char* text = TextFormat("SCORE: %d\nHIGHSCORE: %d", Game.score, Game.highscore);
+            DrawText(text, Window.width / 2 - MeasureText(text, 30) / 2, Window.height / 2, 30, RED);
+            b.draw();
+        }else if(Game.state == Game.controls){
+            Button b = Button{Window.width / 2, Window.height - 50, "Return to main menu", DARKGRAY};
+            char* text = "W / D : Move forwards / backwards\nA / D : Turn left / right\nSPACE : Shoot missiles\n\nAvoid missiles and shoot them to get points!";
+            DrawText(text, Window.width / 2 - MeasureText(text, 30) / 2, 50, 30, RED);
+
+            b.update();
+
+            if(b.pressed)
+                Game.state = Game.menu;
+
+            b.draw();
+        }
+
+        EndDrawing();
+    }
+
+    CloseWindow();
+}

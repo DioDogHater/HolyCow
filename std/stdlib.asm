@@ -1369,7 +1369,8 @@ get_free_heap:
 	push rbp
 	mov rbp, rsp
 	mov rbx, QWORD [__MAlloc+8]
-	sub rbx, 0x10000000
+	neg rbx
+	add rbx, 0x10000000
 	mov [rbp+16], rbx
 	.L0:
 	leave

@@ -890,7 +890,7 @@ RLAPI void SetExitKey(int32 key);                               // Set a custom 
 
 // Input-related functions: gamepads
 RLAPI bool IsGamepadAvailable(int32 gamepad);                                        // Check if a gamepad is available
-RLAPI  char *GetGamepadName(int32 gamepad);                                     // Get gamepad internal name id
+RLAPI char* GetGamepadName(int32 gamepad);                                     // Get gamepad internal name id
 RLAPI bool IsGamepadButtonPressed(int32 gamepad, int32 button);                        // Check if a gamepad button has been pressed once
 RLAPI bool IsGamepadButtonDown(int32 gamepad, int32 button);                           // Check if a gamepad button is being pressed
 RLAPI bool IsGamepadButtonReleased(int32 gamepad, int32 button);                       // Check if a gamepad button has been released once
@@ -1223,7 +1223,6 @@ RLAPI  char *TextToLower( char *text);                      // Get lower case ve
 RLAPI  char *TextToPascal( char *text);                     // Get Pascal case notation version of provided string
 RLAPI  char *TextToSnake( char *text);                      // Get Snake case notation version of provided string
 RLAPI  char *TextToCamel( char *text);                      // Get Camel case notation version of provided string
-
 RLAPI int32 TextToInteger( char *text);                            // Get integer value from text (negative values not supported)
 RLAPI float TextToFloat( char *text);                            // Get float value from text (negative values not supported)
 

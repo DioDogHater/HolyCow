@@ -1837,7 +1837,7 @@ main:
 	sub rsp, 32
 	mov rbx, STR31
 	mov [rsp+8], rbx
-	mov rbx, 0x4
+	mov rbx, 0x1
 	mov [rsp+16], rbx
 	call File.open
 	mov rbx, [rsp+0]

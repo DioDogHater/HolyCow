@@ -147,9 +147,9 @@ bool eval_##name##_expr(node_expr* expr, T* result){\
         enum_t* enu = get_enum(expr->access.obj->term.str, expr->access.obj->term.strlen);\
         module_t* mod = get_module(expr->access.obj->term.str, expr->access.obj->term.strlen);\
         if(!enu && !mod) return false;\
-        if(enu)\
-            return get_enum_val(enu, expr->access.member->str, expr->access.member->strlen, (int64_t*)result);\
-        else if(mod){\
+        if(enu && get_enum_val(enu, expr->access.member->str, expr->access.member->strlen, (int64_t*)result))\
+            return true;\
+        if(mod){\
             constexpr_t* cons = get_module_const(mod, expr->access.member->str, expr->access.member->strlen);\
             if(cons){\
                 *result = (cons->type == CONST_INT) ? (T) cons->i : (T) cons->f;\

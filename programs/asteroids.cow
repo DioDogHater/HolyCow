@@ -22,6 +22,8 @@ module Game {
     uint state = Game.menu;
     uint score = 0;
     uint highscore = 0;
+
+    constexpr int debug = true;
 }
 
 class Button {
@@ -160,7 +162,8 @@ module Spaceship {
         }
     }
 
-    void damage(){
+    void damage(Vector2 from){
+        Spaceship.linear_vel = Spaceship.position - from;
         Spaceship.health -= 10;
         if(Spaceship.health <= 0)
             Game.state = Game.over;
@@ -171,7 +174,7 @@ module Spaceship {
         Vector2 v2 = Vector2Rotate(Vector2{0.0, -Spaceship.scale}, Spaceship.angle) + Spaceship.position;
         Vector2 v3 = Vector2Rotate(Vector2{-Spaceship.scale * 0.85, Spaceship.scale}, Spaceship.angle) + Spaceship.position;
         DrawTriangleLines(v1, v2, v3, RAYWHITE);
-
+        if(Game.debug)
         DrawCircleLines(Spaceship.collider.x, Spaceship.collider.y, Spaceship.collider_radius, RED);
     }
 
@@ -217,14 +220,16 @@ module Asteroid {
 class Asteroid {
     Vector2 position;
     Vector2 linear_vel;
+    Vector2 linear_impulse;
+    Vector2 instant_movement;
 
     float angle;
     float angular_vel;
+    float angular_impulse;
 
     Vector2 verts[Asteroid.MAX_VERTS];
     uint16 vert_count;
     bool active;
-
     uint32 radius;
 
     void draw();
@@ -235,14 +240,16 @@ module Asteroids {
     constexpr int MAX_ASTEROIDS = 16;
     Asteroid arr[Asteroids.MAX_ASTEROIDS];
 
-    double last_spawn = 0.0;
-    double spawn_delay = 3.0;
+    double last_spawn;
+    double spawn_delay;
+    constexpr float start_spawn_delay = 1.0;
 
     void init(){
         for(uint i = 0; i < Asteroids.MAX_ASTEROIDS; i++){
             Asteroids.arr[i].active = false;
         }
         Asteroids.last_spawn = GetTime();
+        Asteroids.spawn_delay = (Game.state == Game.play) ? Asteroids.start_spawn_delay : 1.0;
     }
 
     Asteroid new(){
@@ -263,8 +270,11 @@ module Asteroids {
 
         @return.linear_vel = Vector2Rotate(@return.position.normalized(), (int)(rand() % 30 - 15) * DEG2RAD)
                                 * -(int)(rand() % (Asteroid.MAX_SPEED - Asteroid.MIN_SPEED) + Asteroid.MIN_SPEED);
+        @return.linear_impulse = Vector2Zero();
+        @return.instant_movement = Vector2Zero();
         @return.angle = (int)(rand() % 360) * DEG2RAD;
         @return.angular_vel = (int)(rand() % 360 - 180) * DEG2RAD;
+        @return.angular_impulse = 0.0;
         @return.active = true;
     }
 
@@ -286,7 +296,8 @@ module Asteroids {
         if(now - Asteroids.last_spawn > Asteroids.spawn_delay){
             Asteroids.spawn();
             Asteroids.last_spawn = now;
-            Asteroids.spawn_delay = fmax(Asteroids.spawn_delay * 0.995, 0.25);
+            if(Game.state == Game.play)
+                Asteroids.spawn_delay = fmax(Asteroids.spawn_delay * 0.995, 0.25);
         }
         for(uint i = 0; i < Asteroids.MAX_ASTEROIDS; i++){ Asteroids.arr[i].update(delta); }
     }
@@ -307,24 +318,68 @@ class Asteroid {
             verts[i] = Vector2Rotate(v, this.angle) + this.position;
         }
         verts[this.vert_count] = verts[0];
-        DrawCircleLines(this.position.x, this.position.y, this.radius, RED);
         DrawLineStrip(verts, this.vert_count + 1, WHITE);
+        if(Game.debug)
+            DrawCircleLines(this.position.x, this.position.y, this.radius, RED);
     }
 
     void update(float delta){
         if(not this.active)
             return;
 
-        this.position += this.linear_vel * delta;
+        this.linear_vel += this.linear_impulse;
+        this.angular_vel += this.angular_impulse;
+
+        this.linear_impulse = Vector2Zero();
+        this.angular_impulse = 0.0;
+
+        this.position += this.linear_vel * delta + this.instant_movement;
         this.angle += this.angular_vel * delta;
+
+        this.instant_movement = Vector2Zero();
 
         if(fabsf(this.position.x) > Window.width / 2 + this.radius + 0.01 or
            fabsf(this.position.y) > Window.height / 2 + this.radius + 0.01)
             this.active = false;
 
+        // Asteroid - Asteroid collision
+        for(uint i = 0; i < Asteroids.MAX_ASTEROIDS; i++){
+            Asteroid* a = &Asteroids.arr[i];
+            if(this == a)
+                continue;
+            if(a.active and this.colliding_with(a.position, a.radius)){
+                // Elastic collisions with rotation
+                float mass[2] = [this.radius * this.radius, a.radius * a.radius];
+                Vector2 delta_r = a.position - this.position;
+
+                Vector2 u_n = delta_r.normalized();
+                Vector2 u_t = Vector2{-u_n.y, u_n.x};
+
+                // x = n, y = t
+                Vector2 v1 = Vector2{Vector2DotProduct(this.linear_vel, u_n), Vector2DotProduct(this.linear_vel, u_t)};
+                Vector2 v2 = Vector2{Vector2DotProduct(a.linear_vel, u_n), Vector2DotProduct(a.linear_vel, u_t)};
+
+                // impulse
+                Vector2 J = Vector2{
+                    (-2.0 * mass[0] * mass[1] * (v1.x - v2.x)) / (mass[0] + mass[1]),
+                    -mass[0] * mass[1] * ((v1.y + this.angular_vel * this.radius) - (v2.y - a.angular_vel * a.radius)) / (3.0 * (mass[0] + mass[1]))
+                };
+
+                float v_fn = v1.x + J.x / (mass[0]);
+                float v_ft = v1.y + J.y / (mass[0]);
+                this.linear_impulse += (v_fn * u_n + v_ft * u_t) - this.linear_vel;
+                this.angular_impulse += J.y / (0.5 * mass[0] * this.radius);
+                this.instant_movement = u_n * (0.5 * (delta_r.length() - this.radius - a.radius));
+            }
+        }
+
+        if(Game.state != Game.play)
+            return;
+
+        // Asteroid - Missile collision
         for(uint i = 0; i < Missiles.MAX_MISSILES; i++){
             Missile* m = &Missiles.arr[i];
-            if(m.active && this.colliding_with(m.position, Missile.radius)){
+            if(m.active and this.colliding_with(m.position, Missile.radius)){
                 this.active = false;
                 m.active = false;
                 Game.score += 1;
@@ -334,8 +389,9 @@ class Asteroid {
             }
         }
 
+        // Asteroid - Spaceship collision
         if(this.colliding_with(Spaceship.collider, Spaceship.collider_radius)){
-            Spaceship.damage();
+            Spaceship.damage(this.position);
             this.active = false;
             return;
         }
@@ -350,6 +406,8 @@ int main(uint argc, char** argv){
 
     Camera2D cam = Camera2D{Vector2{Window.width / 2, Window.height / 2}, Vector2_ZERO, 0.0, 1.0};
 
+    Asteroids.init();
+
     forever{
         if(WindowShouldClose())
             break;
@@ -359,12 +417,16 @@ int main(uint argc, char** argv){
         BeginDrawing();
         ClearBackground(BLACK);
 
+        DrawFPS(0, Window.height - 20);
+
         if(Game.state == Game.menu){
             Button b1 = Button{Window.width / 2, Window.height / 2, "PLAY", GREEN};
             Button b2 = Button{Window.width / 2, Window.height * 7 / 10, "Controls", GRAY};
+            Button b3 = Button{Window.width / 2, Window.height * 13 / 15, "Quit", RED};
 
             b1.update();
             b2.update();
+            b3.update();
 
             if(b1.pressed){
                 Game.score = 0;
@@ -377,9 +439,20 @@ int main(uint argc, char** argv){
             if(b2.pressed)
                 Game.state = Game.controls;
 
-            DrawText("Asteroids", Window.width / 2 - MeasureText("Asteroids", 30) / 2, Window.height / 3, 30, WHITE);
+            if(b3.pressed)
+                break;
+
+            float delta = GetFrameTime();
+            Asteroids.update(delta);
+
+            BeginMode2D(cam);
+                Asteroids.draw();
+            EndMode2D();
+
+            DrawText("Asteroids", Window.width / 2 - MeasureText("Asteroids", 50) / 2, Window.height / 3, 50, WHITE);
             b1.draw();
             b2.draw();
+            b3.draw();
         }else if(Game.state == Game.play){
             Button b = Button{Window.width / 2, 10, "Quit", RED, 16};
             b.update();

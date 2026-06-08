@@ -2471,7 +2471,7 @@ Spaceship.draw:
 	mov rdi, r8
 	movsd xmm0, [__GP_TMP]
 	call DrawTriangleLines
-	mov rbx, 0x1
+	xor rbx, rbx
 	test rbx, rbx
 	je .L1
 	lea rbx, [__GP_TMP]
@@ -2749,7 +2749,7 @@ Asteroids.init:
 	sete bl
 	test bl, bl
 	je .L4
-	movsd xmm0, [FP0]
+	movsd xmm0, [FP13]
 	jmp .L5
 	.L4:
 	movsd xmm0, [FP0]
@@ -2792,7 +2792,7 @@ Asteroids.new:
 	mov ax, dx
 	add ax, 0x6
 	mov [rbx+172], ax
-	cvtsd2ss xmm0, [FP13]
+	cvtsd2ss xmm0, [FP14]
 	mov rcx, [rbp+16]
 	movzx rbx, WORD [rcx+172]
 	cvtsi2ss xmm1, rbx
@@ -2825,7 +2825,7 @@ Asteroids.new:
 	lea rcx, [rsp+0]
 	cvtsd2ss xmm0, [FP2]
 	movss [rcx+0], xmm0
-	cvtsd2ss xmm0, [FP14]
+	cvtsd2ss xmm0, [FP15]
 	movss [rcx+4], xmm0
 	sub rsp, 48
 	mov [rsp+0], rbx
@@ -2971,7 +2971,7 @@ Asteroids.new:
 	mov rax, rsi
 	sub rbx, 0xf
 	cvtsi2ss xmm0, rbx
-	cvtsd2ss xmm1, [FP15]
+	cvtsd2ss xmm1, [FP16]
 	mulss xmm0, xmm1
 	movss xmm1, xmm0
 	lea rbx, [__GP_TMP]
@@ -3047,7 +3047,7 @@ Asteroids.new:
 	idiv rcx
 	mov rax, rdx
 	cvtsi2ss xmm0, rax
-	cvtsd2ss xmm1, [FP15]
+	cvtsd2ss xmm1, [FP16]
 	mulss xmm0, xmm1
 	movss [rbx+32], xmm0
 	mov rbx, [rbp+16]
@@ -3064,7 +3064,7 @@ Asteroids.new:
 	mov rax, rdx
 	sub rax, 0xb4
 	cvtsi2ss xmm0, rax
-	cvtsd2ss xmm1, [FP15]
+	cvtsd2ss xmm1, [FP16]
 	mulss xmm0, xmm1
 	movss [rbx+36], xmm0
 	mov rbx, [rbp+16]
@@ -3196,10 +3196,10 @@ Asteroids.update:
 	test bl, bl
 	je .L3
 	sub rsp, 16
-	movsd xmm0, [FP16]
+	movsd xmm0, [FP17]
 	movsd xmm1, xmm0
 	movsd xmm0, [Asteroids+2888]
-	movsd xmm2, [FP17]
+	movsd xmm2, [FP18]
 	mulsd xmm0, xmm2
 	call fmax
 	movsd [rsp+0], xmm0
@@ -3369,7 +3369,7 @@ Asteroid.draw:
 	inc rsi
 	lea rdi, [rsp+8]
 	call DrawLineStrip
-	mov rbx, 0x1
+	xor rbx, rbx
 	test rbx, rbx
 	je .L6
 	lea rbx, [__GP_TMP]
@@ -3509,7 +3509,7 @@ Asteroid.update:
 	mov ebx, DWORD [rcx+176]
 	add rbx, 0x190
 	cvtsi2sd xmm0, rbx
-	movsd xmm1, [FP18]
+	movsd xmm1, [FP19]
 	addsd xmm0, xmm1
 	sub rsp, 16
 	movsd [rsp+8], xmm0
@@ -3529,7 +3529,7 @@ Asteroid.update:
 	mov ecx, DWORD [rsi+176]
 	add rcx, 0x190
 	cvtsi2sd xmm0, rcx
-	movsd xmm1, [FP18]
+	movsd xmm1, [FP19]
 	addsd xmm0, xmm1
 	sub rsp, 32
 	mov [rsp+31], bl
@@ -3723,7 +3723,7 @@ Asteroid.update:
 	add rsp, 16
 	movss [rbx+4], xmm0
 	lea rbx, [rsp+8]
-	cvtsd2ss xmm0, [FP19]
+	cvtsd2ss xmm0, [FP20]
 	lea rcx, [rsp+56]
 	xor rsi, rsi
 	movss xmm1, [rcx+rsi*4]
@@ -3771,7 +3771,7 @@ Asteroid.update:
 	subss xmm2, xmm3
 	subss xmm1, xmm2
 	mulss xmm0, xmm1
-	cvtsd2ss xmm1, [FP20]
+	cvtsd2ss xmm1, [FP13]
 	lea rcx, [rsp+56]
 	xor rsi, rsi
 	movss xmm2, [rcx+rsi*4]
@@ -4031,7 +4031,7 @@ main:
 	mov rsi, 0x320
 	mov rdi, 0x320
 	call InitWindow
-	mov rdi, 0x78
+	mov rdi, 0x3c
 	call SetTargetFPS
 	lea rbx, [rsp+8]
 	lea r8, [rbx+0]
@@ -4171,11 +4171,11 @@ main:
 	je .L7
 	xor rbx, rbx
 	mov [Game+8], rbx
+	mov rbx, 0x1
+	mov [Game+0], rbx
 	call Spaceship.init
 	call Asteroids.init
 	call Missiles.init
-	mov rbx, 0x1
-	mov [Game+0], rbx
 	.L7:
 	.L8:
 	mov bl, [rsp+73]
@@ -4302,6 +4302,7 @@ main:
 	je .L14
 	xor rbx, rbx
 	mov [Game+0], rbx
+	call Asteroids.init
 	.L14:
 	.L15:
 	lea rbx, [__GP_TMP]
@@ -4458,8 +4459,20 @@ main:
 	je .L17
 	xor rbx, rbx
 	mov [Game+0], rbx
+	call Asteroids.init
 	.L17:
 	.L18:
+	sub rsp, 16
+	call GetFrameTime
+	movss [rsp+0], xmm0
+	movss xmm0, [rsp+0]
+	add rsp, 16
+	movss [rsp+12], xmm0
+	sub rsp, 16
+	movss xmm0, [rsp+28]
+	movss [rsp+0], xmm0
+	call Asteroids.update
+	add rsp, 16
 	lea rbx, [__GP_TMP]
 	mov cl, 0xe6
 	mov [rbx+0], cl
@@ -4501,7 +4514,7 @@ main:
 	mov [rsp+0], rax
 	mov rbx, [rsp+0]
 	add rsp, 16
-	mov [rsp+8], rbx
+	mov [rsp+0], rbx
 	lea rbx, [__GP_TMP]
 	mov cl, 0xe6
 	mov [rbx+0], cl
@@ -4520,7 +4533,7 @@ main:
 	mov [rsp+24], rax
 	mov [rsp+16], rdx
 	mov rsi, 0x1e
-	mov rdi, [rsp+56]
+	mov rdi, [rsp+48]
 	call MeasureText
 	mov [rsp+0], rax
 	mov rcx, [rsp+40]
@@ -4532,13 +4545,24 @@ main:
 	sar rsi, 1
 	neg rsi
 	add rsi, 0x190
-	mov rdi, [rsp+8]
+	mov rdi, [rsp+0]
 	call DrawText
 	sub rsp, 16
 	lea rbx, [rsp+32]
 	mov [rsp+0], rbx
 	call Button.draw
 	add rsp, 16
+	sub rsp, 32
+	lea rbx, [rsp+0]
+	cld
+	lea rdi, [rbx]
+	lea rsi, [rsp+88]
+	mov rcx, 3
+	rep movsq
+	call BeginMode2D
+	add rsp, 32
+	call Asteroids.draw
+	call EndMode2D
 	add rsp, 48
 	jmp .L6
 	.L16:
@@ -4613,6 +4637,7 @@ main:
 	mov bl, [rsp+41]
 	test bl, bl
 	je .L20
+	call Asteroids.init
 	xor rbx, rbx
 	mov [Game+0], rbx
 	.L20:
@@ -5561,18 +5586,18 @@ dq 2.0000000000
 FP12:
 dq 8.3333333333
 FP13:
-dq 6.2831853072
-FP14:
-dq -1.0000000000
-FP15:
-dq 0.0174532925
-FP16:
-dq 0.2500000000
-FP17:
-dq 0.9950000000
-FP18:
-dq 0.0100000000
-FP19:
-dq -2.0000000000
-FP20:
 dq 3.0000000000
+FP14:
+dq 6.2831853072
+FP15:
+dq -1.0000000000
+FP16:
+dq 0.0174532925
+FP17:
+dq 0.2500000000
+FP18:
+dq 0.9950000000
+FP19:
+dq 0.0100000000
+FP20:
+dq -2.0000000000

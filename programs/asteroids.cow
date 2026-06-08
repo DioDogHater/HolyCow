@@ -23,7 +23,7 @@ module Game {
     uint score = 0;
     uint highscore = 0;
 
-    constexpr int debug = true;
+    constexpr int debug = false;
 }
 
 class Button {
@@ -242,12 +242,10 @@ module Asteroids {
 
     double last_spawn;
     double spawn_delay;
-    constexpr float start_spawn_delay = 1.0;
+    constexpr float start_spawn_delay = 3.0;
 
     void init(){
-        for(uint i = 0; i < Asteroids.MAX_ASTEROIDS; i++){
-            Asteroids.arr[i].active = false;
-        }
+        for(uint i = 0; i < Asteroids.MAX_ASTEROIDS; i++){ Asteroids.arr[i].active = false; }
         Asteroids.last_spawn = GetTime();
         Asteroids.spawn_delay = (Game.state == Game.play) ? Asteroids.start_spawn_delay : 1.0;
     }
@@ -430,10 +428,11 @@ int main(uint argc, char** argv){
 
             if(b1.pressed){
                 Game.score = 0;
+                Game.state = Game.play;
+
                 Spaceship.init();
                 Asteroids.init();
                 Missiles.init();
-                Game.state = Game.play;
             }
 
             if(b2.pressed)
@@ -457,8 +456,10 @@ int main(uint argc, char** argv){
             Button b = Button{Window.width / 2, 10, "Quit", RED, 16};
             b.update();
 
-            if(b.pressed)
+            if(b.pressed){
                 Game.state = Game.menu;
+                Asteroids.init();
+            }
 
             DrawText(TextFormat("SCORE: %d\nHEALTH: %d", Game.score, Spaceship.health), 0, 0, 24, WHITE);
             char* text = TextFormat("HIGHSCORE: %d", Game.highscore);
@@ -481,13 +482,23 @@ int main(uint argc, char** argv){
 
             b.update();
 
-            if(b.pressed)
+            if(b.pressed){
                 Game.state = Game.menu;
+                Asteroids.init();
+            }
+
+            float delta = GetFrameTime();
+            Asteroids.update(delta);
 
             DrawText("Game over!", Window.width / 2 - MeasureText("Game over", 30) / 2, Window.height / 3, 30, RED);
             char* text = TextFormat("SCORE: %d\nHIGHSCORE: %d", Game.score, Game.highscore);
             DrawText(text, Window.width / 2 - MeasureText(text, 30) / 2, Window.height / 2, 30, RED);
+
             b.draw();
+
+            BeginMode2D(cam);
+                Asteroids.draw();
+            EndMode2D();
         }else if(Game.state == Game.controls){
             Button b = Button{Window.width / 2, Window.height - 50, "Return to main menu", DARKGRAY};
             char* text = "W / D : Move forwards / backwards\nA / D : Turn left / right\nSPACE : Shoot missiles\n\nAvoid missiles and shoot them to get points!";
@@ -495,8 +506,10 @@ int main(uint argc, char** argv){
 
             b.update();
 
-            if(b.pressed)
+            if(b.pressed){
+                Asteroids.init();
                 Game.state = Game.menu;
+            }
 
             b.draw();
         }
